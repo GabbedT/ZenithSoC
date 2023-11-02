@@ -25,7 +25,6 @@ module axi_master (
     input logic [31:0] read_address_i,
     input logic read_start_i,
     output logic [31:0] read_data_o,
-    output logic read_valid_o,
     output logic read_done_o,
     output logic read_cts_o,
 
@@ -40,12 +39,12 @@ module axi_master (
 //====================================================================================
 
     /* Flush all the ongoing transactions */
-    logic write_flush; assign write_flush = (write_channel.BRESP == SLVERR);
+    logic write_flush; assign write_flush = (write_channel.BRESP == SLVERR) & write_done_o;
 
 
         /* Immediately load the write transaction informations on the interface */
         always_ff @(posedge write_channel.ACLK) begin
-            if (write_start_i & !write_flush) begin 
+            if (write_start_i) begin 
                 write_channel.WDATA <= write_data_i;
                 write_channel.AWADDR <= write_address_i;
                 write_channel.WSTRB <= write_strobe_i;
@@ -89,17 +88,28 @@ module axi_master (
     assign write_cts_o = write_channel.AWREADY & write_channel.WREADY;
 
 
+    `ifdef SV_ASSERTION
+
+        /* Check that after an error all the incoming requests are flushed */
+        assert property (@(posedge write_channel.ACLK) write_flush |=> !write_channel.AWVALID & !write_channel.WVALID & !write_start_i);
+
+        /* Check that SLAVE does not lower VALID if READY is not asserted by MASTER */
+        assert property (@(posedge write_channel.ACLK) (write_channel.BVALID & !write_channel.BREADY) |=> write_channel.BVALID);
+
+    `endif 
+
+
 //====================================================================================
 //      READ DATA LOGIC 
 //====================================================================================
 
     /* Flush all the ongoing transactions */
-    logic read_flush; assign read_flush = (read_channel.RRESP == SLVERR);
+    logic read_flush; assign read_flush = (read_channel.RRESP == SLVERR) & read_valid_o;
 
 
         /* Immediately load the read transaction informations on the interface */
         always_ff @(posedge read_channel.ACLK) begin
-            if (read_start_i & !read_flush) begin 
+            if (read_start_i) begin 
                 read_channel.ARADDR <= read_address_i;
             end 
         end 
@@ -126,15 +136,23 @@ module axi_master (
     assign read_channel.RREADY = 1'b1;
 
     /* Data sent by slave is valid */
-    assign read_valid_o = read_channel.RVALID & read_channel.RREADY;
+    assign read_done_o = read_channel.RVALID & read_channel.RREADY;
     assign read_data_o = read_channel.RDATA; 
     assign read_response_o = read_channel.RRESP;
 
-    /* Write transaction is completed */
-    assign read_done_o = read_channel.RVALID & read_channel.RREADY;
-
     /* Clear to send another transaction */
     assign read_cts_o = read_channel.ARREADY;
+
+
+    `ifdef SV_ASSERTION
+
+        /* Check that after an error all the incoming requests are flushed */
+        assert property (@(posedge read_channel.ACLK) read_flush |=> !read_channel.ARVALID & !read_start_i);
+
+        /* Check that SLAVE does not lower VALID if READY is not asserted by MASTER */
+        assert property (@(posedge read_channel.ACLK) (read_channel.RVALID & !read_channel.RREADY) |=> read_channel.RVALID);
+
+    `endif 
 
 endmodule : axi_master 
 

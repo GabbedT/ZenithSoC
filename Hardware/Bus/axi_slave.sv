@@ -69,12 +69,20 @@ module axi_slave (
         end : write_handshake
 
     /* If the Master has presented valid data and the Slave is ready to accept a transaction */
-    assign write_request_o = write_channel.WVALID & write_channel.WREADY;
+    assign write_request_o = write_channel.WVALID & write_channel.WREADY & !write_error_i;
 
     /* Transaction informations */
     assign write_data_o = write_channel.WDATA;
     assign write_strobe_o = write_channel.WSTRB;
     assign write_address_o = write_channel.AWADDR;
+
+
+    `ifdef SV_ASSERTION
+
+        /* Check that SLAVE does not lower VALID if READY is not asserted by MASTER */
+        assert property (@(posedge write_channel.ACLK) (write_channel.BVALID & !write_channel.BREADY) |=> write_channel.BVALID);
+
+    `endif 
 
 
 //====================================================================================
@@ -115,6 +123,15 @@ module axi_slave (
 
     /* Transaction informations */
     assign read_address_o = read_channel.ARADDR;
+
+
+    `ifdef SV_ASSERTION
+
+        /* Check that SLAVE does not lower VALID if READY is not asserted by MASTER */
+        assert property (@(posedge read_channel.ACLK) (read_channel.RVALID & !read_channel.RREADY) |=> read_channel.RVALID);
+
+    `endif 
+
 
 endmodule : axi_slave 
 
