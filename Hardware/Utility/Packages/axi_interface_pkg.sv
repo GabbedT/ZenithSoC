@@ -15,6 +15,9 @@ package axi_interface_pkg;
     /* Burst size in bytes */
     typedef enum logic [1:0] { BYTE, HALFWORD, WORD } axi_burst_size_t;
 
+    /* Response codes */
+    typedef enum logic [1:0] { OKAY, EXOKAY, SLVERR, DECERR } axi_response_t;
+
 endpackage : axi_interface_pkg
 
 import axi_interface_pkg::*;
