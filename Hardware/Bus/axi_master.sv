@@ -6,6 +6,11 @@
 
 
 module axi_master (
+    /* Global signals */
+    input logic axi_ACLK, 
+    input logic axi_ARESETN, 
+
+
     /* Bus write channel AXI connectivity */
     axi_write_interface.master write_channel, 
 
@@ -43,17 +48,17 @@ module axi_master (
 
 
         /* Immediately load the write transaction informations on the interface */
-        always_ff @(posedge write_channel.ACLK) begin
+        always_ff @(posedge axi_ACLK) begin
             if (write_start_i) begin 
                 write_channel.WDATA <= write_data_i;
                 write_channel.AWADDR <= write_address_i;
                 write_channel.WSTRB <= write_strobe_i;
-            end 
+            end
         end 
 
 
-        always_ff @(posedge write_channel.ACLK `ifdef ASYNC or negedge write_channel.ARESETN `endif) begin : write_handshake
-            if (!write_channel.ARESETN) begin
+        always_ff @(posedge axi_ACLK `ifdef ASYNC or negedge axi_ARESETN `endif) begin : write_handshake
+            if (!axi_ARESETN) begin
                 write_channel.AWVALID <= 1'b0;
                 write_channel.WVALID <= 1'b0;
             end else begin
@@ -85,16 +90,16 @@ module axi_master (
     assign write_response_o = write_channel.BRESP;
 
     /* Clear to send another transaction */
-    assign write_cts_o = write_channel.AWREADY & write_channel.WREADY;
+    assign write_cts_o = (write_channel.WVALID & write_channel.WREADY) | write_flush;
 
 
     `ifdef SV_ASSERTION
 
         /* Check that after an error all the incoming requests are flushed */
-        assert property (@(posedge write_channel.ACLK) write_flush |=> !write_channel.AWVALID & !write_channel.WVALID & !write_start_i);
+        assert property (@(posedge axi_ACLK) write_flush |=> !write_channel.AWVALID & !write_channel.WVALID & !write_start_i);
 
         /* Check that SLAVE does not lower VALID if READY is not asserted by MASTER */
-        assert property (@(posedge write_channel.ACLK) (write_channel.BVALID & !write_channel.BREADY) |=> write_channel.BVALID);
+        assert property (@(posedge axi_ACLK) (write_channel.BVALID & !write_channel.BREADY) |=> write_channel.BVALID);
 
     `endif 
 
@@ -104,19 +109,19 @@ module axi_master (
 //====================================================================================
 
     /* Flush all the ongoing transactions */
-    logic read_flush; assign read_flush = (read_channel.RRESP == SLVERR) & read_valid_o;
+    logic read_flush; assign read_flush = (read_channel.RRESP == SLVERR) & read_done_o;
 
 
         /* Immediately load the read transaction informations on the interface */
-        always_ff @(posedge read_channel.ACLK) begin
+        always_ff @(posedge axi_ACLK) begin
             if (read_start_i) begin 
                 read_channel.ARADDR <= read_address_i;
             end 
         end 
 
 
-        always_ff @(posedge read_channel.ACLK `ifdef ASYNC or negedge read_channel.ARESETN `endif) begin : read_handshake
-            if (!read_channel.ARESETN) begin
+        always_ff @(posedge axi_ACLK `ifdef ASYNC or negedge axi_ARESETN `endif) begin : read_handshake
+            if (!axi_ARESETN) begin
                 read_channel.ARVALID <= 1'b0;
                 read_channel.RREADY <= 1'b1;
             end else begin 
@@ -141,16 +146,16 @@ module axi_master (
     assign read_response_o = read_channel.RRESP;
 
     /* Clear to send another transaction */
-    assign read_cts_o = read_channel.ARREADY;
+    assign read_cts_o = (read_channel.ARVALID & read_channel.ARREADY) | read_flush;
 
 
     `ifdef SV_ASSERTION
 
         /* Check that after an error all the incoming requests are flushed */
-        assert property (@(posedge read_channel.ACLK) read_flush |=> !read_channel.ARVALID & !read_start_i);
+        assert property (@(posedge axi_ACLK) read_flush |=> !read_channel.ARVALID & !read_start_i);
 
         /* Check that SLAVE does not lower VALID if READY is not asserted by MASTER */
-        assert property (@(posedge read_channel.ACLK) (read_channel.RVALID & !read_channel.RREADY) |=> read_channel.RVALID);
+        assert property (@(posedge axi_ACLK) (read_channel.RVALID & !read_channel.RREADY) |=> read_channel.RVALID);
 
     `endif 
 
