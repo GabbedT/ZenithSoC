@@ -3,7 +3,7 @@
 
 `include "../Packages/axi_interface_pkg.sv"
 
-interface axi_read_interface(input logic ACLK, input logic ARESETN);
+interface axi_read_interface();
 
 //====================================================================================
 //      READ ADDRESS CHANNEL 
@@ -17,8 +17,6 @@ interface axi_read_interface(input logic ACLK, input logic ARESETN);
 
     /* Slave is ready to accept the address */
     logic ARREADY;
-
-    
 
 
 //====================================================================================
@@ -43,9 +41,6 @@ interface axi_read_interface(input logic ACLK, input logic ARESETN);
 //====================================================================================
 
     modport master (
-        input ACLK,
-        input ARESETN,
-
         /* Read Address Channel */
         output ARADDR,
         output ARVALID,
@@ -61,9 +56,6 @@ interface axi_read_interface(input logic ACLK, input logic ARESETN);
     );
 
     modport slave (
-        input ACLK,
-        input ARESETN,
-
         /* Read Address Channel */
         output ARREADY,
 

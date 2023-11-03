@@ -3,7 +3,7 @@
 
 `include "../Packages/axi_interface_pkg.sv"
 
-interface axi_write_interface(input logic ACLK, input logic ARESETN);
+interface axi_write_interface();
 
 //====================================================================================
 //      WRITE ADDRESS CHANNEL 
@@ -55,9 +55,6 @@ interface axi_write_interface(input logic ACLK, input logic ARESETN);
 //====================================================================================
 
     modport master (
-        input ACLK,
-        input ARESETN,
-
         /* Write Address Channel */
         output AWADDR,
         output AWVALID,
@@ -79,9 +76,6 @@ interface axi_write_interface(input logic ACLK, input logic ARESETN);
     );
 
     modport slave (
-        input ACLK,
-        input ARESETN,
-
         /* Write Address Channel */
         output AWREADY,
 
