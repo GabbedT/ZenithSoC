@@ -5,9 +5,20 @@
 `include "../Utility/Interfaces/axi_read_interface.sv"
 
 
-module axi_slave (
+module axi_slave #(
+    /* Low and High addresses to compare against 
+     * the master's address request */
+    parameter LOW_SLAVE_ADDRESS = 32'h0000_0000,
+    parameter HIGH_SLAVE_ADDRESS = 32'hFFFF_FFFF
+) (
+    /* Global signals */
+    input logic axi_ACLK, 
+    input logic axi_ARESETN, 
+    output logic write_match_o,
+    output logic read_match_o,
+
     /* Bus write channel AXI connectivity */
-    axi_write_interface.slave write_channel, 
+    axi_write_interface.slave write_channel,
 
     /* Write request from master */
     input logic write_error_i,
@@ -24,7 +35,7 @@ module axi_slave (
 
     /* Read request informations */
     input logic [31:0] read_data_i,
-    input logic read_valid_i,
+    input logic read_done_i,
     input logic read_error_i,
 
     output logic [31:0] read_address_o,
@@ -37,18 +48,25 @@ module axi_slave (
 );
 
 //====================================================================================
+//      ADDRESS DECODING LOGIC 
+//====================================================================================
+
+    assign write_match_o = (write_channel.AWADDR >= LOW_SLAVE_ADDRESS) & (write_channel.AWADDR <= HIGH_SLAVE_ADDRESS) & write_channel.AWVALID;
+
+    assign read_match_o = (read_channel.ARADDR >= LOW_SLAVE_ADDRESS) & (read_channel.ARADDR <= HIGH_SLAVE_ADDRESS) & read_channel.ARVALID;
+
+
+//====================================================================================
 //      WRITE DATA LOGIC 
 //====================================================================================
 
-        always_ff @(posedge write_channel.ACLK `ifdef ASYNC or negedge write_channel.ARESETN `endif) begin : write_handshake
-            if (!write_channel.ARESETN) begin 
+        always_ff @(posedge axi_ACLK `ifdef ASYNC or negedge axi_ARESETN `endif) begin : write_handshake
+            if (!axi_ARESETN) begin 
                 write_channel.AWREADY <= 1'b1;
                 write_channel.WREADY <= 1'b1;
                 write_channel.BVALID <= 1'b0;
 
                 write_channel.BRESP <= OKAY;
-
-                write_request_o <= 1'b0;
             end else begin 
                 /* Ready if no external condition require a stall */
                 write_channel.AWREADY <= !stop_write_i;
@@ -69,7 +87,7 @@ module axi_slave (
         end : write_handshake
 
     /* If the Master has presented valid data and the Slave is ready to accept a transaction */
-    assign write_request_o = write_channel.WVALID & write_channel.WREADY & !write_error_i;
+    assign write_request_o = write_channel.WVALID & write_channel.WREADY & write_match_o;
 
     /* Transaction informations */
     assign write_data_o = write_channel.WDATA;
@@ -80,7 +98,7 @@ module axi_slave (
     `ifdef SV_ASSERTION
 
         /* Check that SLAVE does not lower VALID if READY is not asserted by MASTER */
-        assert property (@(posedge write_channel.ACLK) (write_channel.BVALID & !write_channel.BREADY) |=> write_channel.BVALID);
+        assert property (@(posedge axi_ACLK) (write_channel.BVALID & !write_channel.BREADY) |=> write_channel.BVALID);
 
     `endif 
 
@@ -89,13 +107,13 @@ module axi_slave (
 //      READ DATA LOGIC 
 //====================================================================================
 
-        always_ff @(posedge read_channel.ACLK) begin : read_transaction_info
+        always_ff @(posedge axi_ACLK) begin : read_transaction_info
             read_channel.RDATA <= read_data_i;
         end : read_transaction_info
 
 
-        always_ff @(posedge read_channel.ACLK `ifdef ASYNC or negedge read_channel.ARESETN `endif) begin : read_handshake
-            if (!read_channel.ARESETN) begin 
+        always_ff @(posedge axi_ACLK `ifdef ASYNC or negedge axi_ARESETN `endif) begin : read_handshake
+            if (!axi_ARESETN) begin 
                 read_channel.ARREADY <= 1'b1;
                 read_channel.RVALID <= 1'b0;
 
@@ -106,7 +124,7 @@ module axi_slave (
 
                 read_channel.RRESP <= read_error_i ? SLVERR : OKAY;
                 
-                if (read_valid_i) begin 
+                if (read_done_i) begin 
                     /* Data on bus is valid */
                     read_channel.RVALID <= 1'b1;
                 end else begin 
@@ -119,7 +137,7 @@ module axi_slave (
         end : read_handshake
 
     /* If the Master has presented a valid address and the Slave is ready to accept a transaction */
-    assign read_request_o = read_channel.ARVALID & read_channel.ARREADY;
+    assign read_request_o = read_channel.ARVALID & read_channel.ARREADY & read_match_o;
 
     /* Transaction informations */
     assign read_address_o = read_channel.ARADDR;
@@ -128,7 +146,7 @@ module axi_slave (
     `ifdef SV_ASSERTION
 
         /* Check that SLAVE does not lower VALID if READY is not asserted by MASTER */
-        assert property (@(posedge read_channel.ACLK) (read_channel.RVALID & !read_channel.RREADY) |=> read_channel.RVALID);
+        assert property (@(posedge axi_ACLK) (read_channel.RVALID & !read_channel.RREADY) |=> read_channel.RVALID);
 
     `endif 
 
