@@ -14,15 +14,27 @@ module axi_slave #(
     /* Global signals */
     input logic axi_ACLK, 
     input logic axi_ARESETN, 
-    output logic write_match_o,
-    output logic read_match_o,
 
-    /* Bus write channel AXI connectivity */
+
+    /* AXI connectivity */
     axi_write_interface.slave write_channel,
+    axi_read_interface.slave read_channel,
 
-    /* Write request from master */
+
+    /* Router control */
+    input logic write_bus_taken_i,
+    output logic write_match_o,
+    output logic write_busy_o,
+    input logic read_bus_taken_i,
+    output logic read_match_o,
+    output logic read_busy_o,
+
+
+    /* Write signals */
     input logic write_error_i,
     input logic write_done_i,
+    input logic write_busy_i,
+    input logic write_ready_i,
 
     output logic [31:0] write_address_o,
     output logic [31:0] write_data_o,
@@ -30,21 +42,15 @@ module axi_slave #(
     output logic write_request_o,
 
 
-    /* Bus read channel AXI connectivity */
-    axi_read_interface.slave read_channel,
-
-    /* Read request informations */
+    /* Read signals */
     input logic [31:0] read_data_i,
-    input logic read_done_i,
     input logic read_error_i,
+    input logic read_done_i,
+    input logic read_busy_i,
+    input logic read_ready_i,
 
     output logic [31:0] read_address_o,
-    output logic read_request_o,
-
-
-    /* Status */
-    input logic stop_write_i,
-    input logic stop_read_i
+    output logic read_request_o
 );
 
 //====================================================================================
@@ -69,8 +75,8 @@ module axi_slave #(
                 write_channel.BRESP <= OKAY;
             end else begin 
                 /* Ready if no external condition require a stall */
-                write_channel.AWREADY <= !stop_write_i;
-                write_channel.WREADY <= !stop_write_i;
+                write_channel.AWREADY <= write_ready_i;
+                write_channel.WREADY <= write_ready_i;
 
                 if (write_done_i) begin 
                     /* Response is valid if data stream ended */
@@ -86,8 +92,11 @@ module axi_slave #(
             end 
         end : write_handshake
 
+    /* Slave is busy if it's processing a transaction */
+    assign write_busy_o = write_busy_i | write_request_o;
+
     /* If the Master has presented valid data and the Slave is ready to accept a transaction */
-    assign write_request_o = write_channel.WVALID & write_channel.WREADY & write_match_o;
+    assign write_request_o = write_channel.WVALID & write_channel.WREADY & write_match_o & !write_bus_taken_i;
 
     /* Transaction informations */
     assign write_data_o = write_channel.WDATA;
@@ -120,7 +129,7 @@ module axi_slave #(
                 read_channel.RRESP <= OKAY;
             end else begin 
                 /* Ready to accept address if no external condition require a stall */
-                read_channel.ARREADY <= !stop_read_i;
+                read_channel.ARREADY <= read_ready_i;
 
                 read_channel.RRESP <= read_error_i ? SLVERR : OKAY;
                 
@@ -136,8 +145,11 @@ module axi_slave #(
             end 
         end : read_handshake
 
+    /* Slave is busy if it's processing a transaction */
+    assign read_busy_o = read_busy_i | read_request_o;
+
     /* If the Master has presented a valid address and the Slave is ready to accept a transaction */
-    assign read_request_o = read_channel.ARVALID & read_channel.ARREADY & read_match_o;
+    assign read_request_o = read_channel.ARVALID & read_channel.ARREADY & read_match_o & !read_bus_taken_i;
 
     /* Transaction informations */
     assign read_address_o = read_channel.ARADDR;

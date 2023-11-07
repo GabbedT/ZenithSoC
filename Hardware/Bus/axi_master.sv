@@ -11,24 +11,30 @@ module axi_master (
     input logic axi_ARESETN, 
 
 
-    /* Bus write channel AXI connectivity */
+    /* AXI connectivity */
     axi_write_interface.master write_channel, 
+    axi_read_interface.master read_channel, 
+
+
+    /* Router flow control */
+    input logic router_write_cts_i,
+    input logic router_read_cts_i,
+
 
     /* Write request informations */
+    input logic write_start_i,
     input logic [31:0] write_address_i,
     input logic [31:0] write_data_i,
     input logic [3:0] write_strobe_i,
-    input logic write_start_i,
+
     output logic write_done_o,
     output logic write_cts_o,
 
 
-    /* Bus read channel AXI connectivity */
-    axi_read_interface.master read_channel, 
-
     /* Read request informations */
-    input logic [31:0] read_address_i,
     input logic read_start_i,
+    input logic [31:0] read_address_i,
+    
     output logic [31:0] read_data_o,
     output logic read_done_o,
     output logic read_cts_o,
@@ -67,14 +73,17 @@ module axi_master (
                     write_channel.AWVALID <= 1'b1;
                     write_channel.WVALID <= 1'b1;
                 end else begin 
-                    if ((write_channel.AWVALID & write_channel.AWREADY) | write_flush) begin
-                        /* Handshake completed once the slave accept the address */
-                        write_channel.AWVALID <= 1'b0;
-                    end
+                    /* If master is switching slave, don't deassert VALID causing the loss of data */
+                    if (router_write_cts_i) begin
+                        if ((write_channel.AWVALID & write_channel.AWREADY) | write_flush) begin
+                            /* Handshake completed once the slave accept the address */
+                            write_channel.AWVALID <= 1'b0;
+                        end
 
-                    if ((write_channel.WVALID & write_channel.WREADY) | write_flush) begin
-                        /* End of transaction */
-                        write_channel.WVALID <= 1'b0;
+                        if ((write_channel.WVALID & write_channel.WREADY) | write_flush) begin
+                            /* End of transaction */
+                            write_channel.WVALID <= 1'b0;
+                        end
                     end
                 end
             end
@@ -90,7 +99,7 @@ module axi_master (
     assign write_response_o = write_channel.BRESP;
 
     /* Clear to send another transaction */
-    assign write_cts_o = (write_channel.WVALID & write_channel.WREADY) | write_flush;
+    assign write_cts_o = write_channel.AWREADY & write_channel.WREADY & router_write_cts_i;
 
 
     `ifdef SV_ASSERTION
@@ -129,9 +138,12 @@ module axi_master (
                     /* Start handshake */
                     read_channel.ARVALID <= 1'b1;
                 end else begin 
-                    if ((read_channel.ARVALID & read_channel.ARREADY) | read_flush) begin
-                        /* Handshake completed once the slave accept the address */
-                        read_channel.ARVALID <= 1'b0;
+                    /* If master is switching slave, don't deassert VALID causing the loss of data */
+                    if (router_read_cts_i) begin 
+                        if ((read_channel.ARVALID & read_channel.ARREADY) | read_flush) begin
+                            /* Handshake completed once the slave accept the address */
+                            read_channel.ARVALID <= 1'b0;
+                        end
                     end
                 end 
             end
@@ -146,7 +158,7 @@ module axi_master (
     assign read_response_o = read_channel.RRESP;
 
     /* Clear to send another transaction */
-    assign read_cts_o = (read_channel.ARVALID & read_channel.ARREADY) | read_flush;
+    assign read_cts_o = read_channel.ARREADY & router_read_cts_i;
 
 
     `ifdef SV_ASSERTION
