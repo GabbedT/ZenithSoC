@@ -1,0 +1,3 @@
+[submodule "Hardware/CPU/ApogeoRV"]
+	path = Hardware/CPU/ApogeoRV
+	url = https://github.com/GabbedT/ApogeoRV
