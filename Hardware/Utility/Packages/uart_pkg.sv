@@ -27,7 +27,10 @@ package uart_pkg;
     typedef struct packed {
         /* Divide the main UART clock to generate
          * other baud rates */
-        logic [15:0] clock_divider;
+        logic [14:0] clock_divider;
+
+        /* Enable CTS - RTS flow control */
+        logic flow_control;
 
         /* Data size transferred */
         uart_data_lenght_t data_bits;
