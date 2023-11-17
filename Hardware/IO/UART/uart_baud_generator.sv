@@ -7,13 +7,13 @@ module uart_baud_generator (
     input logic rst_n_i,
 
     /* Clock divider value */
-    input logic [15:0] divider_i,
+    input logic [14:0] divider_i,
 
     /* Sample pulse */
     output logic sample_o
 );
 
-    logic [15:0] counter;
+    logic [14:0] counter;
 
     always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin 
         if (!rst_n_i) begin 
