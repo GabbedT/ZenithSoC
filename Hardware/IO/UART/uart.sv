@@ -47,7 +47,7 @@ module uart #(
 //====================================================================================
 
     /* TX / RX Nets */
-    logic [7:0] rx_data, tx_data; logic transmit, tx_done, tx_idle, rx_done, rx_idle, parity_error, tx_empty;
+    logic [7:0] rx_data, tx_data; logic uart_rts, transmit, tx_done, tx_idle, rx_done, rx_idle, parity_error, tx_empty;
 
     /* Configuration */
     uart_data_lenght_t data_lenght;
@@ -56,7 +56,8 @@ module uart #(
     logic parity_enable;
     logic tx_enable; 
     logic rx_enable; 
-    logic [15:0] divider;
+    logic [14:0] divider;
+    logic flow_control;
 
     uart_registers #(RX_BUFFER_SIZE, TX_BUFFER_SIZE) registers (
         /* Global signals */
@@ -64,11 +65,11 @@ module uart #(
         .rst_n_i     ( rst_n_i     ),
         .interrupt_o ( interrupt_o ),
 
-        .rx_data_i  ( rx_data    ),
-        .tx_data_o  ( tx_data    ),
-        .tx_rts_i   ( transmit   ),
-        .rx_cts_o   ( uart_rts_o ),
-        .tx_empty_o ( tx_empty   ),
+        .rx_data_i  ( rx_data  ),
+        .tx_data_o  ( tx_data  ),
+        .tx_cts_i   ( transmit ),
+        .rx_rts_o   ( uart_rts ),
+        .tx_empty_o ( tx_empty ),
 
         .tx_done_i  ( tx_done      ),
         .rx_done_i  ( rx_done      ),
@@ -81,6 +82,7 @@ module uart #(
         .divider_o       ( divider       ),
         .tx_enable_o     ( tx_enable     ), 
         .rx_enable_o     ( rx_enable     ), 
+        .flow_control_o  ( flow_control  ),
 
         .write_i         ( write_i         ),
         .write_address_i ( write_address_i ),
@@ -92,6 +94,8 @@ module uart #(
         .read_data_o    ( read_data_o    ),
         .read_error_o   ( read_error_o   )
     );
+
+    assign uart_rts_o = flow_control & uart_rts;
     
     assign write_done_o = write_i;
 
@@ -131,7 +135,7 @@ module uart #(
 
     logic uart_tx; 
 
-    assign transmit = uart_cts_i & tx_idle & !tx_empty;
+    assign transmit = (flow_control ? uart_cts_i : 1'b1) & tx_idle & !tx_empty;
 
     uart_transmitter transmitter (
         .clk_i    ( clk_i     ),
