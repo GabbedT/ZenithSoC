@@ -19,8 +19,8 @@ module uart_registers #(
     /* Transmission and reception */
     input logic [7:0] rx_data_i,
     output logic [7:0] tx_data_o,
-    input logic tx_rts_i,
-    output logic rx_cts_o,
+    input logic tx_cts_i,
+    output logic rx_rts_o,
     output logic tx_empty_o,
 
     /* FSMs signals */
@@ -32,10 +32,11 @@ module uart_registers #(
     output uart_data_lenght_t data_lenght_o,
     output uart_stop_bits_t stop_bits_o,
     output uart_parity_mode_t parity_mode_o,
-    output logic [15:0] divider_o,
+    output logic [14:0] divider_o,
     output logic parity_enable_o, 
     output logic tx_enable_o, 
     output logic rx_enable_o, 
+    output logic flow_control_o,
 
     /* Write interface */
     input logic write_i,
@@ -76,9 +77,11 @@ module uart_registers #(
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
-                status_register.clock_divider <= '0;
+                /* 115200 Bauds */
+                status_register.clock_divider <= 'd53;
 
                 /* Communication setup */
+                status_register.flow_control <= 1'b0;
                 status_register.data_bits <= DBIT8;
                 status_register.stop_bits <= STOP1;
                 status_register.parity_mode <= EVEN;
@@ -90,12 +93,13 @@ module uart_registers #(
                 status_register.interrupt_enable <= '0;
             end else begin 
                 if (write_enable[0] & write_i) begin 
-                    status_register <= write_data_i[$bits(uart_status_t) - 1:4]; 
+                    status_register[$bits(uart_status_t) - 1:4] <= write_data_i[$bits(uart_status_t) - 1:4]; 
                 end
             end 
         end 
 
-
+    assign flow_control_o = status_register.flow_control;
+    
     assign tx_enable_o = status_register.enable_TX;
     assign rx_enable_o = status_register.enable_RX;
 
@@ -111,7 +115,7 @@ module uart_registers #(
 //      TX BUFFER REGISTER
 //====================================================================================  
 
-    logic tx_empty;
+    logic tx_empty, tx_full;
 
     /* TX Buffer asyncronous FIFO instantiation */
     synchronous_buffer #(TX_BUFFER_SIZE, 8) TX_buffer (
@@ -119,7 +123,7 @@ module uart_registers #(
         .rst_n_i ( rst_n_i ),
 
         .write_i ( write_enable[1] & write_i & !tx_full ),
-        .read_i  ( tx_rts_i                             ),
+        .read_i  ( tx_cts_i                             ),
 
         .empty_o ( tx_empty ),
         .full_o  ( tx_full  ),
@@ -159,7 +163,7 @@ module uart_registers #(
         .read_data_o  ( rx_buffer_read )
     );
 
-    assign rx_cts_o = !rx_full;
+    assign rx_rts_o = !rx_full;
 
     assign status_register.RX_empty = rx_empty;
     assign status_register.RX_full = rx_full;
