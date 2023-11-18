@@ -243,7 +243,7 @@ module uart_receiver (
                                     state_NXT = IDLE;
 
                                     rx_done_o = 1'b1;
-                                    parity_error_o = parity_error;
+                                    parity_error_o = parity_error & parity_enable_i;
 
                                     counter_reset = 1'b1;
                                 end
