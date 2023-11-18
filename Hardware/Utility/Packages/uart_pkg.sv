@@ -35,14 +35,14 @@ package uart_pkg;
         /* Data size transferred */
         uart_data_lenght_t data_bits;
 
-        /* Enable sending parity bits */
-        logic parity_enable;
-
         /* Number of stop bits during transaction end */
         uart_stop_bits_t stop_bits;
 
         /* Parity type computed */
         uart_parity_mode_t parity_mode;
+
+        /* Enable sending parity bits */
+        logic parity_enable;
 
         /* Enable transmission / reception */
         logic enable_TX;

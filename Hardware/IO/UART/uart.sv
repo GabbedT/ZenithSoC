@@ -5,9 +5,6 @@
 `include "uart_baud_generator.sv"
 `include "uart_transmitter.sv"
 `include "uart_receiver.sv"
-
-`include "../../System/cdc_handshake.sv"
-`include "../../System/synchronizer.sv"
  
 `include "../../Utility/Packages/uart_pkg.sv"
 
