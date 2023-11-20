@@ -15,11 +15,13 @@ module clock_divider #(
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
-                counter <= '0
+                counter <= '0;
             end else begin 
                 counter <= counter + 1'b1;
             end 
         end 
+
+    assign tick_o = (counter == DIVIDER_VALUE);
 
 endmodule : clock_divider 
 

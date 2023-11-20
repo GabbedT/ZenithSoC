@@ -30,11 +30,13 @@ module gpio (
 
     logic [3:0] enable_write; 
 
-    assign enable_write = (1'b1 << write_address_i) & write_i;
+    assign enable_write = write_i ? (1'b1 << write_address_i) : '0;
 
+    /* Select the direction of the GPIO pin (input / output) */
+    logic direction;
 
     /* Value of the pin */
-    logic pin_value, debounced; logic [1:0] sync_pin;
+    logic pin_value, debounced, sync_pin;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
@@ -43,7 +45,7 @@ module gpio (
                 if (direction) begin 
                     /* In input mode the pin can be set only by external events */
                     if (debounced) begin 
-                        pin_value <= sync_pin[1];  
+                        pin_value <= sync_pin;  
                     end
                 end else begin
                     /* In output mode, the pin can be set by the CPU */
@@ -54,9 +56,6 @@ module gpio (
             end 
         end
 
-
-    /* Select the direction of the GPIO pin (input / output) */
-    logic direction;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
@@ -109,26 +108,33 @@ module gpio (
     );
 
 
-    logic [4:0] tick_20ms;
+    logic [4:0] tick_20ms; logic start;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 tick_20ms <= '0;
+                start <= 1'b0;
             end else begin 
                 /* If direction is input and the pin value matches the logic value to interrupt */
-                if ((interrupt_level == sync_pin) & direction) begin
+                if (start & direction) begin
                     if (debounce_i) begin
                         tick_20ms <= tick_20ms + 1'b1;
                     end
                 end else begin
                     tick_20ms <= '0;
                 end
+
+                if (debounced) begin
+                    start <= 1'b0;
+                end else if ((sync_pin == interrupt_level) & (sync_pin != pin_io)) begin
+                    start <= 1'b1;
+                end 
             end 
         end 
 
     assign debounced = tick_20ms == '1;
 
-    assign interrupt_o = debounced & interrupt_enable;
+    assign interrupt_o = debounced & interrupt_enable & start;
 
 
 //====================================================================================
