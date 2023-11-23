@@ -1,6 +1,8 @@
 `ifndef TIMER_SV
     `define TIMER_SV
 
+`include "../../System/edge_detector.sv"
+
 module timer (
     /* Global signals */
     input logic clk_i,
@@ -9,13 +11,16 @@ module timer (
     /* Write interface */
     input logic write_i,
     input logic [31:0] write_data_i,
-    input logic [1:0] write_address_i,
+    input logic [2:0] write_address_i,
+    output logic write_error_o,
 
     /* Read interface */
     input logic read_i,
-    input logic [1:0] read_address_i,
+    input logic [2:0] read_address_i,
     output logic [31:0] read_data_o,
+    output logic read_error_o,
 
+    /* Status */
     output logic interrupt_o
 );
 
@@ -30,10 +35,32 @@ module timer (
     localparam TIMER_VALUE_LOW = 2;
     localparam TIMER_VALUE_HIGH = 3;
 
+    localparam CONFIGURATION = 4;
+
+
+    typedef struct packed {
+        /* Enable generation of interrupts */
+        logic interrupt_enable;
+
+        /* Stop timer once it reaches the threshold */
+        logic one_shot;
+
+        /* Enable timer to count */
+        logic enable;
+    } timer_config_t;
+
 
     function bit enable_write(input logic [1:0] address, input logic [1:0] write_address);
         return (address == write_address) & write_i;
     endfunction : enable_write
+
+    assign write_error_o = (write_address_i > 4) & write_i;
+    assign read_error_o = (read_address_i > 4) & read_i;
+
+
+    logic [4:0] enable_register;
+
+    assign enable_register = write_i ? (1 << write_address_i) : '0;
 
 
 //====================================================================================
@@ -46,7 +73,7 @@ module timer (
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : timer_compare_register_low
             if (!rst_n_i) begin
                 timer_compare[0] <= '1;
-            end else if (enable_write(COMPARE_LOW, write_address_i)) begin
+            end else if (enable_register[COMPARE_LOW]) begin
                 timer_compare[0] <= write_data_i;
             end
         end : timer_compare_register_low
@@ -54,10 +81,42 @@ module timer (
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : timer_compare_register_high
             if (!rst_n_i) begin
                 timer_compare[1] <= '1;
-            end else if (enable_write(COMPARE_HIGH, write_address_i)) begin
+            end else if (enable_register[COMPARE_HIGH]) begin
                 timer_compare[1] <= write_data_i;
             end
         end : timer_compare_register_high
+
+    
+    /* Configuration register */
+    timer_config_t configuration;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                configuration <= '0;
+            end else if (enable_register[CONFIGURATION]) begin 
+                configuration <= write_data_i[2:0];
+            end 
+        end 
+
+
+    logic stop_timer;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                stop_timer <= 1'b1;
+            end else begin 
+                if (configuration.enable) begin
+                    if (interrupt_o & configuration.one_shot) begin
+                        stop_timer <= 1'b1;
+                    end else if (enable_register[CONFIGURATION]) begin
+                        /* User triggers restart by clearing the 3-th bit */
+                        stop_timer <= write_data_i[3];
+                    end
+                end else begin
+                    stop_timer <= 1'b1;
+                end
+            end 
+        end 
 
 
 //====================================================================================
@@ -69,11 +128,11 @@ module timer (
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : timer_register
             if (!rst_n_i) begin
                 timer <= '0;
-            end else if (enable_write(TIMER_VALUE_LOW, write_address_i)) begin
+            end else if (enable_register[TIMER_VALUE_LOW]) begin
                 timer[0] <= write_data_i;
-            end else if (enable_write(TIMER_VALUE_HIGH, write_address_i)) begin
+            end else if (enable_register[TIMER_VALUE_HIGH]) begin
                 timer[1] <= write_data_i;
-            end else if (!timer_interrupt_o) begin
+            end else if (!stop_timer) begin
                 /* On interrupt reach, stop the timer, to clear
                  * it, load the timer with another value */
                 timer <= timer + 1'b1;
@@ -85,15 +144,31 @@ module timer (
 //      OUTPUT LOGIC
 //====================================================================================
 
-    assign interrupt_o = (timer == timer_compare);
+    logic interrupt;
+
+    edge_detector #(1, 0) event_detector (
+        .clk_i   ( clk_i  ),
+        .rst_n_i ( rst_n_i ),
+
+        .signal_i ( timer == timer_compare ),
+        .edge_o   ( interrupt              )
+    );
+
+    assign interrupt_o = interrupt & interrupt_enable;
+
 
         always_comb begin
+            /* Default value */
+            read_data_o = '0;
+            
             case (read_address_i)
                 COMPARE_LOW: read_data_o = timer_compare[0];
                 COMPARE_HIGH: read_data_o = timer_compare[1];
 
                 TIMER_VALUE_LOW: read_data_o = timer[0];
                 TIMER_VALUE_HIGH: read_data_o = timer[1];
+
+                CONFIGURATION: read_data_o = {stop_timer, configuration};
             endcase 
         end
 
