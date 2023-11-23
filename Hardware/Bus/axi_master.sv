@@ -132,7 +132,6 @@ module axi_master (
         always_ff @(posedge axi_ACLK `ifdef ASYNC or negedge axi_ARESETN `endif) begin : read_handshake
             if (!axi_ARESETN) begin
                 read_channel.ARVALID <= 1'b0;
-                read_channel.RREADY <= 1'b1;
             end else begin 
                 if (read_start_i & !read_flush) begin
                     /* Start handshake */

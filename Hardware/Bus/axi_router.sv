@@ -192,7 +192,14 @@ module axi_router #(
 
 
     /* Foward the busy signal to other slaves */
-    assign slave_write_bus_taken_o = (slave_write_busy_i == '0) ? '0 : ~slave_write_busy_i;
+    always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+        if (!rst_n_i) begin 
+            slave_write_bus_taken_o <= '0;
+        end else begin 
+            slave_write_bus_taken_o <= (slave_write_busy_i == '0) ? '0 : ~slave_write_busy_i;
+        end 
+    end 
+    
 
     /* If a request is sent and no slave respond, meaning that no valid slaves exist at that address, 
      * a bus error is generated */
@@ -246,7 +253,13 @@ module axi_router #(
 
 
     /* Foward the busy signal to other slaves */
-    assign slave_read_bus_taken_o = (slave_read_busy_i == '0) ? '0 : ~slave_read_busy_i;
+    always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+        if (!rst_n_i) begin 
+            slave_read_bus_taken_o <= '0;
+        end else begin 
+            slave_read_bus_taken_o <= (slave_read_busy_i == '0) ? '0 : ~slave_read_busy_i;
+        end 
+    end 
 
     /* If a request is sent and no slave respond, meaning that no valid slaves exist at that address, 
      * a bus error is generated */

@@ -32,7 +32,6 @@ module axi_network #(
     input logic [3:0] write_strobe_i,
     output logic write_done_o,
     output logic write_cts_o,
-    output axi_response_t read_response_o,
 
     /* Master read interface */
     input logic read_start_i,
@@ -40,7 +39,6 @@ module axi_network #(
     output logic [31:0] read_data_o,
     output logic read_done_o,
     output logic read_cts_o,
-    output axi_response_t write_response_o,
 
 
     /* Slave write interface */
@@ -72,7 +70,8 @@ module axi_network #(
     axi_read_interface axi_master_read_channel();
 
     /* Router flow control signals */
-    logic clear2send_write_trx, clear2send_read_trx;
+    logic clear2send_write_trx, clear2send_read_trx; 
+    axi_response_t write_response, read_response;
 
     axi_master axi_master_interface (
         .axi_ACLK    ( axi_ACLK    ), 
@@ -84,20 +83,20 @@ module axi_network #(
         .router_write_cts_i ( clear2send_write_trx ),
         .router_read_cts_i  ( clear2send_read_trx  ),
 
-        .write_start_i    ( write_start_i    ),
-        .write_address_i  ( write_address_i  ),
-        .write_data_i     ( write_data_i     ),
-        .write_strobe_i   ( write_strobe_i   ),
-        .write_done_o     ( write_done_o     ),
-        .write_cts_o      ( write_cts_o      ),
-        .write_response_o ( write_response_o ),
+        .write_start_i    ( write_start_i   ),
+        .write_address_i  ( write_address_i ),
+        .write_data_i     ( write_data_i    ),
+        .write_strobe_i   ( write_strobe_i  ),
+        .write_done_o     ( write_done_o    ),
+        .write_cts_o      ( write_cts_o     ),
+        .write_response_o ( write_response  ),
 
-        .read_start_i    ( read_start_i    ),
-        .read_address_i  ( read_address_i  ),
-        .read_data_o     ( read_data_o     ),
-        .read_done_o     ( read_done_o     ),
-        .read_cts_o      ( read_cts_o      ),
-        .read_response_o ( read_response_o ) 
+        .read_start_i    ( read_start_i   ),
+        .read_address_i  ( read_address_i ),
+        .read_data_o     ( read_data_o    ),
+        .read_done_o     ( read_done_o    ),
+        .read_cts_o      ( read_cts_o     ),
+        .read_response_o ( read_response  ) 
     );
 
 
@@ -155,6 +154,8 @@ module axi_network #(
 //      AXI ROUTER LOGIC
 //====================================================================================
 
+    logic axi_write_error, axi_read_error;
+
     axi_router #(AXI_SLAVE_NUMBER) router (
         .clk_i   ( axi_ACLK    ),
         .rst_n_i ( axi_ARESETN ),
@@ -173,12 +174,15 @@ module axi_network #(
         .slave_write_bus_taken_o ( write_bus_taken ),
         .slave_read_bus_taken_o  ( read_bus_taken  ),
 
-        .axi_write_error_o ( axi_write_error_o ),
-        .axi_read_error_o  ( axi_read_error_o  ),
+        .axi_write_error_o ( axi_write_error ),
+        .axi_read_error_o  ( axi_read_error  ),
 
         .master_write_cts_o ( clear2send_write_trx ),
         .master_read_cts_o  ( clear2send_read_trx  )
     );
+
+    assign axi_write_error_o = axi_write_error | ((write_response == DECERR) | (write_response == SLVERR));
+    assign axi_read_error_o = axi_read_error | ((read_response == DECERR) | (read_response == SLVERR));
 
 endmodule : axi_network 
 
