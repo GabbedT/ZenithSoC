@@ -6,6 +6,8 @@
 `include "uart_transmitter.sv"
 `include "uart_receiver.sv"
  
+`include "../../System/synchronizer.sv"
+
 `include "../../Utility/Packages/uart_pkg.sv"
 
 module uart #(
@@ -166,13 +168,23 @@ module uart #(
 //      RECEIVER
 //====================================================================================
 
+    logic rx_sync;
+
+    synchronizer #(2, '1) rx_line_sync (
+        .clk_i   ( clk_i   ),
+        .rst_n_i ( rst_n_i ),
+
+        .signal_i ( uart_rx_i ),
+        .sync_o   ( rx_sync   )
+    );
+
     uart_receiver receiver (
         .clk_i    ( clk_i     ),
         .rst_n_i  ( rst_n_i   ),
         .enable_i ( rx_enable ),
         .sample_i ( sample    ),
 
-        .uart_rx_i ( uart_rx_i ),
+        .uart_rx_i ( rx_sync ),
 
         .rx_data_o      ( rx_data      ),
         .rx_done_o      ( rx_done      ),
