@@ -1,3 +1,3 @@
-[submodule "Hardware/CPU/ApogeoRV"]
-	path = Hardware/CPU/ApogeoRV
-	url = https://github.com/GabbedT/ApogeoRV
+[submodule "Hardware/CPU/Arithmetic-Circuits"]
+	path = Hardware/CPU/Arithmetic-Circuits
+	url = https://github.com/GabbedT/Arithmetic-Circuits.git
