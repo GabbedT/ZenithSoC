@@ -154,7 +154,7 @@ module timer (
         .edge_o   ( interrupt              )
     );
 
-    assign interrupt_o = interrupt & interrupt_enable;
+    assign interrupt_o = interrupt & configuration.interrupt_enable;
 
 
         always_comb begin
