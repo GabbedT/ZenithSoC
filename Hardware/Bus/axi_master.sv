@@ -33,6 +33,7 @@ module axi_master (
 
     /* Read request informations */
     input logic read_start_i,
+    input logic read_invalid_i,
     input logic [31:0] read_address_i,
     
     output logic [31:0] read_data_o,
@@ -131,6 +132,8 @@ module axi_master (
 
         always_ff @(posedge axi_ACLK `ifdef ASYNC or negedge axi_ARESETN `endif) begin : read_handshake
             if (!axi_ARESETN) begin
+                read_channel.ARVALID <= 1'b0;
+            end else if (read_invalid_i) begin
                 read_channel.ARVALID <= 1'b0;
             end else begin 
                 if (read_start_i & !read_flush) begin
