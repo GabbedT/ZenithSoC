@@ -41,7 +41,8 @@ module uart_registers #(
     /* Write interface */
     input logic write_i,
     input uart_registers_t write_address_i,
-    input logic [31:0] write_data_i,
+    input logic [3:0][7:0] write_data_i,
+    input logic [3:0] write_strobe_i,
     output logic write_error_o,
 
     /* Read interface */
@@ -93,7 +94,21 @@ module uart_registers #(
                 status_register.interrupt_enable <= '0;
             end else begin 
                 if (write_enable[0] & write_i) begin 
-                    status_register[$bits(uart_status_t) - 1:4] <= write_data_i[$bits(uart_status_t) - 1:4]; 
+                    if (write_strobe_i[0]) begin
+                        status_register[7:4] <= write_data_i[0][7:4]; 
+                    end
+
+                    if (write_strobe_i[1]) begin
+                        status_register[15:8] <= write_data_i[1][7:0]; 
+                    end
+
+                    if (write_strobe_i[2]) begin
+                        status_register[23:16] <= write_data_i[2][7:0]; 
+                    end
+
+                    if (write_strobe_i[3]) begin
+                        status_register[31:24] <= write_data_i[3][7:0]; 
+                    end
                 end
             end 
         end 
@@ -123,13 +138,13 @@ module uart_registers #(
         .rst_n_i ( rst_n_i ),
 
         .write_i ( write_enable[1] & write_i & !tx_full ),
-        .read_i  ( tx_cts_i                             ),
+        .read_i  ( tx_cts_i & !tx_empty                 ),
 
         .empty_o ( tx_empty ),
         .full_o  ( tx_full  ),
 
-        .write_data_i ( write_data_i[7:0] ),
-        .read_data_o  ( tx_data_o         )
+        .write_data_i ( write_data_i[0] ),
+        .read_data_o  ( tx_data_o       )
     );
     
     assign tx_empty_o = tx_empty;
@@ -163,7 +178,7 @@ module uart_registers #(
         .read_data_o  ( rx_buffer_read )
     );
 
-    assign rx_rts_o = !rx_full;
+    assign rx_rts_o = !rx_full & status_register.flow_control;
 
     assign status_register.RX_empty = rx_empty;
     assign status_register.RX_full = rx_full;
@@ -180,7 +195,7 @@ module uart_registers #(
             event_register <= '0;
         end else begin 
             if ((write_address_i == EVENT) & write_i) begin
-                event_register <= write_data_i[4:0];
+                event_register <= write_data_i[0][4:0];
             end else begin
                 if (rx_done_i & status_register.interrupt_enable[0]) begin
                     event_register[0] <= 1'b1;
