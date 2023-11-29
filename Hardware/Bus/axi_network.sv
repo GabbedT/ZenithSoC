@@ -35,6 +35,7 @@ module axi_network #(
 
     /* Master read interface */
     input logic read_start_i,
+    input logic read_invalid_i,
     input logic [31:0] read_address_i,
     output logic [31:0] read_data_o,
     output logic read_done_o,
@@ -92,6 +93,7 @@ module axi_network #(
         .write_response_o ( write_response  ),
 
         .read_start_i    ( read_start_i   ),
+        .read_invalid_i  ( read_invalid_i ),
         .read_address_i  ( read_address_i ),
         .read_data_o     ( read_data_o    ),
         .read_done_o     ( read_done_o    ),
