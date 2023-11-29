@@ -28,14 +28,15 @@ module uart #(
 
     /* Write interface */
     input logic write_i,
-    input uart_registers_t write_address_i,
+    input logic [1:0] write_address_i,
     input logic [31:0] write_data_i,
+    input logic [3:0] write_strobe_i,
     output logic write_error_o,
     output logic write_done_o,
 
     /* Read interface */
     input logic read_i,
-    input uart_registers_t read_address_i,
+    input logic [1:0] read_address_i,
     output logic [31:0] read_data_o,
     output logic read_error_o,
     output logic read_done_o
@@ -83,15 +84,16 @@ module uart #(
         .rx_enable_o     ( rx_enable     ), 
         .flow_control_o  ( flow_control  ),
 
-        .write_i         ( write_i         ),
-        .write_address_i ( write_address_i ),
-        .write_data_i    ( write_data_i    ),
-        .write_error_o   ( write_error_o   ),
+        .write_i         ( write_i                            ),
+        .write_address_i ( uart_registers_t'(write_address_i) ),
+        .write_data_i    ( write_data_i                       ),
+        .write_strobe_i  ( write_strobe_i                     ),
+        .write_error_o   ( write_error_o                      ),
 
-        .read_i         ( read_i         ),
-        .read_address_i ( read_address_i ),
-        .read_data_o    ( read_data_o    ),
-        .read_error_o   ( read_error_o   )
+        .read_i         ( read_i                            ),
+        .read_address_i ( uart_registers_t'(read_address_i )),
+        .read_data_o    ( read_data_o                       ),
+        .read_error_o   ( read_error_o                      )
     );
 
     assign uart_rts_o = flow_control & uart_rts;
