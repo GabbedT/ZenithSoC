@@ -28,16 +28,20 @@ module memory_bank #(
     logic [7:0] memory [MEMORY_SIZE]; 
 
     initial begin 
-        automatic logic [3:0][7:0] init_memory [MEMORY_SIZE];
-
-        $readmemh(FILE_PATH, init_memory);
+        automatic logic [7:0] init_memory [MEMORY_SIZE * 4];
 
         for (int i = 0; i < MEMORY_SIZE; ++i) begin 
             memory[i] = '0;
         end 
 
-        for (int i = 0; i < MEMORY_SIZE; ++i) begin 
-            memory[i] = init_memory[i][BANK_NUMBER];
+        for (int i = 0; i < MEMORY_SIZE * 4; ++i) begin 
+            init_memory[i] = '0;
+        end 
+
+        $readmemh(FILE_PATH, init_memory, 0, (MEMORY_SIZE * 4) - 1);
+
+        for (int i = 0; i < MEMORY_SIZE; i++) begin 
+            memory[i] = init_memory[(i * 4) + BANK_NUMBER];
         end 
     end 
 
