@@ -1,0 +1,657 @@
+
+output.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .boot:
+
+00000000 <boot_program>:
+   0:	00025137          	.word	0x00025137
+   4:	80010113          	.word	0x80010113
+   8:	00800293          	.word	0x00800293
+   c:	3002a073          	.word	0x3002a073
+  10:	fff00293          	.word	0xfff00293
+  14:	3042a073          	.word	0x3042a073
+  18:	7e8200ef          	.word	0x7e8200ef
+  1c:	c0001073          	.word	0xc0001073
+
+Disassembly of section .text:
+
+00020800 <uart_test>:
+   20800:	fc010113          	add	sp,sp,-64
+   20804:	02112e23          	sw	ra,60(sp)
+   20808:	02812c23          	sw	s0,56(sp)
+   2080c:	04010413          	add	s0,sp,64
+   20810:	fd840793          	add	a5,s0,-40
+   20814:	00000593          	li	a1,0
+   20818:	00078513          	mv	a0,a5
+   2081c:	130000ef          	jal	2094c <_ZN4UARTC1Em>
+   20820:	fd840793          	add	a5,s0,-40
+   20824:	00078513          	mv	a0,a5
+   20828:	748000ef          	jal	20f70 <_ZN4UART9getStatusEv>
+   2082c:	00050793          	mv	a5,a0
+   20830:	fcf42a23          	sw	a5,-44(s0)
+   20834:	fd840793          	add	a5,s0,-40
+   20838:	00078513          	mv	a0,a5
+   2083c:	760000ef          	jal	20f9c <_ZN4UART8getEventEv>
+   20840:	fea42623          	sw	a0,-20(s0)
+   20844:	fd840513          	add	a0,s0,-40
+   20848:	00300793          	li	a5,3
+   2084c:	00000713          	li	a4,0
+   20850:	00000693          	li	a3,0
+   20854:	00100613          	li	a2,1
+   20858:	0001c5b7          	lui	a1,0x1c
+   2085c:	20058593          	add	a1,a1,512 # 1c200 <boot_program+0x1c200>
+   20860:	3ec000ef          	jal	20c4c <_ZN4UART4initEmbNS_12parityMode_eENS_10stopBits_eENS_12dataLenght_eE>
+   20864:	00050793          	mv	a5,a0
+   20868:	00000593          	li	a1,0
+   2086c:	00078513          	mv	a0,a5
+   20870:	510000ef          	jal	20d80 <_ZN4UART14setFlowControlEb>
+   20874:	fd840793          	add	a5,s0,-40
+   20878:	00078513          	mv	a0,a5
+   2087c:	6f4000ef          	jal	20f70 <_ZN4UART9getStatusEv>
+   20880:	00050793          	mv	a5,a0
+   20884:	fcf42a23          	sw	a5,-44(s0)
+   20888:	000217b7          	lui	a5,0x21
+   2088c:	18078793          	add	a5,a5,384 # 21180 <_ZN4UART14unloadBufferRXEPhm+0x88>
+   20890:	0007a583          	lw	a1,0(a5)
+   20894:	0047a603          	lw	a2,4(a5)
+   20898:	0087a683          	lw	a3,8(a5)
+   2089c:	00c7a703          	lw	a4,12(a5)
+   208a0:	fcb42023          	sw	a1,-64(s0)
+   208a4:	fcc42223          	sw	a2,-60(s0)
+   208a8:	fcd42423          	sw	a3,-56(s0)
+   208ac:	fce42623          	sw	a4,-52(s0)
+   208b0:	0107d783          	lhu	a5,16(a5)
+   208b4:	fcf41823          	sh	a5,-48(s0)
+   208b8:	fc040713          	add	a4,s0,-64
+   208bc:	fd840793          	add	a5,s0,-40
+   208c0:	01200613          	li	a2,18
+   208c4:	00070593          	mv	a1,a4
+   208c8:	00078513          	mv	a0,a5
+   208cc:	758000ef          	jal	21024 <_ZN4UART12loadBufferTXEPhm>
+   208d0:	00050793          	mv	a5,a0
+   208d4:	00a00593          	li	a1,10
+   208d8:	00078513          	mv	a0,a5
+   208dc:	6ec000ef          	jal	20fc8 <_ZN4UART8sendByteEh>
+   208e0:	00000013          	nop
+   208e4:	fd840793          	add	a5,s0,-40
+   208e8:	00078513          	mv	a0,a5
+   208ec:	684000ef          	jal	20f70 <_ZN4UART9getStatusEv>
+   208f0:	00050793          	mv	a5,a0
+   208f4:	0017f793          	and	a5,a5,1
+   208f8:	00f037b3          	snez	a5,a5
+   208fc:	0ff7f793          	zext.b	a5,a5
+   20900:	fe0792e3          	bnez	a5,208e4 <uart_test+0xe4>
+   20904:	fd840793          	add	a5,s0,-40
+   20908:	00078513          	mv	a0,a5
+   2090c:	7a0000ef          	jal	210ac <_ZN4UART11receiveByteEv>
+   20910:	00050793          	mv	a5,a0
+   20914:	00078713          	mv	a4,a5
+   20918:	fd840793          	add	a5,s0,-40
+   2091c:	00070593          	mv	a1,a4
+   20920:	00078513          	mv	a0,a5
+   20924:	6a4000ef          	jal	20fc8 <_ZN4UART8sendByteEh>
+   20928:	00000013          	nop
+   2092c:	fd840793          	add	a5,s0,-40
+   20930:	00078513          	mv	a0,a5
+   20934:	17c000ef          	jal	20ab0 <_ZN4UARTD1Ev>
+   20938:	00000013          	nop
+   2093c:	03c12083          	lw	ra,60(sp)
+   20940:	03812403          	lw	s0,56(sp)
+   20944:	04010113          	add	sp,sp,64
+   20948:	00008067          	ret
+
+0002094c <_ZN4UARTC1Em>:
+   2094c:	fe010113          	add	sp,sp,-32
+   20950:	00112e23          	sw	ra,28(sp)
+   20954:	00812c23          	sw	s0,24(sp)
+   20958:	02010413          	add	s0,sp,32
+   2095c:	fea42623          	sw	a0,-20(s0)
+   20960:	feb42423          	sw	a1,-24(s0)
+   20964:	fe842783          	lw	a5,-24(s0)
+   20968:	20078793          	add	a5,a5,512
+   2096c:	00279793          	sll	a5,a5,0x2
+   20970:	00078713          	mv	a4,a5
+   20974:	fec42783          	lw	a5,-20(s0)
+   20978:	00e7a023          	sw	a4,0(a5)
+   2097c:	fec42783          	lw	a5,-20(s0)
+   20980:	0007a703          	lw	a4,0(a5)
+   20984:	fec42783          	lw	a5,-20(s0)
+   20988:	00e7a223          	sw	a4,4(a5)
+   2098c:	fec42783          	lw	a5,-20(s0)
+   20990:	0007a783          	lw	a5,0(a5)
+   20994:	00878713          	add	a4,a5,8
+   20998:	fec42783          	lw	a5,-20(s0)
+   2099c:	00e7a423          	sw	a4,8(a5)
+   209a0:	fec42783          	lw	a5,-20(s0)
+   209a4:	0007a783          	lw	a5,0(a5)
+   209a8:	00478713          	add	a4,a5,4
+   209ac:	fec42783          	lw	a5,-20(s0)
+   209b0:	00e7a623          	sw	a4,12(a5)
+   209b4:	fec42783          	lw	a5,-20(s0)
+   209b8:	0007a783          	lw	a5,0(a5)
+   209bc:	00c78713          	add	a4,a5,12
+   209c0:	fec42783          	lw	a5,-20(s0)
+   209c4:	00e7a823          	sw	a4,16(a5)
+   209c8:	fec42783          	lw	a5,-20(s0)
+   209cc:	0047a783          	lw	a5,4(a5)
+   209d0:	0007a683          	lw	a3,0(a5)
+   209d4:	ffff0737          	lui	a4,0xffff0
+   209d8:	fff70713          	add	a4,a4,-1 # fffeffff <_ZN4UART14unloadBufferRXEPhm+0xfffcef07>
+   209dc:	00e6f733          	and	a4,a3,a4
+   209e0:	00e7a023          	sw	a4,0(a5)
+   209e4:	fec42783          	lw	a5,-20(s0)
+   209e8:	0047a783          	lw	a5,4(a5)
+   209ec:	0007a683          	lw	a3,0(a5)
+   209f0:	fffff737          	lui	a4,0xfffff
+   209f4:	7ff70713          	add	a4,a4,2047 # fffff7ff <_ZN4UART14unloadBufferRXEPhm+0xfffde707>
+   209f8:	00e6f733          	and	a4,a3,a4
+   209fc:	00e7a023          	sw	a4,0(a5)
+   20a00:	fec42783          	lw	a5,-20(s0)
+   20a04:	0047a783          	lw	a5,4(a5)
+   20a08:	0007a703          	lw	a4,0(a5)
+   20a0c:	bff77713          	and	a4,a4,-1025
+   20a10:	00e7a023          	sw	a4,0(a5)
+   20a14:	fec42783          	lw	a5,-20(s0)
+   20a18:	0047a783          	lw	a5,4(a5)
+   20a1c:	0007a703          	lw	a4,0(a5)
+   20a20:	dff77713          	and	a4,a4,-513
+   20a24:	00e7a023          	sw	a4,0(a5)
+   20a28:	fec42783          	lw	a5,-20(s0)
+   20a2c:	0047a783          	lw	a5,4(a5)
+   20a30:	0007a703          	lw	a4,0(a5)
+   20a34:	e0f77713          	and	a4,a4,-497
+   20a38:	00e7a023          	sw	a4,0(a5)
+   20a3c:	fec42783          	lw	a5,-20(s0)
+   20a40:	0047a783          	lw	a5,4(a5)
+   20a44:	0007a683          	lw	a3,0(a5)
+   20a48:	0000c737          	lui	a4,0xc
+   20a4c:	00e6e733          	or	a4,a3,a4
+   20a50:	00e7a023          	sw	a4,0(a5)
+   20a54:	fec42783          	lw	a5,-20(s0)
+   20a58:	0047a783          	lw	a5,4(a5)
+   20a5c:	0007a683          	lw	a3,0(a5)
+   20a60:	ffffe737          	lui	a4,0xffffe
+   20a64:	fff70713          	add	a4,a4,-1 # ffffdfff <_ZN4UART14unloadBufferRXEPhm+0xfffdcf07>
+   20a68:	00e6f733          	and	a4,a3,a4
+   20a6c:	00e7a023          	sw	a4,0(a5)
+   20a70:	fec42783          	lw	a5,-20(s0)
+   20a74:	0047a783          	lw	a5,4(a5)
+   20a78:	0007a683          	lw	a3,0(a5)
+   20a7c:	fffff737          	lui	a4,0xfffff
+   20a80:	fff70713          	add	a4,a4,-1 # ffffefff <_ZN4UART14unloadBufferRXEPhm+0xfffddf07>
+   20a84:	00e6f733          	and	a4,a3,a4
+   20a88:	00e7a023          	sw	a4,0(a5)
+   20a8c:	000027b7          	lui	a5,0x2
+   20a90:	58078593          	add	a1,a5,1408 # 2580 <boot_program+0x2580>
+   20a94:	fec42503          	lw	a0,-20(s0)
+   20a98:	340000ef          	jal	20dd8 <_ZN4UART11setBaudRateEm>
+   20a9c:	00000013          	nop
+   20aa0:	01c12083          	lw	ra,28(sp)
+   20aa4:	01812403          	lw	s0,24(sp)
+   20aa8:	02010113          	add	sp,sp,32
+   20aac:	00008067          	ret
+
+00020ab0 <_ZN4UARTD1Ev>:
+   20ab0:	fe010113          	add	sp,sp,-32
+   20ab4:	00112e23          	sw	ra,28(sp)
+   20ab8:	00812c23          	sw	s0,24(sp)
+   20abc:	02010413          	add	s0,sp,32
+   20ac0:	fea42623          	sw	a0,-20(s0)
+   20ac4:	fec42783          	lw	a5,-20(s0)
+   20ac8:	0047a783          	lw	a5,4(a5)
+   20acc:	0007a683          	lw	a3,0(a5)
+   20ad0:	ffff0737          	lui	a4,0xffff0
+   20ad4:	fff70713          	add	a4,a4,-1 # fffeffff <_ZN4UART14unloadBufferRXEPhm+0xfffcef07>
+   20ad8:	00e6f733          	and	a4,a3,a4
+   20adc:	00e7a023          	sw	a4,0(a5)
+   20ae0:	fec42783          	lw	a5,-20(s0)
+   20ae4:	0047a783          	lw	a5,4(a5)
+   20ae8:	0007a683          	lw	a3,0(a5)
+   20aec:	fffff737          	lui	a4,0xfffff
+   20af0:	7ff70713          	add	a4,a4,2047 # fffff7ff <_ZN4UART14unloadBufferRXEPhm+0xfffde707>
+   20af4:	00e6f733          	and	a4,a3,a4
+   20af8:	00e7a023          	sw	a4,0(a5)
+   20afc:	fec42783          	lw	a5,-20(s0)
+   20b00:	0047a783          	lw	a5,4(a5)
+   20b04:	0007a703          	lw	a4,0(a5)
+   20b08:	bff77713          	and	a4,a4,-1025
+   20b0c:	00e7a023          	sw	a4,0(a5)
+   20b10:	fec42783          	lw	a5,-20(s0)
+   20b14:	0047a783          	lw	a5,4(a5)
+   20b18:	0007a703          	lw	a4,0(a5)
+   20b1c:	dff77713          	and	a4,a4,-513
+   20b20:	00e7a023          	sw	a4,0(a5)
+   20b24:	fec42783          	lw	a5,-20(s0)
+   20b28:	0047a783          	lw	a5,4(a5)
+   20b2c:	0007a703          	lw	a4,0(a5)
+   20b30:	e0f77713          	and	a4,a4,-497
+   20b34:	00e7a023          	sw	a4,0(a5)
+   20b38:	fec42783          	lw	a5,-20(s0)
+   20b3c:	0047a783          	lw	a5,4(a5)
+   20b40:	0007a683          	lw	a3,0(a5)
+   20b44:	0000c737          	lui	a4,0xc
+   20b48:	00e6e733          	or	a4,a3,a4
+   20b4c:	00e7a023          	sw	a4,0(a5)
+   20b50:	fec42783          	lw	a5,-20(s0)
+   20b54:	0047a783          	lw	a5,4(a5)
+   20b58:	0007a683          	lw	a3,0(a5)
+   20b5c:	ffffe737          	lui	a4,0xffffe
+   20b60:	fff70713          	add	a4,a4,-1 # ffffdfff <_ZN4UART14unloadBufferRXEPhm+0xfffdcf07>
+   20b64:	00e6f733          	and	a4,a3,a4
+   20b68:	00e7a023          	sw	a4,0(a5)
+   20b6c:	fec42783          	lw	a5,-20(s0)
+   20b70:	0047a783          	lw	a5,4(a5)
+   20b74:	0007a683          	lw	a3,0(a5)
+   20b78:	fffff737          	lui	a4,0xfffff
+   20b7c:	fff70713          	add	a4,a4,-1 # ffffefff <_ZN4UART14unloadBufferRXEPhm+0xfffddf07>
+   20b80:	00e6f733          	and	a4,a3,a4
+   20b84:	00e7a023          	sw	a4,0(a5)
+   20b88:	000027b7          	lui	a5,0x2
+   20b8c:	58078593          	add	a1,a5,1408 # 2580 <boot_program+0x2580>
+   20b90:	fec42503          	lw	a0,-20(s0)
+   20b94:	244000ef          	jal	20dd8 <_ZN4UART11setBaudRateEm>
+   20b98:	00000013          	nop
+   20b9c:	01c12083          	lw	ra,28(sp)
+   20ba0:	01812403          	lw	s0,24(sp)
+   20ba4:	02010113          	add	sp,sp,32
+   20ba8:	00008067          	ret
+
+00020bac <_ZN4UART9setModeTXEb>:
+   20bac:	fe010113          	add	sp,sp,-32
+   20bb0:	00812e23          	sw	s0,28(sp)
+   20bb4:	02010413          	add	s0,sp,32
+   20bb8:	fea42623          	sw	a0,-20(s0)
+   20bbc:	00058793          	mv	a5,a1
+   20bc0:	fef405a3          	sb	a5,-21(s0)
+   20bc4:	feb44703          	lbu	a4,-21(s0)
+   20bc8:	fec42783          	lw	a5,-20(s0)
+   20bcc:	0047a783          	lw	a5,4(a5)
+   20bd0:	00177713          	and	a4,a4,1
+   20bd4:	00a71713          	sll	a4,a4,0xa
+   20bd8:	0007a683          	lw	a3,0(a5)
+   20bdc:	bff6f693          	and	a3,a3,-1025
+   20be0:	00e6e733          	or	a4,a3,a4
+   20be4:	00e7a023          	sw	a4,0(a5)
+   20be8:	fec42783          	lw	a5,-20(s0)
+   20bec:	00078513          	mv	a0,a5
+   20bf0:	01c12403          	lw	s0,28(sp)
+   20bf4:	02010113          	add	sp,sp,32
+   20bf8:	00008067          	ret
+
+00020bfc <_ZN4UART9setModeRXEb>:
+   20bfc:	fe010113          	add	sp,sp,-32
+   20c00:	00812e23          	sw	s0,28(sp)
+   20c04:	02010413          	add	s0,sp,32
+   20c08:	fea42623          	sw	a0,-20(s0)
+   20c0c:	00058793          	mv	a5,a1
+   20c10:	fef405a3          	sb	a5,-21(s0)
+   20c14:	feb44703          	lbu	a4,-21(s0)
+   20c18:	fec42783          	lw	a5,-20(s0)
+   20c1c:	0047a783          	lw	a5,4(a5)
+   20c20:	00177713          	and	a4,a4,1
+   20c24:	00971713          	sll	a4,a4,0x9
+   20c28:	0007a683          	lw	a3,0(a5)
+   20c2c:	dff6f693          	and	a3,a3,-513
+   20c30:	00e6e733          	or	a4,a3,a4
+   20c34:	00e7a023          	sw	a4,0(a5)
+   20c38:	fec42783          	lw	a5,-20(s0)
+   20c3c:	00078513          	mv	a0,a5
+   20c40:	01c12403          	lw	s0,28(sp)
+   20c44:	02010113          	add	sp,sp,32
+   20c48:	00008067          	ret
+
+00020c4c <_ZN4UART4initEmbNS_12parityMode_eENS_10stopBits_eENS_12dataLenght_eE>:
+   20c4c:	fd010113          	add	sp,sp,-48
+   20c50:	02112623          	sw	ra,44(sp)
+   20c54:	02812423          	sw	s0,40(sp)
+   20c58:	03010413          	add	s0,sp,48
+   20c5c:	fea42623          	sw	a0,-20(s0)
+   20c60:	feb42423          	sw	a1,-24(s0)
+   20c64:	fed42023          	sw	a3,-32(s0)
+   20c68:	fce42e23          	sw	a4,-36(s0)
+   20c6c:	fcf42c23          	sw	a5,-40(s0)
+   20c70:	00060793          	mv	a5,a2
+   20c74:	fef403a3          	sb	a5,-25(s0)
+   20c78:	fe744703          	lbu	a4,-25(s0)
+   20c7c:	fec42783          	lw	a5,-20(s0)
+   20c80:	0047a783          	lw	a5,4(a5)
+   20c84:	00177713          	and	a4,a4,1
+   20c88:	00b71713          	sll	a4,a4,0xb
+   20c8c:	0007a603          	lw	a2,0(a5)
+   20c90:	fffff6b7          	lui	a3,0xfffff
+   20c94:	7ff68693          	add	a3,a3,2047 # fffff7ff <_ZN4UART14unloadBufferRXEPhm+0xfffde707>
+   20c98:	00d676b3          	and	a3,a2,a3
+   20c9c:	00e6e733          	or	a4,a3,a4
+   20ca0:	00e7a023          	sw	a4,0(a5)
+   20ca4:	fd842783          	lw	a5,-40(s0)
+   20ca8:	0037f793          	and	a5,a5,3
+   20cac:	0ff7f713          	zext.b	a4,a5
+   20cb0:	fec42783          	lw	a5,-20(s0)
+   20cb4:	0047a783          	lw	a5,4(a5)
+   20cb8:	00377713          	and	a4,a4,3
+   20cbc:	00e71713          	sll	a4,a4,0xe
+   20cc0:	0007a603          	lw	a2,0(a5)
+   20cc4:	ffff46b7          	lui	a3,0xffff4
+   20cc8:	fff68693          	add	a3,a3,-1 # ffff3fff <_ZN4UART14unloadBufferRXEPhm+0xfffd2f07>
+   20ccc:	00d676b3          	and	a3,a2,a3
+   20cd0:	00e6e733          	or	a4,a3,a4
+   20cd4:	00e7a023          	sw	a4,0(a5)
+   20cd8:	fdc42783          	lw	a5,-36(s0)
+   20cdc:	0017f793          	and	a5,a5,1
+   20ce0:	0ff7f713          	zext.b	a4,a5
+   20ce4:	fec42783          	lw	a5,-20(s0)
+   20ce8:	0047a783          	lw	a5,4(a5)
+   20cec:	00177713          	and	a4,a4,1
+   20cf0:	00d71713          	sll	a4,a4,0xd
+   20cf4:	0007a603          	lw	a2,0(a5)
+   20cf8:	ffffe6b7          	lui	a3,0xffffe
+   20cfc:	fff68693          	add	a3,a3,-1 # ffffdfff <_ZN4UART14unloadBufferRXEPhm+0xfffdcf07>
+   20d00:	00d676b3          	and	a3,a2,a3
+   20d04:	00e6e733          	or	a4,a3,a4
+   20d08:	00e7a023          	sw	a4,0(a5)
+   20d0c:	fe042783          	lw	a5,-32(s0)
+   20d10:	0017f793          	and	a5,a5,1
+   20d14:	0ff7f713          	zext.b	a4,a5
+   20d18:	fec42783          	lw	a5,-20(s0)
+   20d1c:	0047a783          	lw	a5,4(a5)
+   20d20:	00177713          	and	a4,a4,1
+   20d24:	00c71713          	sll	a4,a4,0xc
+   20d28:	0007a603          	lw	a2,0(a5)
+   20d2c:	fffff6b7          	lui	a3,0xfffff
+   20d30:	fff68693          	add	a3,a3,-1 # ffffefff <_ZN4UART14unloadBufferRXEPhm+0xfffddf07>
+   20d34:	00d676b3          	and	a3,a2,a3
+   20d38:	00e6e733          	or	a4,a3,a4
+   20d3c:	00e7a023          	sw	a4,0(a5)
+   20d40:	000027b7          	lui	a5,0x2
+   20d44:	58078593          	add	a1,a5,1408 # 2580 <boot_program+0x2580>
+   20d48:	fec42503          	lw	a0,-20(s0)
+   20d4c:	08c000ef          	jal	20dd8 <_ZN4UART11setBaudRateEm>
+   20d50:	00100593          	li	a1,1
+   20d54:	fec42503          	lw	a0,-20(s0)
+   20d58:	e55ff0ef          	jal	20bac <_ZN4UART9setModeTXEb>
+   20d5c:	00100593          	li	a1,1
+   20d60:	fec42503          	lw	a0,-20(s0)
+   20d64:	e99ff0ef          	jal	20bfc <_ZN4UART9setModeRXEb>
+   20d68:	fec42783          	lw	a5,-20(s0)
+   20d6c:	00078513          	mv	a0,a5
+   20d70:	02c12083          	lw	ra,44(sp)
+   20d74:	02812403          	lw	s0,40(sp)
+   20d78:	03010113          	add	sp,sp,48
+   20d7c:	00008067          	ret
+
+00020d80 <_ZN4UART14setFlowControlEb>:
+   20d80:	fe010113          	add	sp,sp,-32
+   20d84:	00812e23          	sw	s0,28(sp)
+   20d88:	02010413          	add	s0,sp,32
+   20d8c:	fea42623          	sw	a0,-20(s0)
+   20d90:	00058793          	mv	a5,a1
+   20d94:	fef405a3          	sb	a5,-21(s0)
+   20d98:	feb44703          	lbu	a4,-21(s0)
+   20d9c:	fec42783          	lw	a5,-20(s0)
+   20da0:	0047a783          	lw	a5,4(a5)
+   20da4:	00177713          	and	a4,a4,1
+   20da8:	01071713          	sll	a4,a4,0x10
+   20dac:	0007a603          	lw	a2,0(a5)
+   20db0:	ffff06b7          	lui	a3,0xffff0
+   20db4:	fff68693          	add	a3,a3,-1 # fffeffff <_ZN4UART14unloadBufferRXEPhm+0xfffcef07>
+   20db8:	00d676b3          	and	a3,a2,a3
+   20dbc:	00e6e733          	or	a4,a3,a4
+   20dc0:	00e7a023          	sw	a4,0(a5)
+   20dc4:	fec42783          	lw	a5,-20(s0)
+   20dc8:	00078513          	mv	a0,a5
+   20dcc:	01c12403          	lw	s0,28(sp)
+   20dd0:	02010113          	add	sp,sp,32
+   20dd4:	00008067          	ret
+
+00020dd8 <_ZN4UART11setBaudRateEm>:
+   20dd8:	fe010113          	add	sp,sp,-32
+   20ddc:	00812e23          	sw	s0,28(sp)
+   20de0:	02010413          	add	s0,sp,32
+   20de4:	fea42623          	sw	a0,-20(s0)
+   20de8:	feb42423          	sw	a1,-24(s0)
+   20dec:	fe842783          	lw	a5,-24(s0)
+   20df0:	00479793          	sll	a5,a5,0x4
+   20df4:	05f5e737          	lui	a4,0x5f5e
+   20df8:	10070713          	add	a4,a4,256 # 5f5e100 <_ZN4UART14unloadBufferRXEPhm+0x5f3d008>
+   20dfc:	02f757b3          	divu	a5,a4,a5
+   20e00:	01079793          	sll	a5,a5,0x10
+   20e04:	0107d793          	srl	a5,a5,0x10
+   20e08:	fff78793          	add	a5,a5,-1
+   20e0c:	01079793          	sll	a5,a5,0x10
+   20e10:	0107d793          	srl	a5,a5,0x10
+   20e14:	00078713          	mv	a4,a5
+   20e18:	000087b7          	lui	a5,0x8
+   20e1c:	fff78793          	add	a5,a5,-1 # 7fff <boot_program+0x7fff>
+   20e20:	00f777b3          	and	a5,a4,a5
+   20e24:	01079713          	sll	a4,a5,0x10
+   20e28:	01075713          	srl	a4,a4,0x10
+   20e2c:	fec42783          	lw	a5,-20(s0)
+   20e30:	0047a783          	lw	a5,4(a5)
+   20e34:	01171713          	sll	a4,a4,0x11
+   20e38:	0007a603          	lw	a2,0(a5)
+   20e3c:	000206b7          	lui	a3,0x20
+   20e40:	fff68693          	add	a3,a3,-1 # 1ffff <boot_program+0x1ffff>
+   20e44:	00d676b3          	and	a3,a2,a3
+   20e48:	00e6e733          	or	a4,a3,a4
+   20e4c:	00e7a023          	sw	a4,0(a5)
+   20e50:	fec42783          	lw	a5,-20(s0)
+   20e54:	00078513          	mv	a0,a5
+   20e58:	01c12403          	lw	s0,28(sp)
+   20e5c:	02010113          	add	sp,sp,32
+   20e60:	00008067          	ret
+
+00020e64 <_ZN4UART12setInterruptENS_11uartEvent_eE>:
+   20e64:	fe010113          	add	sp,sp,-32
+   20e68:	00812e23          	sw	s0,28(sp)
+   20e6c:	02010413          	add	s0,sp,32
+   20e70:	fea42623          	sw	a0,-20(s0)
+   20e74:	feb42423          	sw	a1,-24(s0)
+   20e78:	fec42783          	lw	a5,-20(s0)
+   20e7c:	0047a783          	lw	a5,4(a5)
+   20e80:	0007a703          	lw	a4,0(a5)
+   20e84:	00475713          	srl	a4,a4,0x4
+   20e88:	01f77713          	and	a4,a4,31
+   20e8c:	0ff77713          	zext.b	a4,a4
+   20e90:	01871693          	sll	a3,a4,0x18
+   20e94:	4186d693          	sra	a3,a3,0x18
+   20e98:	fe842703          	lw	a4,-24(s0)
+   20e9c:	01871713          	sll	a4,a4,0x18
+   20ea0:	41875713          	sra	a4,a4,0x18
+   20ea4:	00e6e733          	or	a4,a3,a4
+   20ea8:	01871713          	sll	a4,a4,0x18
+   20eac:	41875713          	sra	a4,a4,0x18
+   20eb0:	01f77713          	and	a4,a4,31
+   20eb4:	0ff77713          	zext.b	a4,a4
+   20eb8:	01f77713          	and	a4,a4,31
+   20ebc:	00471713          	sll	a4,a4,0x4
+   20ec0:	0007a683          	lw	a3,0(a5)
+   20ec4:	e0f6f693          	and	a3,a3,-497
+   20ec8:	00e6e733          	or	a4,a3,a4
+   20ecc:	00e7a023          	sw	a4,0(a5)
+   20ed0:	fec42783          	lw	a5,-20(s0)
+   20ed4:	00078513          	mv	a0,a5
+   20ed8:	01c12403          	lw	s0,28(sp)
+   20edc:	02010113          	add	sp,sp,32
+   20ee0:	00008067          	ret
+
+00020ee4 <_ZN4UART16disableInterruptENS_11uartEvent_eE>:
+   20ee4:	fe010113          	add	sp,sp,-32
+   20ee8:	00812e23          	sw	s0,28(sp)
+   20eec:	02010413          	add	s0,sp,32
+   20ef0:	fea42623          	sw	a0,-20(s0)
+   20ef4:	feb42423          	sw	a1,-24(s0)
+   20ef8:	fec42783          	lw	a5,-20(s0)
+   20efc:	0047a783          	lw	a5,4(a5)
+   20f00:	0007a703          	lw	a4,0(a5)
+   20f04:	00475713          	srl	a4,a4,0x4
+   20f08:	01f77713          	and	a4,a4,31
+   20f0c:	0ff77713          	zext.b	a4,a4
+   20f10:	01871693          	sll	a3,a4,0x18
+   20f14:	4186d693          	sra	a3,a3,0x18
+   20f18:	fe842703          	lw	a4,-24(s0)
+   20f1c:	01871713          	sll	a4,a4,0x18
+   20f20:	41875713          	sra	a4,a4,0x18
+   20f24:	fff74713          	not	a4,a4
+   20f28:	01871713          	sll	a4,a4,0x18
+   20f2c:	41875713          	sra	a4,a4,0x18
+   20f30:	00e6f733          	and	a4,a3,a4
+   20f34:	01871713          	sll	a4,a4,0x18
+   20f38:	41875713          	sra	a4,a4,0x18
+   20f3c:	01f77713          	and	a4,a4,31
+   20f40:	0ff77713          	zext.b	a4,a4
+   20f44:	01f77713          	and	a4,a4,31
+   20f48:	00471713          	sll	a4,a4,0x4
+   20f4c:	0007a683          	lw	a3,0(a5)
+   20f50:	e0f6f693          	and	a3,a3,-497
+   20f54:	00e6e733          	or	a4,a3,a4
+   20f58:	00e7a023          	sw	a4,0(a5)
+   20f5c:	fec42783          	lw	a5,-20(s0)
+   20f60:	00078513          	mv	a0,a5
+   20f64:	01c12403          	lw	s0,28(sp)
+   20f68:	02010113          	add	sp,sp,32
+   20f6c:	00008067          	ret
+
+00020f70 <_ZN4UART9getStatusEv>:
+   20f70:	fe010113          	add	sp,sp,-32
+   20f74:	00812e23          	sw	s0,28(sp)
+   20f78:	02010413          	add	s0,sp,32
+   20f7c:	fea42623          	sw	a0,-20(s0)
+   20f80:	fec42783          	lw	a5,-20(s0)
+   20f84:	0047a783          	lw	a5,4(a5)
+   20f88:	0007a783          	lw	a5,0(a5)
+   20f8c:	00078513          	mv	a0,a5
+   20f90:	01c12403          	lw	s0,28(sp)
+   20f94:	02010113          	add	sp,sp,32
+   20f98:	00008067          	ret
+
+00020f9c <_ZN4UART8getEventEv>:
+   20f9c:	fe010113          	add	sp,sp,-32
+   20fa0:	00812e23          	sw	s0,28(sp)
+   20fa4:	02010413          	add	s0,sp,32
+   20fa8:	fea42623          	sw	a0,-20(s0)
+   20fac:	fec42783          	lw	a5,-20(s0)
+   20fb0:	0107a783          	lw	a5,16(a5)
+   20fb4:	0007a783          	lw	a5,0(a5)
+   20fb8:	00078513          	mv	a0,a5
+   20fbc:	01c12403          	lw	s0,28(sp)
+   20fc0:	02010113          	add	sp,sp,32
+   20fc4:	00008067          	ret
+
+00020fc8 <_ZN4UART8sendByteEh>:
+   20fc8:	fe010113          	add	sp,sp,-32
+   20fcc:	00812e23          	sw	s0,28(sp)
+   20fd0:	02010413          	add	s0,sp,32
+   20fd4:	fea42623          	sw	a0,-20(s0)
+   20fd8:	00058793          	mv	a5,a1
+   20fdc:	fef405a3          	sb	a5,-21(s0)
+   20fe0:	00000013          	nop
+   20fe4:	fec42783          	lw	a5,-20(s0)
+   20fe8:	0047a783          	lw	a5,4(a5)
+   20fec:	0007a783          	lw	a5,0(a5)
+   20ff0:	0087f793          	and	a5,a5,8
+   20ff4:	00f037b3          	snez	a5,a5
+   20ff8:	0ff7f793          	zext.b	a5,a5
+   20ffc:	fe0794e3          	bnez	a5,20fe4 <_ZN4UART8sendByteEh+0x1c>
+   21000:	feb44703          	lbu	a4,-21(s0)
+   21004:	fec42783          	lw	a5,-20(s0)
+   21008:	00c7a783          	lw	a5,12(a5)
+   2100c:	00e78023          	sb	a4,0(a5)
+   21010:	fec42783          	lw	a5,-20(s0)
+   21014:	00078513          	mv	a0,a5
+   21018:	01c12403          	lw	s0,28(sp)
+   2101c:	02010113          	add	sp,sp,32
+   21020:	00008067          	ret
+
+00021024 <_ZN4UART12loadBufferTXEPhm>:
+   21024:	fd010113          	add	sp,sp,-48
+   21028:	02812623          	sw	s0,44(sp)
+   2102c:	03010413          	add	s0,sp,48
+   21030:	fca42e23          	sw	a0,-36(s0)
+   21034:	fcb42c23          	sw	a1,-40(s0)
+   21038:	fcc42a23          	sw	a2,-44(s0)
+   2103c:	fe042623          	sw	zero,-20(s0)
+   21040:	04c0006f          	j	2108c <_ZN4UART12loadBufferTXEPhm+0x68>
+   21044:	00000013          	nop
+   21048:	fdc42783          	lw	a5,-36(s0)
+   2104c:	0047a783          	lw	a5,4(a5)
+   21050:	0007a783          	lw	a5,0(a5)
+   21054:	0087f793          	and	a5,a5,8
+   21058:	00f037b3          	snez	a5,a5
+   2105c:	0ff7f793          	zext.b	a5,a5
+   21060:	fe0794e3          	bnez	a5,21048 <_ZN4UART12loadBufferTXEPhm+0x24>
+   21064:	fec42783          	lw	a5,-20(s0)
+   21068:	fd842703          	lw	a4,-40(s0)
+   2106c:	00f707b3          	add	a5,a4,a5
+   21070:	0007c703          	lbu	a4,0(a5)
+   21074:	fdc42783          	lw	a5,-36(s0)
+   21078:	00c7a783          	lw	a5,12(a5)
+   2107c:	00e78023          	sb	a4,0(a5)
+   21080:	fec42783          	lw	a5,-20(s0)
+   21084:	00178793          	add	a5,a5,1
+   21088:	fef42623          	sw	a5,-20(s0)
+   2108c:	fec42783          	lw	a5,-20(s0)
+   21090:	fd442703          	lw	a4,-44(s0)
+   21094:	fae7e8e3          	bltu	a5,a4,21044 <_ZN4UART12loadBufferTXEPhm+0x20>
+   21098:	fdc42783          	lw	a5,-36(s0)
+   2109c:	00078513          	mv	a0,a5
+   210a0:	02c12403          	lw	s0,44(sp)
+   210a4:	03010113          	add	sp,sp,48
+   210a8:	00008067          	ret
+
+000210ac <_ZN4UART11receiveByteEv>:
+   210ac:	fe010113          	add	sp,sp,-32
+   210b0:	00812e23          	sw	s0,28(sp)
+   210b4:	02010413          	add	s0,sp,32
+   210b8:	fea42623          	sw	a0,-20(s0)
+   210bc:	00000013          	nop
+   210c0:	fec42783          	lw	a5,-20(s0)
+   210c4:	0047a783          	lw	a5,4(a5)
+   210c8:	0007a783          	lw	a5,0(a5)
+   210cc:	0017f793          	and	a5,a5,1
+   210d0:	00f037b3          	snez	a5,a5
+   210d4:	0ff7f793          	zext.b	a5,a5
+   210d8:	fe0794e3          	bnez	a5,210c0 <_ZN4UART11receiveByteEv+0x14>
+   210dc:	fec42783          	lw	a5,-20(s0)
+   210e0:	0087a783          	lw	a5,8(a5)
+   210e4:	0007c783          	lbu	a5,0(a5)
+   210e8:	00078513          	mv	a0,a5
+   210ec:	01c12403          	lw	s0,28(sp)
+   210f0:	02010113          	add	sp,sp,32
+   210f4:	00008067          	ret
+
+000210f8 <_ZN4UART14unloadBufferRXEPhm>:
+   210f8:	fd010113          	add	sp,sp,-48
+   210fc:	02812623          	sw	s0,44(sp)
+   21100:	03010413          	add	s0,sp,48
+   21104:	fca42e23          	sw	a0,-36(s0)
+   21108:	fcb42c23          	sw	a1,-40(s0)
+   2110c:	fcc42a23          	sw	a2,-44(s0)
+   21110:	fe042623          	sw	zero,-20(s0)
+   21114:	04c0006f          	j	21160 <_ZN4UART14unloadBufferRXEPhm+0x68>
+   21118:	00000013          	nop
+   2111c:	fdc42783          	lw	a5,-36(s0)
+   21120:	0047a783          	lw	a5,4(a5)
+   21124:	0007a783          	lw	a5,0(a5)
+   21128:	0017f793          	and	a5,a5,1
+   2112c:	00f037b3          	snez	a5,a5
+   21130:	0ff7f793          	zext.b	a5,a5
+   21134:	fe0794e3          	bnez	a5,2111c <_ZN4UART14unloadBufferRXEPhm+0x24>
+   21138:	fdc42783          	lw	a5,-36(s0)
+   2113c:	0087a703          	lw	a4,8(a5)
+   21140:	fec42783          	lw	a5,-20(s0)
+   21144:	fd842683          	lw	a3,-40(s0)
+   21148:	00f687b3          	add	a5,a3,a5
+   2114c:	00074703          	lbu	a4,0(a4)
+   21150:	00e78023          	sb	a4,0(a5)
+   21154:	fec42783          	lw	a5,-20(s0)
+   21158:	00178793          	add	a5,a5,1
+   2115c:	fef42623          	sw	a5,-20(s0)
+   21160:	fec42783          	lw	a5,-20(s0)
+   21164:	fd442703          	lw	a4,-44(s0)
+   21168:	fae7e8e3          	bltu	a5,a4,21118 <_ZN4UART14unloadBufferRXEPhm+0x20>
+   2116c:	fdc42783          	lw	a5,-36(s0)
+   21170:	00078513          	mv	a0,a5
+   21174:	02c12403          	lw	s0,44(sp)
+   21178:	03010113          	add	sp,sp,48
+   2117c:	00008067          	ret
