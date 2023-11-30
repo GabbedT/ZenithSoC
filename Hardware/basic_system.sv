@@ -18,10 +18,10 @@
 
 module basic_system #(
     /* Predictor table size */ 
-    parameter PREDICTOR_SIZE = 1024, 
+    parameter PREDICTOR_SIZE = 512, 
 
     /* Branch target buffer cache size */
-    parameter BTB_SIZE = 1024, 
+    parameter BTB_SIZE = 512, 
 
     /* Store buffer entries number */
     parameter STORE_BUFFER_SIZE = 4, 
@@ -33,7 +33,10 @@ module basic_system #(
     parameter MEMORY_SIZE = 2 ** 14,
 
     /* Boot memory bytes */
-    parameter BOOT_SIZE = 2 ** 11
+    parameter BOOT_SIZE = 2 ** 11,
+
+    /* Reorder Buffer entries */
+    parameter ROB_DEPTH = 32
 ) (
     input logic clk_i,
     input logic rst_n_i,
@@ -76,7 +79,7 @@ module basic_system #(
     logic [7:0] int_vector;
 
     /* Core instantiation */
-    ApogeoRV #(PREDICTOR_SIZE, BTB_SIZE, STORE_BUFFER_SIZE, INSTRUCTION_BUFFER_SIZE) system_cpu (
+    ApogeoRV #(PREDICTOR_SIZE, BTB_SIZE, STORE_BUFFER_SIZE, INSTRUCTION_BUFFER_SIZE, ROB_DEPTH) system_cpu (
         .clk_i   ( clk_i   ),
         .rst_n_i ( reset_n ),
 
@@ -95,20 +98,24 @@ module basic_system #(
 
     logic uart_interrupt, timer_interrupt, gpio_interrupt, bus_error;
 
-    interrupt_controller #(4) interrupt_controller (
+    localparam INTERRUPT_SOURCES = 4;
+
+    interrupt_controller #(INTERRUPT_SOURCES) interrupt_controller (
         .clk_i   ( clk_i   ),
         .rst_n_i ( reset_n ),
 
         .interrupt_i ( {bus_error, timer_interrupt, uart_interrupt, gpio_interrupt} ),
 
-        .acknowledge_i ( int_acknowledge ),
-        .interrupt_o   ( interrupt       ),
-        .vector_o      ( int_vector      )
+        .acknowledge_i ( int_acknowledge                             ),
+        .interrupt_o   ( interrupt                                   ),
+        .vector_o      ( int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] )
     );
 
-    assign t_interrupt = (int_vector == 2) & interrupt;
+    assign t_interrupt = (int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] == 2) & interrupt;
 
-    assign nmsk_interrupt = (int_vector == 3) & interrupt;
+    assign nmsk_interrupt = (int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] == 3) & interrupt;
+
+    assign int_vector[7:$clog2(INTERRUPT_SOURCES) + 1] = '0;
 
 
 //==========================================================
@@ -253,7 +260,6 @@ module basic_system #(
 
     assign write_busy[_UART_] = 1'b0;
     assign write_ready[_UART_] = 1'b1;
-    assign write_strobe[_UART_] = '1;
 
     assign read_busy[_UART_] = 1'b0;
     assign read_ready[_UART_] = 1'b1;
@@ -272,23 +278,23 @@ module basic_system #(
         .write_i         ( write_request[_TIMER_] ),
         .write_data_i    ( write_data[_TIMER_]    ),
         .write_address_i ( write_address[_TIMER_] ),
+        .write_error_o   ( write_error[_TIMER_]   ),
 
         .read_i         ( read_request[_TIMER_] ),
         .read_address_i ( read_address[_TIMER_] ),
         .read_data_o    ( read_data[_TIMER_]    ),
+        .read_error_o   ( read_error[_TIMER_]   ),
 
         .interrupt_o ( timer_interrupt )
     );
 
     assign write_busy[_TIMER_] = 1'b0;
     assign write_ready[_TIMER_] = 1'b1;
-    assign write_error[_TIMER_] = 1'b0;
     assign write_strobe[_TIMER_] = '1;
     assign write_done[_TIMER_] = write_request[_TIMER_];
 
     assign read_busy[_TIMER_] = 1'b0;
     assign read_ready[_TIMER_] = 1'b1;
-    assign read_error[_TIMER_] = 1'b0;
     assign read_done[_TIMER_] = read_request[_TIMER_];
 
 
@@ -420,6 +426,7 @@ module basic_system #(
         .load_address_i ( read_address[_BOOT_] >> 2 ),
         .load_data_o    ( read_data[_BOOT_]         ),
         .load_done_o    ( read_done[_BOOT_]         ),
+        .load_invalid_i ( load_channel.invalidate ),
 
         .fetch_i         ( boot_rom_fetch             ),
         .invalidate_i    ( fetch_channel.invalidate   ),
@@ -433,7 +440,7 @@ module basic_system #(
     assign write_error[_BOOT_] = 1'b0;
 
     assign read_busy[_BOOT_] = 1'b0;
-    assign read_ready[_BOOT_] = 1'b10;
+    assign read_ready[_BOOT_] = 1'b1;
     assign read_error[_BOOT_] = 1'b0;
 
 
