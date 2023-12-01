@@ -12,6 +12,7 @@ module timer (
     input logic write_i,
     input logic [31:0] write_data_i,
     input logic [2:0] write_address_i,
+    input logic [3:0] write_strobe_i,
     output logic write_error_o,
 
     /* Read interface */
@@ -106,10 +107,10 @@ module timer (
                 stop_timer <= 1'b1;
             end else begin 
                 if (configuration.enable) begin
-                    if (interrupt_o & configuration.one_shot) begin
+                    if (interrupt & configuration.one_shot) begin
                         stop_timer <= 1'b1;
                     end else if (enable_register[CONFIGURATION]) begin
-                        /* User triggers restart by clearing the 3-th bit */
+                        /* User triggers restart by setting the 3-th bit */
                         stop_timer <= write_data_i[3];
                     end
                 end else begin
@@ -123,16 +124,22 @@ module timer (
 //      TIMER LOGIC
 //====================================================================================
 
-    logic [1:0][31:0] timer;
+    logic [1:0][3:0][7:0] timer; logic [3:0][7:0] write_data;
+
+    assign write_data = write_data_i;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : timer_register
             if (!rst_n_i) begin
                 timer <= '0;
             end else if (enable_register[TIMER_VALUE_LOW]) begin
-                timer[0] <= write_data_i;
+                for (int i = 0; i < 4; ++i) begin
+                    timer[0][i] <= write_data[i];
+                end
             end else if (enable_register[TIMER_VALUE_HIGH]) begin
-                timer[1] <= write_data_i;
-            end else if (!stop_timer) begin
+                for (int i = 0; i < 4; ++i) begin
+                    timer[1][i] <= write_data[i];
+                end
+            end else if (!stop_timer & !interrupt_o & !(interrupt & configuration.one_shot)) begin
                 /* On interrupt reach, stop the timer, to clear
                  * it, load the timer with another value */
                 timer <= timer + 1'b1;
