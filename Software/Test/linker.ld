@@ -18,6 +18,6 @@ SECTIONS
     .text : { 
         *(.text) 
 
-        uart_test.o (.text.uart_test)
+        test.o (.text.test)
     } > text
 }

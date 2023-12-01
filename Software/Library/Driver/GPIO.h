@@ -5,6 +5,15 @@
 
 class GPIO {
 
+public:
+
+    /* Pin direction value */
+    enum pinDirection_e { OUTPUT, INPUT };
+
+    /* Interrupt level */
+    enum triggerLevel_e { LOW, HIGH };
+
+
 private: 
 
     /* Base memory address */
@@ -25,17 +34,8 @@ private:
 
 public:
 
-    /* Pin direction value */
-    enum pinDirection_e { OUTPUT, INPUT };
-
-    /* Interrupt level */
-    enum triggerLevel_e { LOW, HIGH };
-
-
     /* Constructors: `gpioNumber` specifies the id of the UART in the system, if there are more than 1 */
     GPIO(uint32_t gpioNumber);
-
-    GPIO(uint32_t gpioNumber, uint8_t value, uint8_t direction, uint8_t interruptEnable, uint8_t interruptLevel);
 
     /* Deconstructor */
     ~GPIO();
@@ -44,6 +44,8 @@ public:
 /*****************************************************************/
 /*                         CONFIGURATION                         */
 /*****************************************************************/
+    
+    GPIO& init(uint8_t value, uint8_t direction, uint8_t interruptEnable, uint8_t interruptLevel);
 
     /* Single pin value set */
     GPIO& setPinValue(uint32_t index, bool pinLevel);

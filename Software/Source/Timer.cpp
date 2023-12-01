@@ -5,6 +5,8 @@
 #include "../Library/mmio.h"
 #include "../Library/platform.h"
 
+#define NANO2MILLI_SCALE (uint64_t) (1'000'000 / CLOCK_PERIOD)
+
 #include <stdint.h>
 
 
@@ -20,18 +22,18 @@
  * id in the system. It is used to calculate the base address of the timer and configure the timer accordingly.
  */
 Timer::Timer(uint32_t timerNumber) : 
-    baseAddress   ( (uint32_t *) TIMER_BASE + (timerNumber * 5) ),
-    value         ( (uint64_t *) baseAddress                    ),
-    threshold     ( (uint64_t *) baseAddress + 2                ),
-    configuration ( (timerConfig_s *) baseAddress + 4          ) {
+    baseAddress   ( (uint32_t *) (TIMER_BASE + (timerNumber * 8)) ),
+    threshold     ( (uint64_t *) baseAddress                      ),
+    value         ( (uint64_t *) (baseAddress + 2)                ),
+    configuration ( (timerConfig_s *) (baseAddress + 4)           ) {
     
-    /* Count from zero to maximum 64 bit integer */
-    *value = 0;
-    *threshold = TIMER_MAX_TIME;
-
     /* Disable timer counting and interrupt generation */
-    configuration->enableTimer = 0;
-    configuration->interruptEnable = 0;
+    configuration->enableTimer = false;
+    configuration->interruptEnable = false;
+
+    /* Count from zero to maximum 64 bit integer */
+    *value = 0L;
+    *threshold = TIMER_MAX_TIME;
 
     /* Default configuration */
     configuration->timerMode = FREE_RUNNING;
@@ -40,32 +42,46 @@ Timer::Timer(uint32_t timerNumber) :
 
 
 /**
- * @brief The Timer constructor initializes the timer with the given threshold value and mode.
- * 
- * @param timerNumber An integer value that represents the specific timer
- * id in the system. It is used to calculate the base address of the timer and configure the timer accordingly.
- * @param threshold The threshold parameter is a 64 bit value that represents the maximum value that
- * the timer will count up to before triggering an interrupt.
- * @param mode It represents the action performed by the timer once it reaches the threshold value.
+ * @brief The Timer destructor disables the timer, resets its value and threshold, and sets the timer mode to FREE_RUNNING.
  */
-Timer::Timer(uint32_t timerNumber, uint64_t threshold, timerMode_e mode) : 
-    baseAddress   ( (uint32_t *) TIMER_BASE + (timerNumber * 5) ),
-    value         ( (uint64_t *) baseAddress                    ),
-    threshold     ( (uint64_t *) baseAddress + 8                ),
-    configuration ( (timerConfig_s *) baseAddress + 16          ) {
-    
-    /* Count from zero to threshold */
-    *value = 0;
-    *this->threshold = threshold;
+Timer::~Timer() {
+    /* Disable timer counting and interrupt generation */
+    configuration->enableTimer = false;
+    configuration->interruptEnable = false;
 
-    configuration->timerMode = mode;
-};
+    /* Count from zero to maximum 64 bit integer */
+    *value = 0L;
+    *threshold = TIMER_MAX_TIME;
 
+    /* Default configuration */
+    configuration->timerMode = FREE_RUNNING;
+}
 
 
 /*****************************************************************/
 /*                         CONFIGURATION                         */
 /*****************************************************************/
+
+/**
+ * @brief Initializes a Timer pin with specified parameters and returns a reference to the GPIO
+ * object.
+ * 
+ * @return The Timer object itself to chain the function call.
+ */
+Timer& Timer::init(uint64_t threshold, timerMode_e mode) {
+    /* Disable interrupts to avoid any undesired interrupt */
+    configuration->interruptEnable = false;
+
+    /* User defined configuration */
+    *this->threshold = threshold;
+    configuration->timerMode = mode;
+
+    /* Reset timer value and enable interrupts */
+    *value = 0L;
+    configuration->interruptEnable = true;
+
+    return *this;
+}
 
 /**
  * @brief Sets or clear the interrupt enable flag in the Timer configuration.
@@ -168,7 +184,8 @@ uint64_t Timer::getThreshold() const {
  * @return The Timer object itself to chain the function call.
  */
 Timer& Timer::start() {
-    configuration->enableTimer = 1;
+    configuration->enableTimer = true;
+    configuration->halted = false;
 
     return *this;
 };
@@ -180,7 +197,7 @@ Timer& Timer::start() {
  * @return The Timer object itself to chain the function call.
  */
 Timer& Timer::stop() {
-    configuration->enableTimer = 0;
+    configuration->enableTimer = false;
 
     return *this;
 };
@@ -196,7 +213,7 @@ Timer& Timer::restart() {
     *value = 0;
 
     /* Start incrementin again */
-    configuration->restart = 1;
+    configuration->halted = false;
 
     return *this;
 }
@@ -212,7 +229,7 @@ uint64_t Timer::getMillis() const {
 
     /* 1ms is 10^6 ns, however the timer might increment once Xns, 
      * then divide the divisor value for the incrementing period */
-    return timerValue / (1'000'000 / CLOCK_PERIOD);
+    return timerValue / NANO2MILLI_SCALE;
 };
 
 
@@ -234,19 +251,19 @@ float Timer::timeElapsed(timeFormat_e format) const {
         break;
 
         case MILLI:
-            return timerValue / (1e+6 / CLOCK_PERIOD);
+            return timerValue / (1e+6F / CLOCK_PERIOD);
         break;
 
         case SECONDS:
-            return timerValue / (1e+9 / CLOCK_PERIOD);
+            return timerValue / (1e+9F / CLOCK_PERIOD);
         break;
 
         case MINUTES:
-            return (timerValue / (1e+9 / CLOCK_PERIOD)) / 60;
+            return (timerValue / (1e+9F / CLOCK_PERIOD)) / 60;
         break;
 
         case HOURS:
-            return (timerValue / (1e+9 / CLOCK_PERIOD)) / 3600;
+            return (timerValue / (1e+9F / CLOCK_PERIOD)) / 3600;
         break;
         
         default:

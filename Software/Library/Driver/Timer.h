@@ -18,11 +18,11 @@ public:
 
     /* Configuration register fields */
     struct timerConfig_s {
-        uint32_t padding : 28;
-        uint8_t restart : 1;
-        uint8_t interruptEnable : 1;
-        timerMode_e timerMode : 1;
-        uint8_t enableTimer : 1;
+        unsigned int enableTimer : 1;
+        unsigned int timerMode : 1;
+        unsigned int interruptEnable : 1;
+        unsigned int halted : 1;
+        unsigned int padding : 28;
     };
 
 
@@ -52,9 +52,7 @@ public:
      * @param timerNumber The timerNumber parameter is an integer value that represents the specific timer
      * id in the system. It is used to calculate the base address of the timer and configure the timer accordingly.
      */
-    Timer(uint32_t timerNumber);
-
-    Timer(uint32_t timerNumber, uint64_t threshold, timerMode_e mode);
+    Timer(uint32_t timerNumber = 0);
 
     /* Deconstructor */
     ~Timer();
@@ -63,6 +61,8 @@ public:
 /*****************************************************************/
 /*                         CONFIGURATION                         */
 /*****************************************************************/
+
+    Timer& init(uint64_t threshold, timerMode_e mode);
 
     /**
      * @brief Sets or clear the interrupt enable flag in the Timer configuration.

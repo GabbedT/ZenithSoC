@@ -23,10 +23,10 @@ UART::UART(uint32_t uartNumber) :
     uartBaseAddress ( (uint32_t *) (UART_BASE + (uartNumber * 4)) ),
 
     /* Initialize register addresses based on the base address */
-    status          ( (struct uartStatus_s *) (uartBaseAddress)     ),
-    bufferTX        ( (uint8_t *) (uartBaseAddress + 1)             ),
-    bufferRX        ( (uint8_t *) (uartBaseAddress + 2)             ),
-    event           ( (uint32_t * volatile) (uartBaseAddress + 3)   ) {
+    status          ( (struct uartStatus_s *) (uartBaseAddress)   ),
+    bufferTX        ( (uint8_t *) (uartBaseAddress + 1)           ),
+    bufferRX        ( (uint8_t *) (uartBaseAddress + 2)           ),
+    event           ( (uint32_t * volatile) (uartBaseAddress + 3) ) {
 
     
     /* Disable all functions */
@@ -196,8 +196,10 @@ UART::uartEvent_e UART::getEvent() {
 /*****************************************************************/
 
 /**
- * @brief Sends a byte of data over UART by waiting for the TX buffer to empty and then writing
+ * @brief Sends a byte of data over UART by checking if the TX buffer is not full and writing
  * the data to the buffer.
+ * 
+ * @warning The function blocks if it find the TX buffer to be full
  * 
  * @param data Byte to send.
  * @return The UART object itself to chain the function call.
@@ -214,8 +216,10 @@ UART& UART::sendByte(uint8_t data) {
 
 
 /**
- * @brief Load several bytes of data into the TX buffer of a UART object. It waits for the buffer to empty before
- * writing each byte.
+ * @brief Load several bytes of data into the TX buffer of a UART object. It waits for the buffer full flag to 
+ * deassert before writing each byte.
+ * 
+ * @warning The function blocks if it find the TX buffer to be full
  * 
  * @param data Pointer to the start of the data packet.
  * @param size Size of the data packet to send.
@@ -238,6 +242,8 @@ UART& UART::loadBufferTX(uint8_t* data, uint32_t size) {
 /**
  * @brief Wait until there is data in the receive buffer and then returns the received byte.
  * 
+ * @warning The function blocks until the RX buffer has valid data.
+ * 
  * @return The byte stored inside the RX buffer.
  */
 uint8_t UART::receiveByte() {
@@ -251,7 +257,8 @@ uint8_t UART::receiveByte() {
 
 /**
  * @brief Wait until there is data in the receive buffer and then returns the received byte.
- * Warning! The function is blocking, so it won't return until the buffer is filled!
+ * 
+ * @warning The function blocks until the buffer passed as parameter is filled.
  * 
  * @return The byte stored inside the RX buffer.
  */

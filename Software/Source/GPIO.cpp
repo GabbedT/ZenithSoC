@@ -12,33 +12,54 @@ GPIO::GPIO(uint32_t gpioNumber) :
     gpioBaseAddress ( (uint32_t * volatile) (GPIO_BASE + gpioNumber) ),
 
     /* Initialize register addresses based on the base address */
-    value           ( (uint8_t * volatile) gpioBaseAddress     ),
-    direction       ( (uint8_t * volatile) gpioBaseAddress + 1 ),
-    interruptEnable ( (uint8_t * volatile) gpioBaseAddress + 2 ),
-    triggerLevel  ( (uint8_t * volatile) gpioBaseAddress + 3 ) {
-
-    /* Output mode set to 0 */
-    *direction = 0;
-    *value = 0;
+    value           ( (uint8_t * volatile)  gpioBaseAddress      ),
+    direction       ( (uint8_t * volatile) (gpioBaseAddress + 1) ),
+    interruptEnable ( (uint8_t * volatile) (gpioBaseAddress + 2) ),
+    triggerLevel    ( (uint8_t * volatile) (gpioBaseAddress + 3) ) {
 
     /* Disable interrupts */
-    *interruptEnable = 0;
+    *interruptEnable = false;
+
+    /* Output mode set to 0 */
+    *direction = GPIO::OUTPUT;
+    *value = 0;
 
     /* Interrupt on 0 to 1 transition */
     *triggerLevel = 1;
 };
 
 
-GPIO::GPIO(uint32_t gpioNumber, uint8_t value, uint8_t direction, uint8_t interruptEnable, uint8_t triggerLevel) :
-    /* Initialize the base addres considering that each device has 4 registers of 1 byte */
-    gpioBaseAddress ( (uint32_t * volatile) (GPIO_BASE + gpioNumber) ),
+/**
+ * @brief The GPIO destructor disables the GPIO interrupts, set all the pins to OUTPUT, their values to 0 and set a trigger level
+ * for a transition from LOW to HIGH.
+ */
+GPIO::~GPIO() {
+    /* Disable interrupts */
+    *interruptEnable = false;
 
-    /* Initialize register addresses based on the base address */
-    value           ( (uint8_t * volatile) gpioBaseAddress     ),
-    direction       ( (uint8_t * volatile) gpioBaseAddress + 1 ),
-    interruptEnable ( (uint8_t * volatile) gpioBaseAddress + 2 ),
-    triggerLevel  ( (uint8_t * volatile) gpioBaseAddress + 3 ) {
+    /* Output mode set to 0 */
+    *direction = GPIO::OUTPUT;
+    *value = 0;
 
+    /* Interrupt on 0 to 1 transition */
+    *triggerLevel = 0;
+}
+
+
+
+/*****************************************************************/
+/*                         CONFIGURATION                         */
+/*****************************************************************/
+
+/**
+ * @brief Initializes all the 8 GPIOs of a group with the parameters passes to the function.
+ * 
+ * @return The GPIO object itself to chain the function call.
+ */
+GPIO& GPIO::init(uint8_t value, uint8_t direction, uint8_t interruptEnable, uint8_t triggerLevel) {
+    /* Disable interrupts */
+    *this->interruptEnable = false;
+    
     /* Output mode set to 0 */
     *this->direction = direction;
     *this->value = value;
@@ -48,13 +69,10 @@ GPIO::GPIO(uint32_t gpioNumber, uint8_t value, uint8_t direction, uint8_t interr
 
     /* Interrupt on 0 to 1 transition */
     *this->triggerLevel = triggerLevel;
+
+    return *this;
 };
 
-
-
-/*****************************************************************/
-/*                         CONFIGURATION                         */
-/*****************************************************************/
 
 /**
  * @brief Set the pin value of a specific pin in the GPIO group 

@@ -1,8 +1,10 @@
+#define MMIO_START 0x00000800
+
 /* UART base address */
-#define UART_BASE 0x00000800
+#define UART_BASE MMIO_START
 
 /* Timer base address */
-#define TIMER_BASE 0x00000810
+#define TIMER_BASE MMIO_START + 128
 
 /* GPIO base address */
-#define GPIO_BASE 0x00000830
+#define GPIO_BASE MMIO_START + 256

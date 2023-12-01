@@ -2,13 +2,13 @@
 
 /* Frequency of the system in Hz */
 #define SYSTEM_FREQUENCY 100000000
-#define CLOCK_PERIOD 1 / SYSTEM_FREQUENCY
+#define CLOCK_PERIOD 10
 
 /* Number of timers in the system */
 #define TIMER_NUMBER 1
 
 /* Maximum time count */
-#define TIMER_MAX_TIME UINT64_MAX
+#define TIMER_MAX_TIME -1
 
 /* Number of GPIO groups */
 #define GPIO_GROUP_NUMBER 1
