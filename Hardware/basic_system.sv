@@ -130,10 +130,10 @@ module basic_system #(
         `IO_START, 
 
         /* Timer */
-        `IO_START + (4 << 2),
+        `IO_START + 'd128,
 
         /* GPIO */
-        `IO_START + (12 << 2),
+        `IO_START + 'd256,
 
         /* Memory */
         `USER_MEMORY_REGION_START
@@ -144,13 +144,13 @@ module basic_system #(
         `BOOT_END, 
 
         /* UART */
-        `IO_START + (3 << 2), 
+        LOW_SLAVE_ADDRESS[1] + (3 << 2), 
 
         /* Timer */
-        `IO_START + (8 << 2),
+        LOW_SLAVE_ADDRESS[2] + (8 << 2),
 
         /* GPIO */
-        `IO_START + (15 << 2),
+        LOW_SLAVE_ADDRESS[3] + (15 << 2),
 
         /* Memory */
         `USER_MEMORY_REGION_END
@@ -275,22 +275,22 @@ module basic_system #(
         .clk_i   ( clk_i   ),
         .rst_n_i ( reset_n ),
 
-        .write_i         ( write_request[_TIMER_] ),
-        .write_data_i    ( write_data[_TIMER_]    ),
-        .write_address_i ( write_address[_TIMER_] ),
-        .write_error_o   ( write_error[_TIMER_]   ),
+        .write_i         ( write_request[_TIMER_]      ),
+        .write_data_i    ( write_data[_TIMER_]         ),
+        .write_address_i ( write_address[_TIMER_] >> 2 ),
+        .write_error_o   ( write_error[_TIMER_]        ),
+        .write_strobe_i  ( write_strobe[_TIMER_]       ),
 
-        .read_i         ( read_request[_TIMER_] ),
-        .read_address_i ( read_address[_TIMER_] ),
-        .read_data_o    ( read_data[_TIMER_]    ),
-        .read_error_o   ( read_error[_TIMER_]   ),
+        .read_i         ( read_request[_TIMER_]      ),
+        .read_address_i ( read_address[_TIMER_] >> 2 ),
+        .read_data_o    ( read_data[_TIMER_]         ),
+        .read_error_o   ( read_error[_TIMER_]        ),
 
         .interrupt_o ( timer_interrupt )
     );
 
     assign write_busy[_TIMER_] = 1'b0;
     assign write_ready[_TIMER_] = 1'b1;
-    assign write_strobe[_TIMER_] = '1;
     assign write_done[_TIMER_] = write_request[_TIMER_];
 
     assign read_busy[_TIMER_] = 1'b0;
@@ -326,13 +326,13 @@ module basic_system #(
                 .pin_io ( pin_io[i] ),
 
                 /* Write interface */
-                .write_i         ( write_request[_GPIO_] ),
-                .write_address_i ( write_address[_GPIO_] ),
-                .write_data_i    ( write_data[_GPIO_][i] ),
+                .write_i         ( write_request[_GPIO_]      ),
+                .write_address_i ( write_address[_GPIO_] >> 2 ),
+                .write_data_i    ( write_data[_GPIO_][i]      ),
 
                 /* Read interface */
-                .read_address_i ( read_address[_GPIO_] ),
-                .read_data_o    ( read_data[_GPIO_][i] ),
+                .read_address_i ( read_address[_GPIO_] >> 2 ),
+                .read_data_o    ( read_data[_GPIO_][i]      ),
 
                 .interrupt_o ( gpio_group_interrupt[i] )
             );
@@ -346,7 +346,6 @@ module basic_system #(
     assign write_busy[_GPIO_] = 1'b0;
     assign write_ready[_GPIO_] = 1'b1;
     assign write_error[_GPIO_] = 1'b0;
-    assign write_strobe[_GPIO_] = '1;
     assign write_done[_GPIO_] = write_request[_GPIO_];
 
     assign read_busy[_GPIO_] = 1'b0;
