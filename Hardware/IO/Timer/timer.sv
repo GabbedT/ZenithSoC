@@ -68,14 +68,22 @@ module timer (
 //      REGISTERS
 //====================================================================================
 
+    logic [3:0][7:0] write_data;
+
+    assign write_data = write_data_i;
+
     /* Used to set a value when the timer should issue an interrupt */
-    logic [1:0][31:0] timer_compare;
+    logic [1:0][3:0][7:0] timer_compare;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : timer_compare_register_low
             if (!rst_n_i) begin
                 timer_compare[0] <= '1;
             end else if (enable_register[COMPARE_LOW]) begin
-                timer_compare[0] <= write_data_i;
+                for (int i = 0; i < 4; ++i) begin
+                    if (write_strobe_i[i]) begin 
+                        timer_compare[0][i] <= write_data[i];
+                    end
+                end
             end
         end : timer_compare_register_low
 
@@ -83,7 +91,11 @@ module timer (
             if (!rst_n_i) begin
                 timer_compare[1] <= '1;
             end else if (enable_register[COMPARE_HIGH]) begin
-                timer_compare[1] <= write_data_i;
+                for (int i = 0; i < 4; ++i) begin
+                    if (write_strobe_i[i]) begin 
+                        timer_compare[1][i] <= write_data[i];
+                    end
+                end
             end
         end : timer_compare_register_high
 
@@ -124,20 +136,22 @@ module timer (
 //      TIMER LOGIC
 //====================================================================================
 
-    logic [1:0][3:0][7:0] timer; logic [3:0][7:0] write_data;
-
-    assign write_data = write_data_i;
+    logic [1:0][3:0][7:0] timer;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : timer_register
             if (!rst_n_i) begin
                 timer <= '0;
             end else if (enable_register[TIMER_VALUE_LOW]) begin
                 for (int i = 0; i < 4; ++i) begin
-                    timer[0][i] <= write_data[i];
+                    if (write_strobe_i[i]) begin 
+                        timer[0][i] <= write_data[i];
+                    end
                 end
             end else if (enable_register[TIMER_VALUE_HIGH]) begin
                 for (int i = 0; i < 4; ++i) begin
-                    timer[1][i] <= write_data[i];
+                    if (write_strobe_i[i]) begin 
+                        timer[1][i] <= write_data[i];
+                    end
                 end
             end else if (!stop_timer & !interrupt_o & !(interrupt & configuration.one_shot)) begin
                 /* On interrupt reach, stop the timer, to clear
