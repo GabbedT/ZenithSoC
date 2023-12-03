@@ -7,6 +7,14 @@
 
 #include <stdint.h>
 
+/**
+ * The GPIO constructor initializes the base address and register addresses for a GPIO device, disables
+ * interrupts, sets the direction to output, sets the initial value to 0, and sets the trigger level
+ * for interrupts.
+ * 
+ * @param gpioNumber gpioNumber is the number of the GPIO device that we want to initialize. It is used
+ * to calculate the base address of the GPIO device.
+ */
 GPIO::GPIO(uint32_t gpioNumber) :
     /* Initialize the base addres considering that each device has 4 registers of 1 byte */
     gpioBaseAddress ( (uint32_t * volatile) (GPIO_BASE + gpioNumber) ),
@@ -102,7 +110,7 @@ bool GPIO::getPinValue(uint32_t index) {
     /* Create a mask to clear the bit at the i-th position */
     uint8_t mask = 1 << index; 
 
-    return (*value & ~mask) >> index;
+    return (*value & mask) >> index;
 };
 
 
