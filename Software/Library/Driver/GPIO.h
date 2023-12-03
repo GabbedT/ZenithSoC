@@ -34,44 +34,103 @@ private:
 
 public:
 
-    /* Constructors: `gpioNumber` specifies the id of the UART in the system, if there are more than 1 */
-    GPIO(uint32_t gpioNumber);
+    /**
+     * The GPIO constructor initializes the base address and register addresses for a GPIO device, disables
+     * interrupts, sets the direction to output, sets the initial value to 0, and sets the trigger level
+     * for interrupts.
+     * 
+     * @param gpioNumber gpioNumber is the number of the GPIO device that we want to initialize. It is used
+     * to calculate the base address of the GPIO device.
+     */
+    GPIO(uint32_t gpioNumber = 0);
 
-    /* Deconstructor */
+    /**
+     * @brief The GPIO destructor disables the GPIO interrupts, set all the pins to OUTPUT, their values to 0 and set a trigger level
+     * for a transition from LOW to HIGH.
+     */
     ~GPIO();
 
 
 /*****************************************************************/
 /*                         CONFIGURATION                         */
 /*****************************************************************/
-    
+
+    /**
+     * @brief Initializes all the 8 GPIOs of a group with the parameters passes to the function.
+     * 
+     * @return The GPIO object itself to chain the function call.
+     */
     GPIO& init(uint8_t value, uint8_t direction, uint8_t interruptEnable, uint8_t interruptLevel);
 
-    /* Single pin value set */
+    /**
+     * @brief Set the pin value of a specific pin in the GPIO group 
+     * 
+     * @param index Index of the pin inside the GPIO group (0 - 7).
+     * @param pinLevel Logic level of the pin.
+     * @return The GPIO object itself to chain the function call.
+     */
     GPIO& setPinValue(uint32_t index, bool pinLevel);
 
-    /* Single pin value get */
+    /**
+     * @brief Read the value register of the i-th pin of the GPIO group.
+     * 
+     * @param index Index of the pin inside the GPIO group (0 - 7).
+     * @return The register value.
+     */
     bool getPinValue(uint32_t index);
 
 
-    /* Single pin direction set */
+    /**
+     * @brief Set the pin direction of a specific pin in the GPIO group 
+     * 
+     * @param index Index of the pin inside the GPIO group (0 - 7).
+     * @param value Direction of the pin (INPUT / OUTPUT).
+     * @return The GPIO object itself to chain the function call.
+     */
     GPIO& setPinDirection(uint32_t index, pinDirection_e value);
 
-    /* Single pin direction get */
+    /**
+     * @brief Read the direction register of the i-th pin of the GPIO group.
+     * 
+     * @param index Index of the pin inside the GPIO group (0 - 7).
+     * @return The register value.
+     */
     pinDirection_e getPinDirection(uint32_t index);
 
 
-    /* Single pin direction set */
+    /**
+     * @brief Enable interrupt on a specific pin, works only if the pin is in INPUT mode.
+     * 
+     * @param index Index of the pin inside the GPIO group (0 - 7).
+     * @param enable Enable / Disable interrupting.
+     * @return The GPIO object itself to chain the function call.
+     */
     GPIO& setInterruptEnable(uint32_t index, bool enable);
 
-    /* Single pin direction get */
+    /**
+     * @brief Read the interrupt enable register of the i-th pin of the GPIO group.
+     * 
+     * @param index Index of the pin inside the GPIO group (0 - 7).
+     * @return The register value.
+     */
     bool getInterruptEnable(uint32_t index);
 
 
-    /* Single pin direction set */
+    /**
+     * @brief Set logic transition interrupt trigger for input pins.
+     * 
+     * @param index Index of the pin inside the GPIO group (0 - 7).
+     * @param enable Enable / Disable interrupting.
+     * @return The GPIO object itself to chain the function call.
+     */
     GPIO& setTriggerLevel(uint32_t index, triggerLevel_e triggerLevel);
 
-    /* Single pin direction get */
+    /**
+     * @brief Read the trigger level register of the i-th pin of the GPIO group.
+     * 
+     * @param index Index of the pin inside the GPIO group (0 - 7).
+     * @return The register value.
+     */
     triggerLevel_e getTriggerLevel(uint32_t index);
 
 };
