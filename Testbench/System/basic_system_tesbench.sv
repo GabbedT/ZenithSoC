@@ -103,6 +103,23 @@ module basic_system_testbench();
 
     logic [31:0] registers[32]; int file, misprediction_number, branch_jump_number;
 
+    logic [3:0] pin; assign pin_io[7:4] = pin;
+
+    int count; 
+
+    always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+        if (!rst_n_i) begin 
+            count <= '0;
+            pin <= '0;
+        end else begin 
+            count <= count + 1;
+
+            if (count == 3000) begin 
+                pin <= '1;
+            end
+        end 
+    end 
+
     initial begin
         registers = '{default: 0}; 
 
