@@ -14,7 +14,6 @@
 `include "IO/Timer/timer.sv"
 
 `include "System/synchronizer.sv"
-`include "System/clock_divider.sv"
 
 module basic_system #(
     /* Predictor table size */ 
@@ -302,16 +301,6 @@ module basic_system #(
 //      GPIO
 //==========================================================
 
-    logic debounce;
-
-    clock_divider #(62500) debouncer_clock (
-        .clk_i   ( clk_i   ),
-        .rst_n_i ( reset_n ),
-
-        .tick_o ( debounce )
-    );
-
-
     localparam _GPIO_ = 3;
 
     logic [7:0] gpio_group_interrupt;
@@ -321,7 +310,6 @@ module basic_system #(
             gpio gpio_device (
                 .clk_i      ( clk_i    ),
                 .rst_n_i    ( reset_n  ),
-                .debounce_i ( debounce ),
 
                 .pin_io ( pin_io[i] ),
 
