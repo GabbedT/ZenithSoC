@@ -7,7 +7,6 @@ module gpio (
     /* Global signals */
     input logic clk_i,
     input logic rst_n_i,
-    input logic debounce_i,
 
     /* SoC external pin */
     inout wire pin_io,
@@ -36,7 +35,7 @@ module gpio (
     logic direction;
 
     /* Value of the pin */
-    logic pin_value, debounced, sync_pin;
+    logic pin_value, sync_pin;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
@@ -44,9 +43,7 @@ module gpio (
             end else begin
                 if (direction) begin 
                     /* In input mode the pin can be set only by external events */
-                    if (debounced) begin 
-                        pin_value <= sync_pin;  
-                    end
+                    pin_value <= sync_pin;  
                 end else begin
                     /* In output mode, the pin can be set by the CPU */
                     if (enable_write[0]) begin 
@@ -107,34 +104,7 @@ module gpio (
         .sync_o   ( sync_pin )
     );
 
-
-    logic [4:0] tick_20ms; logic start;
-
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin 
-                tick_20ms <= '0;
-                start <= 1'b0;
-            end else begin 
-                /* If direction is input and the pin value matches the logic value to interrupt */
-                if (start & direction) begin
-                    if (debounce_i) begin
-                        tick_20ms <= tick_20ms + 1'b1;
-                    end
-                end else begin
-                    tick_20ms <= '0;
-                end
-
-                if (debounced) begin
-                    start <= 1'b0;
-                end else if ((sync_pin == interrupt_level) & (sync_pin != pin_io)) begin
-                    start <= 1'b1;
-                end 
-            end 
-        end 
-
-    assign debounced = tick_20ms == '1;
-
-    assign interrupt_o = debounced & interrupt_enable & start;
+    assign interrupt_o = interrupt_enable & (interrupt_level == pin_value);
 
 
 //====================================================================================
