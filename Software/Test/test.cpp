@@ -2,6 +2,8 @@
 #include "../Library/Driver/GPIO.h"
 #include "../Library/Driver/Timer.h"
 
+void print(const char *str, UART& device);
+
 extern "C" void test() {
 
 /*
@@ -16,20 +18,18 @@ extern "C" void test() {
         .setFlowControl(false);
 
     /* Send a string */
-    uint8_t uartPresentation[] = {"Test UART device!\n"};
-    uart.loadBufferTX(uartPresentation, sizeof(uartPresentation));
-
-    uint8_t uartRequest[] = {"Send 10 characters!\n"};
-    uart.loadBufferTX(uartRequest, sizeof(uartRequest));
+    print("===================== TEST START =====================\n", uart);
+    print("Send 10 characters!\n", uart);
 
     /* Receive buffer */
     uint8_t uartResponse[10];
     uart.unloadBufferRX(uartResponse, sizeof(uartResponse));
 
     /* Send back the received data */
-    uint8_t uartConfirm[] = {"Received: "};
-    uart.loadBufferTX(uartConfirm, sizeof(uartConfirm));
-    uart.loadBufferTX(uartResponse, sizeof(uartResponse));
+    print("Received: ", uart);
+    print((const char *) uartResponse, uart);
+
+    uart.sendByte('\n');
 
 
 /*
@@ -44,14 +44,17 @@ extern "C" void test() {
 
     for (int i = 0; i < 4; ++i) {
         /* Set output ON */
+        print("Inside first for loop!\n", uart);
         gpio.setPinValue(i, true);
     }
 
     /* Scan through all the input pins from 4-th to 7-th */
     for (int i = 4; i < 8; ++i) {
         /* Wait until input pin gets triggered */
+        print("Waiting for pin to be high...\n", uart);
         while (!gpio.getPinValue(i)) { }
-
+        
+        print("Pin high!\n", uart);
         gpio.setPinValue(i - 4, false);
     }
 
@@ -62,16 +65,34 @@ extern "C" void test() {
 
     Timer timer(0);
 
-    timer.init(5 * 100, Timer::ONE_SHOT).setInterrupt(false).start();
+    timer.init(100000000, Timer::ONE_SHOT).setInterrupt(false).start();
 
     for (int i = 0; i < 4; ++i) {
         gpio.setPinValue(i, true);
         
+        print("Waiting for timer to halt...\n", uart);
         while (!timer.getConfiguration().halted) {  }
+        print("Halted!\n", uart);
+
         timer.restart();
+        print("Restarted!\n", uart);
 
         gpio.setPinValue(i, false);
     }
+
+
+    print("===================== TEST DONE =====================\n\n\n", uart);
+    
+    return;
+}
+
+
+void print(const char *str, UART& device) {
+    unsigned int size; 
+
+    for (size = 0; str[size] != '\0'; ++size) { }
+
+    device.loadBufferTX((uint8_t *) str, size);
 
     return;
 }
