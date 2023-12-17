@@ -71,7 +71,7 @@ extern "C" void test() {
         gpio.setPinValue(i, true);
         
         print("Waiting for timer to halt...\n", uart);
-        while (!timer.getConfiguration().halted) {  }
+        while (!timer.getConfiguration()->halted) {  }
         print("Halted!\n", uart);
 
         timer.restart();

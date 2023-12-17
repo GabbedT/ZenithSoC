@@ -99,8 +99,6 @@ module uart_test ();
 
         status.interrupt_enable <= 5'b00001;
         status.clock_divider <= 'd53;
-        status.enable_TX <= 1'b1;
-        status.enable_RX <= 1'b1;
         status.parity_enable <= 1'b1;
 
         @(posedge clk_i);
