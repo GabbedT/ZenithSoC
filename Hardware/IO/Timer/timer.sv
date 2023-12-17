@@ -112,7 +112,7 @@ module timer (
         end 
 
 
-    logic stop_timer;
+    logic stop_timer, interrupt;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
@@ -164,8 +164,6 @@ module timer (
 //====================================================================================
 //      OUTPUT LOGIC
 //====================================================================================
-
-    logic interrupt;
 
     edge_detector #(1, 0) event_detector (
         .clk_i   ( clk_i  ),
