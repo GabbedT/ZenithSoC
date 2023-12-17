@@ -8,3 +8,6 @@
 
 /* GPIO base address */
 #define GPIO_BASE MMIO_START + 256
+
+/* SPI base address */
+#define SPI_BASE MMIO_START + 384
