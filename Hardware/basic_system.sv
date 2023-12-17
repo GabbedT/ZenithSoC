@@ -12,6 +12,7 @@
 `include "IO/GPIO/gpio.sv"
 `include "IO/UART/uart.sv"
 `include "IO/Timer/timer.sv"
+`include "IO/SPI/spi.sv"
 
 `include "System/synchronizer.sv"
 
@@ -35,7 +36,10 @@ module basic_system #(
     parameter BOOT_SIZE = 2 ** 11,
 
     /* Reorder Buffer entries */
-    parameter ROB_DEPTH = 32
+    parameter ROB_DEPTH = 32,
+
+    /* SPI Slave devices */
+    parameter SLAVES = 1
 ) (
     input logic clk_i,
     input logic rst_n_i,
@@ -47,7 +51,13 @@ module basic_system #(
     input logic rx_i,
     input logic cts_i,
     output logic tx_o,
-    output logic rts_o
+    output logic rts_o,
+
+    /* SPI pins */
+    output logic sclk_o,
+    output logic [SLAVES - 1:0] cs_n_o,
+    output logic mosi_o,
+    input logic miso_i 
 );
 
     /* Reset syncronizer */
@@ -95,15 +105,15 @@ module basic_system #(
     );
 
 
-    logic uart_interrupt, timer_interrupt, gpio_interrupt, bus_error;
-
-    localparam INTERRUPT_SOURCES = 4;
+    localparam INTERRUPT_SOURCES = 5;
+    
+    logic [INTERRUPT_SOURCES - 1:0] interrupt_source;
 
     interrupt_controller #(INTERRUPT_SOURCES) interrupt_controller (
         .clk_i   ( clk_i   ),
         .rst_n_i ( reset_n ),
 
-        .interrupt_i ( {bus_error, timer_interrupt, uart_interrupt, gpio_interrupt} ),
+        .interrupt_i ( interrupt_source ),
 
         .acknowledge_i ( int_acknowledge                             ),
         .interrupt_o   ( interrupt                                   ),
@@ -121,7 +131,9 @@ module basic_system #(
 //      AXI INTERCONNECTION
 //==========================================================
 
-    localparam int LOW_SLAVE_ADDRESS [5] = '{
+    localparam NETWORK_DEVICES = 6;
+
+    localparam int LOW_SLAVE_ADDRESS [NETWORK_DEVICES] = '{
         /* Boot ROM */
         `BOOT_START, 
 
@@ -134,11 +146,14 @@ module basic_system #(
         /* GPIO */
         `IO_START + 'd256,
 
+        /* SPI */
+        `IO_START + 'd384,
+
         /* Memory */
         `USER_MEMORY_REGION_START
     };
 
-    localparam int HIGH_SLAVE_ADDRESS [5] = '{
+    localparam int HIGH_SLAVE_ADDRESS [NETWORK_DEVICES] = '{
         /* Boot ROM */
         `BOOT_END, 
 
@@ -146,10 +161,13 @@ module basic_system #(
         LOW_SLAVE_ADDRESS[1] + (3 << 2), 
 
         /* Timer */
-        LOW_SLAVE_ADDRESS[2] + (8 << 2),
+        LOW_SLAVE_ADDRESS[2] + (4 << 2),
 
         /* GPIO */
-        LOW_SLAVE_ADDRESS[3] + (15 << 2),
+        LOW_SLAVE_ADDRESS[3] + (3 << 2),
+
+        /* SPI */
+        LOW_SLAVE_ADDRESS[4] + (4 << 2),
 
         /* Memory */
         `USER_MEMORY_REGION_END
@@ -159,13 +177,13 @@ module basic_system #(
     logic write_bus_error, read_bus_error; logic [3:0] master_write_strobe; logic write_cts, read_cts;
 
     /* Slave nets */
-    logic [4:0] write_error, write_done, write_busy, write_ready, write_request; 
-    logic [4:0][31:0] write_address, write_data; logic [4:0][3:0] write_strobe;
+    logic [NETWORK_DEVICES - 1:0] write_error, write_done, write_busy, write_ready, write_request; 
+    logic [NETWORK_DEVICES - 1:0][31:0] write_address, write_data; logic [NETWORK_DEVICES - 1:0][3:0] write_strobe;
 
-    logic [4:0] read_error, read_done, read_busy, read_ready, read_request; 
-    logic [4:0][31:0] read_address, read_data;
+    logic [NETWORK_DEVICES - 1:0] read_error, read_done, read_busy, read_ready, read_request; 
+    logic [NETWORK_DEVICES - 1:0][31:0] read_address, read_data;
 
-    axi_network #(5, LOW_SLAVE_ADDRESS, HIGH_SLAVE_ADDRESS) interconnection (
+    axi_network #(NETWORK_DEVICES, LOW_SLAVE_ADDRESS, HIGH_SLAVE_ADDRESS) interconnection (
         .axi_ACLK    ( clk_i   ),
         .axi_ARESETN ( reset_n ),
 
@@ -204,7 +222,7 @@ module basic_system #(
         .read_request_o ( read_request )
     );
 
-    assign bus_error = write_bus_error | read_bus_error;
+    assign interrupt_source[INTERRUPT_SOURCES - 1] = write_bus_error | read_bus_error;
 
         always_comb begin
             /* Default values */
@@ -236,7 +254,7 @@ module basic_system #(
         .clk_i       ( clk_i   ),
         .rst_n_i     ( reset_n ),
 
-        .interrupt_o ( uart_interrupt ),
+        .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 3] ),
 
         .uart_rx_i  ( rx_i  ),
         .uart_tx_o  ( tx_o  ),
@@ -285,7 +303,7 @@ module basic_system #(
         .read_data_o    ( read_data[_TIMER_]         ),
         .read_error_o   ( read_error[_TIMER_]        ),
 
-        .interrupt_o ( timer_interrupt )
+        .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 2] )
     );
 
     assign write_busy[_TIMER_] = 1'b0;
@@ -329,7 +347,7 @@ module basic_system #(
 
     assign read_data[_GPIO_][31:8] = '0;
 
-    assign gpio_interrupt = gpio_group_interrupt != '0;
+    assign interrupt_source[INTERRUPT_SOURCES - 4] = gpio_group_interrupt != '0;
 
     assign write_busy[_GPIO_] = 1'b0;
     assign write_ready[_GPIO_] = 1'b1;
@@ -388,6 +406,44 @@ module basic_system #(
     assign read_busy[_MEMORY_] = 1'b0;
     assign read_ready[_MEMORY_] = 1'b1;
     assign read_error[_MEMORY_] = 1'b0;
+
+
+//==========================================================
+//      SPI
+//==========================================================
+
+    localparam _SPI_ = 5;
+
+    spi #(512, 512, SLAVES) spi_device (
+        .clk_i       ( clk_i   ),
+        .rst_n_i     ( reset_n ),
+
+        .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 5] ),
+
+        .sclk_o ( sclk_o ),
+        .cs_n_o ( cs_n_o ),
+        .mosi_o ( mosi_o ),
+        .miso_i ( miso_i ),
+
+        .write_i         ( write_request[_SPI_]      ),
+        .write_address_i ( write_address[_SPI_] >> 2 ),
+        .write_data_i    ( write_data[_SPI_]         ),
+        .write_strobe_i  ( write_strobe[_SPI_]       ),
+        .write_error_o   ( write_error[_SPI_]        ),
+        .write_done_o    ( write_done[_SPI_]         ),
+
+        .read_i         ( read_request[_SPI_]      ),
+        .read_address_i ( read_address[_SPI_] >> 2 ),
+        .read_data_o    ( read_data[_SPI_]         ),
+        .read_error_o   ( read_error[_SPI_]        ),
+        .read_done_o    ( read_done[_SPI_]         )
+    );
+
+    assign write_busy[_SPI_] = 1'b0;
+    assign write_ready[_SPI_] = 1'b1;
+
+    assign read_busy[_SPI_] = 1'b0;
+    assign read_ready[_SPI_] = 1'b1;
 
 
 //==========================================================
