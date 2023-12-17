@@ -32,15 +32,15 @@ private:
     uint32_t* const baseAddress;
 
     /* Timer register containing the count value */
-    uint64_t* volatile const value;
+    volatile uint64_t* const value;
 
     /* Timer register containing the interrupt value, 
      * once the value reach the threshold an interrupt
      * in generated */
-    uint64_t* volatile const threshold;
+    volatile uint64_t* volatile const threshold;
 
     /* Configuration register */
-    timerConfig_s* volatile const configuration;
+    volatile timerConfig_s* const configuration;
 
 
 public:
@@ -81,9 +81,9 @@ public:
     /**
      * @brief Returns the current configuration register of the Timer object.
      * 
-     * @return Returns the current configuration register of the Timer object.
+     * @return Pointer to the status register.
      */
-    struct timerConfig_s getConfiguration() const;
+    volatile struct timerConfig_s* getConfiguration() const;
 
 
 /*****************************************************************/

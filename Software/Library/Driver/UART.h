@@ -73,14 +73,14 @@ private:
     uint32_t* const uartBaseAddress;
 
     /* UART current status */
-    struct uartStatus_s* volatile const status;
+    volatile struct uartStatus_s* volatile const status;
 
     /* RX & TX Buffers */
-    uint8_t* volatile const bufferRX;
-    uint8_t* volatile const bufferTX;
+    volatile uint8_t* const bufferRX;
+    volatile uint8_t* const bufferTX;
 
     /* UART Interrupt event */
-    uint32_t* volatile const event;
+    volatile uint32_t* const event;
 
 
 public: 
@@ -138,8 +138,18 @@ public:
      */
     UART& setFlowControl(bool enable);
 
+    /**
+     * @brief Enable the interrupt source to generate an interrupt.
+     * 
+     * @return The UART object itself to chain the function call.
+     */
     UART& setInterrupt(uartEvent_e source);
 
+    /**
+     * @brief Disable the interrupt source to generate an interrupt.
+     * 
+     * @return The UART object itself to chain the function call.
+     */
     UART& disableInterrupt(uartEvent_e source);
 
     /**
@@ -153,9 +163,9 @@ public:
     /**
      * @brief Return the value of UART status register.
      * 
-     * @return Register status value.
+     * @return Pointer to the status register.
      */
-    struct uartStatus_s getStatus();
+    volatile struct uartStatus_s* getStatus();
 
     /**
      * @brief Return the value of UART event register.

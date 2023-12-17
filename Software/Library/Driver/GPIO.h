@@ -11,7 +11,7 @@ public:
     enum pinDirection_e { OUTPUT, INPUT };
 
     /* Interrupt level */
-    enum triggerLevel_e { LOW, HIGH };
+    enum triggerLevel_e { HIGH2LOW, LOW2HIGH };
 
 
 private: 
@@ -20,16 +20,16 @@ private:
     uint32_t* const gpioBaseAddress;
 
     /* Pin value */
-    uint8_t* volatile const value;
+    volatile uint8_t* const value;
 
     /* Pin direction */
-    uint8_t* volatile const direction;
+    volatile uint8_t* const direction;
 
     /* Interrupt enable */
-    uint8_t* volatile const interruptEnable;
+    volatile uint8_t* const interruptEnable;
 
     /* Interrupt level */
-    uint8_t* volatile const triggerLevel;
+    volatile uint8_t* const triggerLevel;
 
 
 public:
