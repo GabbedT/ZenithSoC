@@ -113,8 +113,8 @@ Timer& Timer::setTimerMode(timerMode_e mode) {
  * 
  * @return Returns the current configuration register of the Timer object.
  */
-struct Timer::timerConfig_s Timer::getConfiguration() const {
-    return *configuration;
+volatile struct Timer::timerConfig_s* Timer::getConfiguration() const {
+    return configuration;
 };
 
 
