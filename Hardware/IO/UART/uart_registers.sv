@@ -62,7 +62,6 @@ module uart_registers #(
     assign write_error = write_address_i == RX_BUFFER;
     assign write_error_o = write_error & write_i;
 
-    /* Only the first two registers can be written */
     assign write_enable = write_address_i[1] ? '0 : (1 << write_address_i[0]);
 
 
@@ -95,19 +94,31 @@ module uart_registers #(
             end else begin 
                 if (write_enable[0] & write_i) begin 
                     if (write_strobe_i[0]) begin
-                        status_register[7:4] <= write_data_i[0][7:4]; 
+                        status_register.interrupt_enable[3:0] <= write_data_i[0][7:4];
                     end
 
                     if (write_strobe_i[1]) begin
-                        status_register[15:8] <= write_data_i[1][7:0]; 
+                        status_register.interrupt_enable[4] <= write_data_i[1][0];
+
+                        status_register.enable_RX <= write_data_i[1][1];
+                        status_register.enable_TX <= write_data_i[1][2];
+
+                        status_register.parity_enable <= write_data_i[1][3];
+                        status_register.parity_mode <= uart_parity_mode_t'(write_data_i[1][4]);
+
+                        status_register.stop_bits <= uart_stop_bits_t'(write_data_i[1][5]);
+
+                        status_register.data_bits <= uart_data_lenght_t'(write_data_i[1][7:6]);
                     end
 
                     if (write_strobe_i[2]) begin
-                        status_register[23:16] <= write_data_i[2][7:0]; 
+                        status_register.flow_control <= write_data_i[2][0];
+
+                        status_register.clock_divider[6:0] <= write_data_i[2][7:1];
                     end
 
                     if (write_strobe_i[3]) begin
-                        status_register[31:24] <= write_data_i[3][7:0]; 
+                        status_register.clock_divider[14:7] <= write_data_i[3][7:0]; 
                     end
                 end
             end 
