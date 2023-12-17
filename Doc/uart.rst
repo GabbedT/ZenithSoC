@@ -1,5 +1,8 @@
-UART Overview
-=============
+UART
+====
+
+Overview
+--------
 
 The Universal Asynchronous Receiver/Transmitter (UART) is a fundamental component in modern communication systems, facilitating the exchange of serial data between devices.
 Despite being one of the oldest inter-chip communication protocols, the UART is still widely used in almost every embedded environment due to its semplicity and adoption.
@@ -114,15 +117,15 @@ once it normally arrives at 15, every time it reaches the maximum count, the FSM
 Data is shifed from LSB to MSB every time a new data bit arrives, as the data gets shifted, the parity bit is updated in the same manner of the transmitter one. At the end of the frame the calculated parity bit is compared against the received parity bit if it's enabled.
 
 
-Register Map
-------------
+Register Description
+--------------------
 
 The register map is the interface between the UART circuitry and the CPU, the user can interact with the register through simple MMIO load / store instructions. There are 4 registers:
 
-* **Status Register**
-* **TX Buffer**
-* **RX Buffer**
-* **Event Register**
+* **Status Register** (0x0)
+* **TX Buffer** (0x4)
+* **RX Buffer** (0x8)
+* **Event Register** (0xC)
 
 .. warning:: MMIO UART registers only support word stores, any half-word or byte store could have unexpected results.
 
