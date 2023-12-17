@@ -91,7 +91,7 @@ module uart #(
         .write_error_o   ( write_error_o                      ),
 
         .read_i         ( read_i                            ),
-        .read_address_i ( uart_registers_t'(read_address_i )),
+        .read_address_i ( uart_registers_t'(read_address_i) ),
         .read_data_o    ( read_data_o                       ),
         .read_error_o   ( read_error_o                      )
     );
@@ -107,11 +107,11 @@ module uart #(
             if (!rst_n_i) begin 
                 read_done_delay <= 1'b0; 
             end else begin 
-                read_done_delay <= (read_address_i == RX_BUFFER) & read_i;
+                read_done_delay <= (uart_registers_t'(read_address_i) == RX_BUFFER) & read_i;
             end 
         end 
 
-    assign read_done_o = (read_address_i == RX_BUFFER) ? read_done_delay : read_i;
+    assign read_done_o = (uart_registers_t'(read_address_i) == RX_BUFFER) ? read_done_delay : read_i;
     
 
 //====================================================================================

@@ -3,9 +3,6 @@
 
 package uart_pkg;
 
-    localparam RX_BUFFER_SIZE = 512;
-    localparam TX_BUFFER_SIZE = 512;
-
     /* Data size during UART transfer */    
     typedef enum logic [1:0] { DBIT5, DBIT6, DBIT7, DBIT8 } uart_data_lenght_t;
 
@@ -14,13 +11,13 @@ package uart_pkg;
 
     typedef enum logic { EVEN, ODD } uart_parity_mode_t;
 
-    /* Error type during UART operation */
+    /* Event type during UART operation */
     typedef enum logic [4:0] {
-        DATA_RECEIVED    = 5'b00001, 
-        DATA_TRANSMITTED = 5'b00010,
-        RX_BUFFER_FULL   = 5'b00100,
-        TX_BUFFER_EMPTY  = 5'b01000,
-        RX_PARITY_ERROR  = 5'b10000
+        UART_DATA_RECEIVED    = 5'b00001, 
+        UART_DATA_TRANSMITTED = 5'b00010,
+        UART_RX_BUFFER_FULL   = 5'b00100,
+        UART_TX_BUFFER_EMPTY  = 5'b01000,
+        UART_RX_PARITY_ERROR  = 5'b10000
     } uart_event_t;
 
 
