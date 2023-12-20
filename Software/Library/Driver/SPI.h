@@ -16,7 +16,7 @@ public:
     enum spiMode_e { MODE0, MODE1, MODE2, MODE3 };
 
     /* SPI status register fields */
-    typedef struct spiStatus_s {
+    struct spiStatus_s {
         /* Buffer status */
         unsigned int emptyRX : 1;
         unsigned int fullRX : 1;
@@ -86,6 +86,14 @@ public:
     SPI& init(uint32_t clkFreq, spiMode_e spiMode, bitOrder_e bitOrder);
 
     /**
+     * @brief Select the slave to correctly lower the spi signal CS.
+     * 
+     * @param slaveIndex Index of the slave device.
+     * @return SPI& to chain the function call. 
+     */
+    SPI& connect(uint32_t slaveIndex);
+
+    /**
      * @brief Set SPI pin SCLK frequency.
      * 
      * @param clkFreq Desired frequency in Hz that is less than the system clock.
@@ -128,7 +136,7 @@ public:
      * 
      * @return A boolean value to express the idle status 
      */
-    bool isIdle();
+    inline bool isIdle();
 
 
 /*****************************************************************/
@@ -143,7 +151,30 @@ public:
      * 
      * @return The data received.
      */
-    template<typename Type> Type transfer(Type data);
+    template<typename Type> Type transfer(Type data) {
+        /* Store the parameter bytes */
+        uint8_t txBytes[sizeof(Type)]; 
+        extractBytes(data, txBytes);
+
+        for (int i = 0; i < sizeof(Type); ++i) {
+            /* Wait until the TX buffer become not full */
+            while (status->fullTX) {  }
+
+            /* Write to the TX buffer */
+            *bufferTX = txBytes[i];
+        }
+
+        /* Wait untile the transaction ends */
+        while (!status->idle) {  }
+
+        uint8_t rxBytes[sizeof(Type)]; Type dataRX; 
+
+        /* Read the received data and compress it */
+        unloadBufferRX(rxBytes, sizeof(Type));
+        compressBytes(&dataRX, rxBytes);
+
+        return dataRX;
+    };
 
     /**
      * @brief Generic transaction: send a stream of bytes, wait for the end of the transaction and retrieve the received bytes.
@@ -166,7 +197,17 @@ private:
      * @param data Primitive type data.
      * @param bytes Array of bytes returned.
      */
-    template<typename T> void extractBytes(T data, uint8_t* bytes);
+    template<typename T> void extractBytes(T data, uint8_t* bytes) {
+        for (int i = 0; i < sizeof(T); ++i) {
+            /* Extract the bytes from the N bit parameter:
+             *
+             * 1: Shift the data by a byte multiplied by the iteration number
+             *    to bring the i-th byte at the bit position 7:0.
+             * 2: Mask the remaining data except for the first byte to extract 
+             *    the i-th byte. */
+            bytes[i] = (uint8_t) ((data >> (i * 8)) & 0xFF);
+        }
+    };
 
     /**
      * @brief Compact the bytes passed as parameter into a primitiva data type.
@@ -175,7 +216,18 @@ private:
      * @param bytes Array of bytes that needs to be compacted.
      * @param size Array size.
      */
-    template<typename T> void compressBytes(T* data, uint8_t* bytes);
+    template<typename T> void compressBytes(T* data, uint8_t* bytes) {
+        /* Initialize the data value */
+        *data = 0;
+
+        for (int i = 0; i < sizeof(T); ++i) {
+            /* Compress the bytes from the array:
+            * 
+            * 1: Shift the byte into it's position based on the iteration number.
+            * 2: OR the shifted byte with the parameter. */
+            *data |= bytes[i] << (i * 8);
+        }
+    };
 
     /**
      * @brief Load several bytes of data into the TX buffer of a SPI object. It waits for the buffer to empty before
