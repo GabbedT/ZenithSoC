@@ -216,11 +216,11 @@ module spi_registers #(
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
-                slave_select <= '1;
+                slave_select <= '0;
             end else begin 
                 if ((write_address_i == SPI_SLAVE_SELECT) & write_i) begin 
                     if (write_strobe_i[0]) begin
-                        slave_select[7:4] <= write_data_i[0][7:4]; 
+                        slave_select[7:0] <= write_data_i[0][7:0]; 
                     end
 
                     if (write_strobe_i[1]) begin
