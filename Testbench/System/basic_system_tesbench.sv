@@ -24,10 +24,20 @@ module basic_system_testbench();
     wire [7:0] pin_io;
 
     /* UART pins */
-    logic rx_i = 1;
+    logic rx_i;
     logic cts_i = 1;
     logic tx_o;
     logic rts_o;
+
+    assign rx_i = tx_o;
+    
+    /* SPI pins */    
+    logic miso_i;
+    logic mosi_o;
+    logic sclk_o;
+    logic cs_n_o;
+
+    assign miso_i = mosi_o;
 
     basic_system #(
         PREDICTOR_SIZE, 
@@ -67,7 +77,7 @@ module basic_system_testbench();
     logic [7:0] char_buffer [$]; 
     
     localparam _BOOT_ = 0;
-    localparam _MEMORY_ = 4;
+    localparam _MEMORY_ = 5;
 
         always_ff @(posedge clk_i) begin 
             if (dut.write_address[_MEMORY_] == '1 & dut.write_request[_MEMORY_]) begin  
@@ -132,7 +142,7 @@ module basic_system_testbench();
 
         repeat(10) @(posedge clk_i);
 
-        while (!(`CPU.apogeo_backend.exception_generated & `CPU.apogeo_backend.exception_vector == 2) & ($time() < 30000)) begin
+        while (!(`CPU.apogeo_backend.exception_generated & `CPU.apogeo_backend.exception_vector == 2) & ($time() < 700000)) begin
             /* Write the registers */
             if (`CPU.apogeo_backend.writeback_o) begin
                 registers[`CPU.apogeo_backend.reg_destination_o] <= `CPU.apogeo_backend.writeback_result_o;
