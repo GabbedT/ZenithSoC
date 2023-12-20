@@ -124,7 +124,7 @@ module basic_system #(
 
     assign nmsk_interrupt = (int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] == 3) & interrupt;
 
-    assign int_vector[7:$clog2(INTERRUPT_SOURCES) + 1] = '0;
+    assign int_vector[7:$clog2(INTERRUPT_SOURCES)] = '0;
 
 
 //==========================================================
@@ -364,7 +364,7 @@ module basic_system #(
 //      MEMORY 
 //==========================================================
 
-    localparam _MEMORY_ = 4;
+    localparam _MEMORY_ = 5;
 
     logic sys_memory_fetch, sys_memory_done;
     logic [31:0] sys_memory_instr;
@@ -372,9 +372,9 @@ module basic_system #(
     logic [31:0] store_address, load_address, fetch_address;
 
     /* Address translation */
-    assign store_address = write_address[_MEMORY_] - LOW_SLAVE_ADDRESS[4];
-    assign load_address = read_address[_MEMORY_] - LOW_SLAVE_ADDRESS[4];
-    assign fetch_address = fetch_channel.address - LOW_SLAVE_ADDRESS[4];
+    assign store_address = write_address[_MEMORY_] - LOW_SLAVE_ADDRESS[NETWORK_DEVICES - 1];
+    assign load_address = read_address[_MEMORY_] - LOW_SLAVE_ADDRESS[NETWORK_DEVICES - 1];
+    assign fetch_address = fetch_channel.address - LOW_SLAVE_ADDRESS[NETWORK_DEVICES - 1];
     
     on_chip_memory #(MEMORY_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Test/program.hex") system_memory (
         .clk_i      ( clk_i    ),
@@ -412,7 +412,7 @@ module basic_system #(
 //      SPI
 //==========================================================
 
-    localparam _SPI_ = 5;
+    localparam _SPI_ = 4;
 
     spi #(512, 512, SLAVES) spi_device (
         .clk_i       ( clk_i   ),
