@@ -57,7 +57,7 @@ package uart_pkg;
 
 
     /* Register addresses */
-    typedef enum logic [1:0] { STATUS, TX_BUFFER, RX_BUFFER, EVENT } uart_registers_t;
+    typedef enum logic [1:0] { UART_STATUS, UART_TX_BUFFER, UART_RX_BUFFER, UART_EVENT } uart_registers_t;
 
 endpackage : uart_pkg
 
