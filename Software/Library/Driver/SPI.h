@@ -49,7 +49,7 @@ private:
     uint32_t* const spiBaseAddress;
 
     /* SPI status register */
-    volatile struct spiStatus_s* const status;
+    volatile struct spiStatus_s* volatile const status;
 
     /* RX & TX Buffers */
     volatile uint8_t* const bufferRX;
