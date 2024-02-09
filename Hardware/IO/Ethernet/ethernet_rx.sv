@@ -6,7 +6,7 @@
 `include "ethernet_crc32.sv"
 
 module ethernet_rx #(
-    parameter logic [5:0][7:0] MAC_ADDRESS = 48'hFF_FF_FF_FF_FF_FF
+    parameter logic [5:0][7:0] MAC_ADDRESS = 48'h00_00_00_00_00_00
 ) (
     /* Global signals */
     input logic clk_i,
@@ -76,7 +76,7 @@ module ethernet_rx #(
             end else begin 
                 if (bit_reset) begin
                     bit_counter <= '0;
-                end if (bit_increment) begin 
+                end else if (bit_increment) begin 
                     bit_counter <= bit_counter + 1'b1;
                 end 
             end 
@@ -112,19 +112,30 @@ module ethernet_rx #(
         .crc32_o ( crc32 )
     );
 
+    /* Save the last 4 CRCs */
+    logic [3:0][31:0] crc32_saved; logic shift_crc, shift_crc_nxt;
+
+        always_ff @(posedge clk_i) begin
+            shift_crc_nxt <= shift_crc;
+
+            if (shift_crc_nxt) begin
+                crc32_saved <= {crc32_saved[2:0], crc32};
+            end
+        end 
+
 
 //====================================================================================
 //      FSM LOGIC
 //====================================================================================
 
-    typedef enum logic [3:0] {IDLE, PREAMBLE, START_FRAME_DELIMITER, MAC_DESTINATION, MAC_SOURCE, ETH_TYPE, PAYLOAD, FRAME_CHECK_SEQUENCE, INTER_PACKET_GAP, WAIT_END} ethernet_tx_states_t;
+    typedef enum logic [3:0] {IDLE, PREAMBLE, START_FRAME_DELIMITER, MAC_DESTINATION, MAC_SOURCE, ETH_TYPE, PAYLOAD, WAIT_END} ethernet_tx_states_t;
 
     ethernet_tx_states_t state_CRT, state_NXT;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 state_CRT <= IDLE;
-            end else if (rmii_rxer_i) begin
+            end else if (rmii_rxer_i | !rmii_crsdv_i) begin
                 state_CRT <= IDLE;
             end else begin 
                 state_CRT <= state_NXT;
@@ -132,19 +143,22 @@ module ethernet_rx #(
         end 
 
 
+    logic payload_write, packet_write;
+
         always_comb begin
             /* Default values */
             state_NXT = state_CRT;
+            length_NXT = length_CRT;
             address_NXT = address_CRT;
             payload_NXT = payload_CRT;
-            length_NXT = length_CRT;
             frame_check_NXT = frame_check_CRT;
 
             idle_o = 1'b0;
-            packet_valid_o = 1'b0;
-            payload_valid_o = 1'b0;
+            packet_write = 1'b0;
+            payload_write = 1'b0;
             packet_error_o = 1'b0;
-
+            
+            shift_crc = 1'b0;
             crc32_init = 1'b0;
             crc32_compute = 1'b0;
             crc32_data = '0;
@@ -153,7 +167,10 @@ module ethernet_rx #(
             bit_increment = 1'b0;
             bit_reset = 1'b0;
 
+
             case (state_CRT)
+                /* Reset counters and CRC, if the carrier is detected
+                 * the PHY is receiving data */
                 IDLE: begin
                     idle_o = 1'b1;
 
@@ -170,8 +187,9 @@ module ethernet_rx #(
                 end
 
 
+                /* Check for 7 bytes of alternating 1 and 0 */
                 PREAMBLE: begin
-                    if (sample_i) begin
+                    if (sample_i & (rmii_rxd_i == 2'b01)) begin
                         bit_increment = 1'b1;
 
                         if (bit_counter == '1) begin
@@ -183,11 +201,14 @@ module ethernet_rx #(
                             end
 
                             byte_increment = 1'b1;
+                            bit_reset = 1'b1;
                         end
                     end
                 end
 
 
+                /* Last byte before actual useful data, it marks the 
+                 * start of a frame */
                 START_FRAME_DELIMITER: begin
                     if (sample_i) begin
                         bit_increment = 1'b1;
@@ -202,6 +223,10 @@ module ethernet_rx #(
                 end
 
 
+                /* Shift bits into the address register, once all the
+                 * bits are received compare the MAC address with the 
+                 * received MAC, if they don't match, wait for the 
+                 * end of the frame */
                 MAC_DESTINATION: begin
                     if (sample_i) begin
                         bit_increment = 1'b1;
@@ -210,7 +235,7 @@ module ethernet_rx #(
 
                         if (bit_counter == '1) begin 
                             if (bytes_counter == (MAC_ADDR_BYTES - 1)) begin
-                                if (source_address_o == MAC_ADDRESS) begin
+                                if ((source_address_o == MAC_ADDRESS) | (source_address_o == BROADCAST_ADDRESS)) begin
                                     state_NXT = MAC_SOURCE;
                                 end else begin
                                     state_NXT = WAIT_END;
@@ -220,15 +245,19 @@ module ethernet_rx #(
                                 bit_reset = 1'b1;
                             end
 
+                            /* Compute the CRC */
                             crc32_compute = 1'b1;
                             crc32_data = address_NXT[47:40];
 
                             byte_increment = 1'b1;
+                            bit_reset = 1'b1;
                         end 
                     end
                 end
 
 
+                /* Save the source MAC address inside the address
+                 * shift register */
                 MAC_SOURCE: begin
                     if (sample_i) begin
                         bit_increment = 1'b1;
@@ -243,15 +272,19 @@ module ethernet_rx #(
                                 bit_reset = 1'b1;     
                             end                    
 
+                            /* Compute the CRC */
                             crc32_compute = 1'b1;
                             crc32_data = address_NXT[47:40];
 
                             byte_increment = 1'b1;
+                            bit_reset = 1'b1;
                         end 
                     end
                 end
 
 
+                /* Receive the ethernet type / payload lenght information, 
+                 * the FSM will use it to determine the end of the payload. */
                 ETH_TYPE: begin
                     if (sample_i) begin
                         bit_increment = 1'b1;
@@ -266,79 +299,47 @@ module ethernet_rx #(
                                 bit_reset = 1'b1;                        
                             end 
 
+                            /* Compute the CRC */
                             crc32_compute = 1'b1;
                             crc32_data = length_NXT[15:8];
 
                             byte_increment = 1'b1;
+                            bit_reset = 1'b1;
                         end 
                     end
                 end
 
 
+                /* Actual data carried by the Ethernet frame. The payload 
+                 * contains also the CRC computed by the transmitter, which
+                 * is compared at the end of the reception. */
                 PAYLOAD: begin
-                    if (sample_i) begin
-                        bit_increment = 1'b1;
+                    if (rmii_crsdv_i) begin
+                        if (sample_i) begin
+                            bit_increment = 1'b1;
 
-                        payload_NXT = {rmii_rxd_i, payload_CRT[7:2]}; 
+                            payload_NXT = {rmii_rxd_i, payload_CRT[7:2]}; 
+                            frame_check_NXT = {rmii_rxd_i, frame_check_CRT[31:2]}; 
 
-                        if (bit_counter == '1) begin 
-                            if (bytes_counter == (lenght_type_o - 1)) begin
-                                state_NXT = FRAME_CHECK_SEQUENCE; 
+                            if (bit_counter == '1) begin 
+                                /* Compute the CRC */
+                                crc32_compute = 1'b1;
+                                crc32_data = payload_NXT[7:0];
+                                shift_crc = 1'b1;
 
-                                byte_reset = 1'b1;
-                                bit_reset = 1'b1;                          
+                                payload_write = 1'b1;
+
+                                byte_increment = 1'b1;
+                                bit_reset = 1'b1;
                             end 
+                        end
+                    end else begin
+                        state_NXT = IDLE;
 
-                            crc32_compute = 1'b1;
-                            crc32_data = payload_NXT[7:0];
+                        packet_write = 1'b1;  
+                        packet_error_o = {frame_check_CRT[7:0], frame_check_CRT[15:8], frame_check_CRT[23:16], frame_check_CRT[31:24]} != crc32_saved[3];
 
-                            payload_valid_o = 1'b1;
-
-                            byte_increment = 1'b1;
-                        end 
-                    end
-                end
-
-
-                FRAME_CHECK_SEQUENCE: begin
-                    if (sample_i) begin
-                        bit_increment = 1'b1;
-
-                        frame_check_NXT = {rmii_rxd_i, frame_check_CRT[31:2]}; 
-
-                        if (bit_counter == '1) begin 
-                            if (bytes_counter == (CRC_BYTES - 1)) begin
-                                state_NXT = INTER_PACKET_GAP;    
-
-                                byte_reset = 1'b1;
-                                bit_reset = 1'b1;                       
-                            end 
-
-                            byte_increment = 1'b1;
-                        end 
-                    end
-                end
-
-
-                INTER_PACKET_GAP: begin
-                    if (sample_i) begin
-                        bit_increment = 1'b1;
-
-                        if (bit_counter == '1) begin 
-                            if (bytes_counter == (IPG_BYTES - 1)) begin
-                                state_NXT = IDLE;
-
-                                packet_valid_o = 1'b1;  
-                                packet_error_o = frame_check_CRT != crc32;
-
-                                idle_o = 1'b1;       
-
-                                byte_reset = 1'b1;
-                                bit_reset = 1'b1;                  
-                            end 
-
-                            byte_increment = 1'b1;
-                        end 
+                        idle_o = 1'b1; 
                     end
                 end
 
@@ -346,12 +347,20 @@ module ethernet_rx #(
                 WAIT_END: begin
                     idle_o = 1'b1;
                     
-                    if (!rmii_crsdv_i) begin
-                        state_NXT = IDLE;
-                    end
                 end
             endcase 
         end
+
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                payload_valid_o <= 1'b0;
+                packet_valid_o <= 1'b0;
+            end else begin 
+                payload_valid_o <= payload_write;
+                packet_valid_o <= packet_write;
+            end 
+        end 
 
 endmodule : ethernet_rx 
 

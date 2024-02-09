@@ -6,7 +6,7 @@
 `include "ethernet_crc32.sv"
 
 module ethernet_tx #(
-    parameter logic [5:0][7:0] MAC_ADDRESS = 48'hFF_FF_FF_FF_FF_FF
+    parameter logic [5:0][7:0] MAC_ADDRESS = 48'h00_00_00_00_00_00
 ) (
     /* Global signals */
     input logic clk_i,
@@ -68,13 +68,17 @@ module ethernet_tx #(
 
 
     /* Holds the next byte to send */
-    logic [7:0] data_shift, load_data; logic next, load;
+    logic [7:0] data_shift, load_data, saved_data; logic next, load;
 
         always_ff @(posedge clk_i) begin
             if (load) begin
                 data_shift <= load_data;
             end else if (next) begin
                 data_shift <= data_shift >> 2;
+            end
+
+            if (load) begin
+                saved_data <= load_data;
             end
         end 
 
@@ -91,17 +95,6 @@ module ethernet_tx #(
 
         .crc32_o ( crc32 )
     );
-
-
-    logic rmii_txen;
-
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin 
-                rmii_txen_o <= 1'b0;
-            end else begin 
-                rmii_txen_o <= rmii_txen;
-            end 
-        end 
 
 
 //====================================================================================
@@ -144,7 +137,7 @@ module ethernet_tx #(
             read_data_o = 1'b0;
             read_descriptor_o = 1'b0;
 
-            rmii_txen = 1'b1;
+            rmii_txen_o = 1'b1;
             rmii_txd_o = '0;
 
             crc32_init = 1'b0;
@@ -159,26 +152,31 @@ module ethernet_tx #(
             next = 1'b0;
 
             case (state_CRT)
+                /* Reset counters and CRC, if the carrier is detected
+                 * the PHY is receiving data */
                 IDLE: begin
                     idle_o = 1'b1;
-                    rmii_txen = 1'b0;
+                    rmii_txen_o = 1'b0;
 
                     byte_reset = 1'b1;
                     bit_reset = 1'b1;
 
                     crc32_init = 1'b1;
 
-                    if (data_ready_i) begin
+                    if (data_ready_i & transmit_i) begin
                         idle_o = 1'b0;
-                        rmii_txd_o = 2'b10;
 
                         state_NXT = PREAMBLE;
+
+                        read_descriptor_o = 1'b1;
+                        read_data_o = 1'b1;
                     end
                 end
 
 
+                /* Transmit 7 bytes of alternating 1 and 0 */
                 PREAMBLE: begin
-                    rmii_txd_o = 2'b10;
+                    rmii_txd_o = 2'b01;
 
                     if (transmit_i) begin
                         bit_increment = 1'b1;
@@ -199,6 +197,8 @@ module ethernet_tx #(
                 end
 
 
+                /* Last byte before actual useful data, it marks the 
+                 * start of a frame */
                 START_FRAME_DELIMITER: begin
                     if (bit_counter == '1) begin
                         rmii_txd_o = 2'b11;
@@ -215,6 +215,7 @@ module ethernet_tx #(
                             byte_reset = 1'b1;
                             bit_reset = 1'b1;
 
+                            /* Load the destination address */
                             load_data = inv_dest_address[0];
                             load = 1'b1;
                         end 
@@ -222,6 +223,7 @@ module ethernet_tx #(
                 end
 
 
+                /* Transmit the destination MAC address */
                 MAC_DESTINATION: begin
                     rmii_txd_o = data_shift[1:0];
 
@@ -237,6 +239,7 @@ module ethernet_tx #(
                                 byte_reset = 1'b1;
                                 bit_reset = 1'b1;
 
+                                /* Load the source address */
                                 load_data = inv_src_address[0];
                                 load = 1'b1;
                             end else begin 
@@ -244,10 +247,12 @@ module ethernet_tx #(
 
                                 bit_reset = 1'b1;
 
+                                /* Load the n-th byte of the destination address */
                                 load_data = inv_dest_address[bytes_counter[2:0] + 1];
                                 load = 1'b1;
                             end
 
+                            /* Compute the CRC */
                             crc32_compute = 1'b1;
                             crc32_data = inv_dest_address[bytes_counter[2:0]];
                         end
@@ -255,6 +260,7 @@ module ethernet_tx #(
                 end
 
 
+                /* Transmit the source MAC address */
                 MAC_SOURCE: begin
                     rmii_txd_o = data_shift[1:0];
 
@@ -270,6 +276,7 @@ module ethernet_tx #(
                                 byte_reset = 1'b1;
                                 bit_reset = 1'b1;
 
+                                /* Load the payload lenght info */
                                 load_data = payload_length_i[1];
                                 load = 1'b1;
                             end else begin 
@@ -277,10 +284,12 @@ module ethernet_tx #(
 
                                 bit_reset = 1'b1;
 
+                                /* Load the n-th byte of the source address */
                                 load_data = inv_src_address[bytes_counter[2:0] + 1];
                                 load = 1'b1;
                             end
 
+                            /* Compute the CRC */
                             crc32_compute = 1'b1;
                             crc32_data = inv_src_address[bytes_counter[2:0]];
                         end
@@ -288,6 +297,7 @@ module ethernet_tx #(
                 end
 
 
+                /* Transmit the ethernet type / payload lenght information. */
                 ETH_TYPE: begin
                     rmii_txd_o = data_shift[1:0];
 
@@ -303,6 +313,7 @@ module ethernet_tx #(
                                 byte_reset = 1'b1;
                                 bit_reset = 1'b1;
 
+                                /* Load payload */
                                 load_data = payload_data_i;
                                 load = 1'b1;
 
@@ -312,17 +323,20 @@ module ethernet_tx #(
 
                                 bit_reset = 1'b1;
 
+                                /* Load next byte of the payload */
                                 load_data = payload_length_i[0];
                                 load = 1'b1;
                             end
 
+                            /* Compute the CRC */
                             crc32_compute = 1'b1;
                             crc32_data = payload_length_i[!bytes_counter[0]];
                         end
                     end
                 end
 
-
+                
+                /* Actual data carried by the Ethernet frame */
                 PAYLOAD: begin
                     rmii_txd_o = data_shift[1:0];
 
@@ -337,9 +351,6 @@ module ethernet_tx #(
 
                                 byte_reset = 1'b1;
                                 bit_reset = 1'b1;
-
-                                load_data = inv_crc32[0];
-                                load = 1'b1;
                             end else begin 
                                 byte_increment = 1'b1;
 
@@ -352,14 +363,23 @@ module ethernet_tx #(
                             end
 
                             crc32_compute = 1'b1;
-                            crc32_data = payload_data_i;
+                            crc32_data = saved_data;
                         end 
                     end
                 end
 
 
+                /* Transmit computed CRC sequence */
                 FRAME_CHECK_SEQUENCE: begin
-                    rmii_txd_o = data_shift[1:0];
+                    if ((bit_counter == '0) & (bytes_counter[1:0] == '0)) begin
+                        rmii_txd_o = inv_crc32[0][1:0];
+
+                        /* Load CRC data */
+                        load_data = {2'b0, inv_crc32[0][7:2]};
+                        load = 1'b1;
+                    end else begin 
+                        rmii_txd_o = data_shift[1:0];
+                    end
 
                     if (transmit_i) begin
                         bit_increment = 1'b1;
@@ -385,7 +405,10 @@ module ethernet_tx #(
                 end
 
 
+                /* Between two packets there are 12 bytes of time. */
                 INTER_PACKET_GAP: begin
+                    rmii_txen_o = 1'b0;
+                    
                     if (transmit_i) begin
                         bit_increment = 1'b1;
 
@@ -397,8 +420,6 @@ module ethernet_tx #(
 
                                 byte_reset = 1'b1;
                                 bit_reset = 1'b1;
-
-                                read_descriptor_o = 1'b1;
                             end else begin 
                                 byte_increment = 1'b1;
 
