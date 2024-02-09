@@ -13,8 +13,10 @@
 `include "IO/UART/uart.sv"
 `include "IO/Timer/timer.sv"
 `include "IO/SPI/spi.sv"
+`include "IO/Ethernet/ethernet.sv"
 
 `include "System/synchronizer.sv"
+`include "System/clock_source.sv"
 
 module basic_system #(
     /* Predictor table size */ 
@@ -31,6 +33,12 @@ module basic_system #(
 
     /* System memory bytes */
     parameter MEMORY_SIZE = 2 ** 14,
+
+    /* Board PHY chip address */
+    parameter logic [4:0] CHIP_PHY_ADDRESS = 5'b00001,
+
+    /* Device MAC address */
+    parameter logic [5:0][7:0] MAC_ADDRESS = 48'hFF_FF_FF_FF_FF_FF,
 
     /* Boot memory bytes */
     parameter BOOT_SIZE = 2 ** 11,
@@ -57,13 +65,36 @@ module basic_system #(
     output logic sclk_o,
     output logic [SLAVES - 1:0] cs_n_o,
     output logic mosi_o,
-    input logic miso_i 
+    input logic miso_i,
+
+    /* RMII Interface */
+    input logic [1:0] rxd_i,
+    input logic crsdv_i,
+    input logic rxer_i,
+    output logic [1:0] txd_o,
+    output logic txen_o,
+    output logic refclk_o,
+    output logic rstn_o,
+
+    /* SMII interface */
+    output logic mdc_o,
+    inout logic mdio_io
 );
+
+    logic sys_clk, eth_clk;
+
+        clock_source clock_generator (
+            .clk_i ( clk_i ),
+
+            .sys_clk_o ( sys_clk ),
+            .eth_clk_o ( eth_clk )
+        );
+
 
     /* Reset syncronizer */
     logic reset_n, rst_sync;
 
-        always_ff @(posedge clk_i or negedge rst_n_i) begin 
+        always_ff @(posedge sys_clk or negedge rst_n_i) begin 
             if (!rst_n_i) begin
                 rst_sync <= 1'b0;
                 reset_n <= 1'b0;
@@ -89,7 +120,7 @@ module basic_system #(
 
     /* Core instantiation */
     ApogeoRV #(PREDICTOR_SIZE, BTB_SIZE, STORE_BUFFER_SIZE, INSTRUCTION_BUFFER_SIZE, ROB_DEPTH) system_cpu (
-        .clk_i   ( clk_i   ),
+        .clk_i   ( sys_clk ),
         .rst_n_i ( reset_n ),
 
         .fetch_channel ( fetch_channel ), 
@@ -105,12 +136,12 @@ module basic_system #(
     );
 
 
-    localparam INTERRUPT_SOURCES = 5;
+    localparam INTERRUPT_SOURCES = 6;
     
     logic [INTERRUPT_SOURCES - 1:0] interrupt_source;
 
     interrupt_controller #(INTERRUPT_SOURCES) interrupt_controller (
-        .clk_i   ( clk_i   ),
+        .clk_i   ( sys_clk ),
         .rst_n_i ( reset_n ),
 
         .interrupt_i ( interrupt_source ),
@@ -131,7 +162,7 @@ module basic_system #(
 //      AXI INTERCONNECTION
 //==========================================================
 
-    localparam NETWORK_DEVICES = 6;
+    localparam NETWORK_DEVICES = 7;
 
     localparam int LOW_SLAVE_ADDRESS [NETWORK_DEVICES] = '{
         /* Boot ROM */
@@ -148,6 +179,9 @@ module basic_system #(
 
         /* SPI */
         `IO_START + 'd384,
+
+        /* Ethernet */
+        `IO_START + 'd512,
 
         /* Memory */
         `USER_MEMORY_REGION_START
@@ -169,6 +203,9 @@ module basic_system #(
         /* SPI */
         LOW_SLAVE_ADDRESS[4] + (4 << 2),
 
+        /* Ethernet */
+        LOW_SLAVE_ADDRESS[5] + (40 << 2),
+
         /* Memory */
         `USER_MEMORY_REGION_END
     };
@@ -184,7 +221,7 @@ module basic_system #(
     logic [NETWORK_DEVICES - 1:0][31:0] read_address, read_data;
 
     axi_network #(NETWORK_DEVICES, LOW_SLAVE_ADDRESS, HIGH_SLAVE_ADDRESS) interconnection (
-        .axi_ACLK    ( clk_i   ),
+        .axi_ACLK    ( sys_clk ),
         .axi_ARESETN ( reset_n ),
 
         .axi_write_error_o ( write_bus_error ),
@@ -250,8 +287,8 @@ module basic_system #(
 
     localparam _UART_ = 1;
 
-    uart #(512, 512) uart_device (
-        .clk_i       ( clk_i   ),
+    uart #(2048, 2048) uart_device (
+        .clk_i       ( sys_clk ),
         .rst_n_i     ( reset_n ),
 
         .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 3] ),
@@ -289,7 +326,7 @@ module basic_system #(
     localparam _TIMER_ = 2;
 
     timer timer_device (
-        .clk_i   ( clk_i   ),
+        .clk_i   ( sys_clk ),
         .rst_n_i ( reset_n ),
 
         .write_i         ( write_request[_TIMER_]      ),
@@ -326,8 +363,8 @@ module basic_system #(
     genvar i; generate 
         for (i = 0; i < 8; ++i) begin : gpio_gen
             gpio gpio_device (
-                .clk_i      ( clk_i    ),
-                .rst_n_i    ( reset_n  ),
+                .clk_i      ( sys_clk ),
+                .rst_n_i    ( reset_n ),
 
                 .pin_io ( pin_io[i] ),
 
@@ -364,7 +401,7 @@ module basic_system #(
 //      MEMORY 
 //==========================================================
 
-    localparam _MEMORY_ = 5;
+    localparam _MEMORY_ = NETWORK_DEVICES - 1;
 
     logic sys_memory_fetch, sys_memory_done;
     logic [31:0] sys_memory_instr;
@@ -376,9 +413,9 @@ module basic_system #(
     assign load_address = read_address[_MEMORY_] - LOW_SLAVE_ADDRESS[NETWORK_DEVICES - 1];
     assign fetch_address = fetch_channel.address - LOW_SLAVE_ADDRESS[NETWORK_DEVICES - 1];
     
-    on_chip_memory #(MEMORY_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Test/program.hex") system_memory (
-        .clk_i      ( clk_i    ),
-        .rst_n_i    ( reset_n  ),
+    on_chip_memory #(MEMORY_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Ethernet/program.hex") system_memory (
+        .clk_i      ( sys_clk ),
+        .rst_n_i    ( reset_n ),
 
         .store_i         ( write_request[_MEMORY_] ),
         .store_address_i ( store_address           ),
@@ -415,7 +452,7 @@ module basic_system #(
     localparam _SPI_ = 4;
 
     spi #(512, 512, SLAVES) spi_device (
-        .clk_i       ( clk_i   ),
+        .clk_i       ( sys_clk ),
         .rst_n_i     ( reset_n ),
 
         .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 5] ),
@@ -447,6 +484,51 @@ module basic_system #(
 
 
 //==========================================================
+//      ETHERNET
+//==========================================================
+
+    localparam _ETHERNET_ = 5;
+
+    ethernet #(CHIP_PHY_ADDRESS, MAC_ADDRESS, 4096, 4096, 16, 16) ethernet_mac (
+        .clk_i       ( sys_clk ),
+        .phy_clk_i   ( eth_clk ),
+        .rst_n_i     ( reset_n ),
+
+        .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 6] ),
+
+        .write_i         ( write_request[_ETHERNET_]      ),
+        .write_address_i ( write_address[_ETHERNET_] >> 2 ),
+        .write_data_i    ( write_data[_ETHERNET_]         ),
+        .write_error_o   ( write_error[_ETHERNET_]        ),
+        .write_done_o    ( write_done[_ETHERNET_]         ),
+
+        .read_i         ( read_request[_ETHERNET_]      ),
+        .read_address_i ( read_address[_ETHERNET_] >> 2 ),
+        .read_data_o    ( read_data[_ETHERNET_]         ),
+        .read_error_o   ( read_error[_ETHERNET_]        ),
+        .read_done_o    ( read_done[_ETHERNET_]         ),
+
+        .phy_interrupt_i ( 1'b0         ),
+        .rmii_rxd_i      ( rxd_i        ),
+        .rmii_crsdv_i    ( crsdv_i      ),
+        .rmii_rxer_i     ( rxer_i       ),
+        .rmii_txd_o      ( txd_o        ),
+        .rmii_txen_o     ( txen_o       ),
+        .rmii_refclk_o   ( refclk_o     ),
+        .rmii_rstn_o     ( rstn_o       ),
+
+        .smii_mdc_o   ( mdc_o   ),
+        .smii_mdio_io ( mdio_io )
+    );
+
+    assign write_busy[_ETHERNET_] = 1'b0;
+    assign write_ready[_ETHERNET_] = 1'b1;
+
+    assign read_busy[_ETHERNET_] = 1'b0;
+    assign read_ready[_ETHERNET_] = 1'b1;
+
+
+//==========================================================
 //      BOOT RAM
 //==========================================================
 
@@ -455,9 +537,9 @@ module basic_system #(
     logic boot_rom_fetch, boot_rom_done;
     logic [31:0] boot_rom_instr;
 
-    on_chip_memory #(BOOT_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Test/boot.hex") boot_memory (
-        .clk_i      ( clk_i    ),
-        .rst_n_i    ( reset_n  ),
+    on_chip_memory #(BOOT_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Ethernet/boot.hex") boot_memory (
+        .clk_i      ( sys_clk ),
+        .rst_n_i    ( reset_n ),
 
         .store_i         ( write_request[_BOOT_] ),
         .store_address_i ( write_address[_BOOT_] ),
