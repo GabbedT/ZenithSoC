@@ -11,3 +11,6 @@
 
 /* SPI base address */
 #define SPI_BASE MMIO_START + 384
+
+/* Ethernet base address */
+#define ETHERNET_BASE MMIO_START + 512
