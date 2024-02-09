@@ -40,7 +40,7 @@ private:
     volatile uint64_t* volatile const threshold;
 
     /* Configuration register */
-    volatile timerConfig_s* const configuration;
+    volatile struct timerConfig_s* volatile const configuration;
 
 
 public:
@@ -129,6 +129,8 @@ public:
 /*****************************************************************/
 /*                            UTILITY                            */
 /*****************************************************************/
+
+    Timer& delay(uint64_t millis);
 
     /**
      * @brief Enable timer: start incrementing.

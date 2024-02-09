@@ -7,7 +7,7 @@
 
 #define NANO2MILLI_SCALE (uint64_t) (1'000'000 / CLOCK_PERIOD)
 
-#include <stdint.h>
+#include <inttypes.h>
 
 
 /****************************************************************/
@@ -183,6 +183,27 @@ uint64_t Timer::getThreshold() const {
  * 
  * @return The Timer object itself to chain the function call.
  */
+Timer& Timer::delay(uint64_t millis) {
+    /* Stop and reset timer count */
+    stop();
+    setTime(0);
+
+    /* Setup threshold and start */
+    setThreshold(millis * 100'000);
+    start();
+    
+    /* Wait until timer halts */
+    while (!getConfiguration()->halted) {  }
+
+    return *this;
+};
+
+
+/**
+ * @brief Enable timer: start incrementing.
+ * 
+ * @return The Timer object itself to chain the function call.
+ */
 Timer& Timer::start() {
     configuration->enableTimer = true;
     configuration->halted = false;
@@ -212,7 +233,7 @@ Timer& Timer::restart() {
     /* Clear timer counter */
     *value = 0;
 
-    /* Start incrementin again */
+    /* Start incrementing again */
     configuration->halted = false;
 
     return *this;
