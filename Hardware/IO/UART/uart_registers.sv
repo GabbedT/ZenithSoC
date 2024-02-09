@@ -59,14 +59,14 @@ module uart_registers #(
     logic [1:0] write_enable; logic write_error; 
     
     /* Error checking */
-    assign write_error = write_address_i == RX_BUFFER;
+    assign write_error = write_address_i == UART_RX_BUFFER;
     assign write_error_o = write_error & write_i;
 
     assign write_enable = write_address_i[1] ? '0 : (1 << write_address_i[0]);
 
 
     /* Error checking */
-    assign read_error_o = (read_address_i == TX_BUFFER) & read_i;
+    assign read_error_o = (read_address_i == UART_TX_BUFFER) & read_i;
 
 
 //====================================================================================
@@ -169,7 +169,7 @@ module uart_registers #(
 
     logic read_rx_buffer; logic [7:0] rx_buffer_read; 
 
-    assign read_rx_buffer = (read_address_i == RX_BUFFER) & read_i;
+    assign read_rx_buffer = (read_address_i == UART_RX_BUFFER) & read_i;
 
 
     logic rx_empty, rx_full;
@@ -205,7 +205,7 @@ module uart_registers #(
         if (!rst_n_i) begin 
             event_register <= '0;
         end else begin 
-            if ((write_address_i == EVENT) & write_i) begin
+            if ((write_address_i == UART_EVENT) & write_i) begin
                 event_register <= write_data_i[0][4:0];
             end else begin
                 if (rx_done_i & status_register.interrupt_enable[0]) begin
@@ -259,11 +259,11 @@ module uart_registers #(
             read_data_o = '0;
 
             case (read_address_i)
-                STATUS: read_data_o = status_register;
+                UART_STATUS: read_data_o = status_register;
 
-                RX_BUFFER: read_data_o = rx_buffer_read;
+                UART_RX_BUFFER: read_data_o = rx_buffer_read;
 
-                EVENT: read_data_o = event_register;
+                UART_EVENT: read_data_o = event_register;
             endcase 
         end
 

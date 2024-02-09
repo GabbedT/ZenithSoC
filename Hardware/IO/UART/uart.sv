@@ -107,11 +107,11 @@ module uart #(
             if (!rst_n_i) begin 
                 read_done_delay <= 1'b0; 
             end else begin 
-                read_done_delay <= (uart_registers_t'(read_address_i) == RX_BUFFER) & read_i;
+                read_done_delay <= (uart_registers_t'(read_address_i) == UART_RX_BUFFER) & read_i;
             end 
         end 
 
-    assign read_done_o = (uart_registers_t'(read_address_i) == RX_BUFFER) ? read_done_delay : read_i;
+    assign read_done_o = (uart_registers_t'(read_address_i) == UART_RX_BUFFER) ? read_done_delay : read_i;
     
 
 //====================================================================================
