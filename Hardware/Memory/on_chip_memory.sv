@@ -55,6 +55,7 @@ module on_chip_memory #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin
                 store_done_o <= 1'b0;
+                store_pending <= 1'b0;
             end else begin 
                 store_done_o <= (store_i & !load) | store_done;
 
