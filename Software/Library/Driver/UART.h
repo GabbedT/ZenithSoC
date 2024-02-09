@@ -1,7 +1,7 @@
 #ifndef UART_H
 #define UART_H
 
-#include <stdint.h>
+#include <inttypes.h>
 
 #include "../mmio.h"
 
@@ -22,24 +22,24 @@ public:
     /* Interrupt event */
     enum uartEvent_e {
         /* Data received */
-        DATA_RX = 1 << 1,
+        DATA_RX = 1 << 0,
 
         /* Data transmitted */
-        DATA_TX = 1 << 2,
+        DATA_TX = 1 << 1,
 
         /* RX buffer full */
-        RX_FULL = 1 << 3,
+        RX_FULL = 1 << 2,
 
         /* RX buffer full */
-        TX_EMPTY = 1 << 4,
+        TX_EMPTY = 1 << 3,
 
         /* RX buffer full */
-        PARITY_ERROR = 1 << 5
+        PARITY_ERROR = 1 << 4
     };
 
 
     /* Status register fields */
-    struct uartStatus_s {
+    struct uartCtrlStatus_s {
         /* Buffer status */
         unsigned int emptyRX : 1;
         unsigned int fullRX : 1;
@@ -73,7 +73,7 @@ private:
     uint32_t* const uartBaseAddress;
 
     /* UART current status */
-    volatile struct uartStatus_s* volatile const status;
+    volatile struct uartCtrlStatus_s* volatile const status;
 
     /* RX & TX Buffers */
     volatile uint8_t* const bufferRX;
@@ -165,7 +165,7 @@ public:
      * 
      * @return Pointer to the status register.
      */
-    volatile struct uartStatus_s* getStatus();
+    volatile struct uartCtrlStatus_s* getCtrlStatus();
 
     /**
      * @brief Return the value of UART event register.

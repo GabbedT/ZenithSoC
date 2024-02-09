@@ -23,10 +23,10 @@ UART::UART(uint32_t uartNumber) :
     uartBaseAddress ( (uint32_t *) (UART_BASE + (uartNumber * 4)) ),
 
     /* Initialize register addresses based on the base address */
-    status          ( (struct uartStatus_s *) (uartBaseAddress) ),
-    bufferTX        ( (uint8_t *) (uartBaseAddress + 1)         ),
-    bufferRX        ( (uint8_t *) (uartBaseAddress + 2)         ),
-    event           ( (uint32_t *) (uartBaseAddress + 3)        ) {
+    status          ( (struct uartCtrlStatus_s *) (uartBaseAddress) ),
+    bufferTX        ( (uint8_t *) (uartBaseAddress + 1)             ),
+    bufferRX        ( (uint8_t *) (uartBaseAddress + 2)             ),
+    event           ( (uint32_t *) (uartBaseAddress + 3)            ) {
 
     
     /* Disable all functions */
@@ -175,7 +175,7 @@ UART& UART::disableInterrupt(uartEvent_e interrupt) {
  * 
  * @return Register status value.
  */
-volatile struct UART::uartStatus_s* UART::getStatus() {
+volatile struct UART::uartCtrlStatus_s* UART::getCtrlStatus() {
     return status;
 };
 

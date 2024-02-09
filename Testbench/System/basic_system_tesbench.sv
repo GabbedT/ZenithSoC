@@ -16,9 +16,16 @@ module basic_system_testbench();
     localparam INSTRUCTION_BUFFER_SIZE = 8;
     localparam SYSTEM_MEMORY_SIZE = 2 ** 14;
     localparam BOOT_MEMORY_SIZE = 2 ** 11;
+    localparam ROB_DEPTH = 32;
+    localparam SLAVES = 1;
+    localparam logic [4:0] CHIP_PHY_ADDRESS = 5'b00001;
+    localparam logic [5:0][7:0] MAC_ADDRESS = 48'h00_00_00_00_00_00;
 
     logic clk_i = 1;
     logic rst_n_i = 0;
+
+    /* External interrupts */
+    logic [1:0] ext_int_i = 0;
 
     /* GPIO pins */
     wire [7:0] pin_io;
@@ -37,7 +44,24 @@ module basic_system_testbench();
     logic sclk_o;
     logic cs_n_o;
 
+    /* RMII Interface */
+    logic [1:0] rxd_i;
+    logic crsdv_i;
+    logic rxer_i = 0;
+    logic [1:0] txd_o;
+    logic txen_o;
+    logic refclk_o;
+    logic rstn_o;
+
+    /* SMII interface */
+    logic mdc_o;
+    wire mdio_io;
+
     assign miso_i = mosi_o;
+
+    assign rxd_i = txd_o;
+    assign crsdv_i = txen_o;
+
 
     basic_system #(
         PREDICTOR_SIZE, 
@@ -45,11 +69,17 @@ module basic_system_testbench();
         STORE_BUFFER_SIZE, 
         INSTRUCTION_BUFFER_SIZE, 
         SYSTEM_MEMORY_SIZE, 
-        BOOT_MEMORY_SIZE
+        CHIP_PHY_ADDRESS,
+        MAC_ADDRESS,
+        BOOT_MEMORY_SIZE,
+        ROB_DEPTH,
+        SLAVES
     ) dut ( .* );
 
     always #5 clk_i <= !clk_i; 
 
+
+    assign mdio_io = dut.ethernet_mac.mac2phy.enable ? 1'bZ : 1'b1;
 
     /* Trace */
     typedef struct packed {
@@ -138,11 +168,12 @@ module basic_system_testbench();
         `endif 
         
         @(posedge clk_i);
+        rst_n_i <= 1'b0;
+
+        repeat(40) @(posedge clk_i);
         rst_n_i <= 1'b1;
 
-        repeat(10) @(posedge clk_i);
-
-        while (!(`CPU.apogeo_backend.exception_generated & `CPU.apogeo_backend.exception_vector == 2) & ($time() < 700000)) begin
+        while (!(`CPU.apogeo_backend.exception_generated & `CPU.apogeo_backend.exception_vector == 2) & ($time() < 1600000)) begin
             /* Write the registers */
             if (`CPU.apogeo_backend.writeback_o) begin
                 registers[`CPU.apogeo_backend.reg_destination_o] <= `CPU.apogeo_backend.writeback_result_o;
