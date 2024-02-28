@@ -101,11 +101,11 @@ module ethernet_registers #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 status_register.interrupt_enable <= 4'b0;
-                status_register.speed <= MBPS100;
+                status_register.speed <= MBPS10;
             end else begin 
                 if ((write_address_i.select == MAC) & (write_address_i.registers == ETH_MAC_STATUS) & write_i) begin
-                    status_register.interrupt_enable <= write_data_i[10:7];
-                    status_register.speed <= eth_speed_t'(write_data_i[8]);
+                    status_register.interrupt_enable <= write_data_i[13:10];
+                    status_register.speed <= eth_speed_t'(write_data_i[14]);
                 end
             end 
         end 
@@ -175,6 +175,10 @@ module ethernet_registers #(
     assign data_ready_o = !tx_descl_empty & !tx_desch_empty;
 
 
+    assign status_register.TX_packet_empty = tx_desch_empty & tx_descl_empty;
+    assign status_register.TX_packet_full = tx_desch_full & tx_descl_full;
+
+
 //====================================================================================
 //      TX PAYLOAD BUFFER
 //====================================================================================
@@ -201,8 +205,8 @@ module ethernet_registers #(
         .read_data_o  ( payload_o         )
     );
 
-    assign status_register.TX_full = tx_buf_full;
-    assign status_register.TX_empty = tx_buf_empty;
+    assign status_register.TX_payload_full = tx_buf_full;
+    assign status_register.TX_payload_empty = tx_buf_empty;
 
 
 //====================================================================================
@@ -260,6 +264,10 @@ module ethernet_registers #(
     );
 
 
+    assign status_register.RX_packet_empty = rx_desch_empty & rx_descl_empty;
+    assign status_register.RX_packet_full = rx_desch_full & rx_descl_full;
+
+
 //====================================================================================
 //      RX PAYLOAD BUFFER
 //====================================================================================
@@ -289,8 +297,8 @@ module ethernet_registers #(
         .read_data_o  ( rx_payload )
     );
 
-    assign status_register.RX_full = rx_buf_full;
-    assign status_register.RX_empty = rx_buf_empty;
+    assign status_register.RX_payload_full = rx_buf_full;
+    assign status_register.RX_payload_empty = rx_buf_empty;
 
 
 //====================================================================================
