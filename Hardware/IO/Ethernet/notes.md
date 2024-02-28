@@ -1,3 +1,3 @@
-CRS_DV is asserted asynchronously on detection of carrier due to the criteria relevant to the operating mode: NEEDS TO BE SYNCHRONIZED PROPERLY (2 FF SYNC) AS WELL AS RXD AND RXERR SIGNALS
-
-The period is 20 ns with the 50 MHz REF_CLK and remains at this frequency regardless of whether the PHY is set to 10Mbps or 100Mbps mode: IN 100Mbps THE TX SHALL CHANGE THE DATA EVERY CLOCK CYCLE, IN 10Mbps EVERY 10 CYCLES. SAME GOES FOR RX.
+sudo ethtool -K enp3s0 rx-fcs on
+sudo ethtool -K enp3s0 rx-all on
+sudo ifconfig enp3s0 promisc

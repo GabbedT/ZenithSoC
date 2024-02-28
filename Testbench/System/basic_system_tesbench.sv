@@ -31,36 +31,36 @@ module basic_system_testbench();
     wire [7:0] pin_io;
 
     /* UART pins */
-    logic rx_i;
-    logic cts_i = 1;
-    logic tx_o;
-    logic rts_o;
+    logic uart_rx_i;
+    logic uart_cts_i = 1;
+    logic uart_tx_o;
+    logic uart_rts_o;
 
-    assign rx_i = tx_o;
+    assign uart_rx_i = uart_tx_o;
     
     /* SPI pins */    
-    logic miso_i;
-    logic mosi_o;
-    logic sclk_o;
-    logic cs_n_o;
+    logic spi_miso_i;
+    logic spi_mosi_o;
+    logic spi_sclk_o;
+    logic spi_cs_n_o;
 
     /* RMII Interface */
-    logic [1:0] rxd_i;
-    logic crsdv_i;
-    logic rxer_i = 0;
-    logic [1:0] txd_o;
-    logic txen_o;
-    logic refclk_o;
-    logic rstn_o;
+    wire [1:0] rmii_rxd_io;
+    wire rmii_crsdv_io;
+    logic rmii_rxer_i = 0;
+    logic [1:0] rmii_txd_o;
+    logic rmii_txen_o;
+    logic rmii_refclk_o;
+    logic rmii_rstn_o;
 
     /* SMII interface */
-    logic mdc_o;
-    wire mdio_io;
+    logic smi_mdc_o;
+    wire smi_mdio_io;
 
-    assign miso_i = mosi_o;
+    assign spi_miso_i = spi_mosi_o;
 
-    assign rxd_i = txd_o;
-    assign crsdv_i = txen_o;
+    assign rmii_rxd_io = rmii_txd_o;
+    assign rmii_crsdv_io = rmii_txen_o;
 
 
     basic_system #(
@@ -79,7 +79,7 @@ module basic_system_testbench();
     always #5 clk_i <= !clk_i; 
 
 
-    assign mdio_io = dut.ethernet_mac.mac2phy.enable ? 1'bZ : 1'b1;
+    assign smi_mdio_io = dut.ethernet_mac.mac2phy.enable ? 1'bZ : 1'b1;
 
     /* Trace */
     typedef struct packed {

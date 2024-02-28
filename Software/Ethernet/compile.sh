@@ -1,7 +1,7 @@
-riscv32-unknown-elf-g++ -O2 -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../Source/UART.cpp -o UART.o
-riscv32-unknown-elf-g++ -O2 -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../Source/GPIO.cpp -o GPIO.o
-riscv32-unknown-elf-g++ -O2 -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../Source/Timer.cpp -o Timer.o
-riscv32-unknown-elf-g++ -O2 -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../Source/Ethernet.cpp -o Ethernet.o
+riscv32-unknown-elf-g++ -O1 -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../Source/UART.cpp -o UART.o
+riscv32-unknown-elf-g++ -O1 -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../Source/GPIO.cpp -o GPIO.o
+riscv32-unknown-elf-g++ -O1 -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../Source/Timer.cpp -o Timer.o
+riscv32-unknown-elf-g++ -O1 -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../Source/Ethernet.cpp -o Ethernet.o
 riscv32-unknown-elf-g++ -O2 -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 eth.cpp -o eth.o
 riscv32-unknown-elf-as -c -march=rv32im_zicsr_zfinx_zba_zbb -mabi=ilp32 setup.s -o setup.o
 

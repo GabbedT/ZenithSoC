@@ -1,36 +1,30 @@
-`ifndef ETH_WRAPPER
-    `define ETH_WRAPPER
+`ifndef SPI_WRAPPER
+    `define SPI_WRAPPER
 
-`include "../../Hardware/System/clock_source.sv"
+`include "../../Hardware/Utility/Packages/spi_pkg.sv"
 
-module eth_wrapper (
-    input logic rst_n_i,
+module spi_wrapper (
+    /* Global signals */
     input logic clk_i,
-    output logic done_o,
-    output logic [15:0] read_data_o,
+    input logic rst_n_i,
 
-    /* RMII Interface */
-    input logic phy_interrupt_i,
-    inout logic [1:0] rmii_rxd_io,
-    inout logic rmii_crsdv_io,
-    input logic rmii_rxer_i,
-    output logic [1:0] rmii_txd_o,
-    output logic rmii_txen_o,
-    output logic rmii_refclk_o,
-    output logic rmii_rstn_o,
+    /* SPI interface */
+    output logic sclk_o,
+    output logic cs_n_o,
+    output logic mosi_o,
+    input logic miso_i,
 
-    /* SMII interface */
-    output logic smii_mdc_o,
-    inout logic smii_mdio_io
+    input logic [1:0] interrupt_i,
+    output logic interrupt_o,
+    output logic data_o
 );
 
-    localparam _TIMES_ = 7;
+    localparam _TIMES_ = 11;
 
-    localparam S10 = 39'd10_000_000;
-    localparam N10 = 39'd30;
+    localparam S10 = 39'd100_000_000;
+    localparam N10 = 39'd10;
 
-
-    logic [39:0] cnt; logic [6:0] times; logic block, unlock, increment;
+    logic [39:0] cnt; logic [3:0] times; logic block, unlock, increment;
 
     always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
         if (!rst_n_i) begin 
@@ -51,7 +45,7 @@ module eth_wrapper (
             end
 
             if (!unlock) begin
-                block <= cnt > S10; 
+                block <= cnt > N10; 
             end else begin
                 block <= 1'b0;
             end
@@ -70,9 +64,9 @@ module eth_wrapper (
         logic [5:0] read_address;
     } eth_pkt_t;
 
-    logic [6:0] rd_ptr; logic read_command;
+    logic [4:0] rd_ptr; logic read_command;
 
-    function automatic eth_pkt_t write_mac(input logic [5:0] write_addr, input logic [31:0] write_data);
+    function automatic eth_pkt_t write_reg(input logic [5:0] write_addr, input logic [31:0] write_data);
         automatic eth_pkt_t temp;
 
         temp.read = 1'b0;
@@ -85,7 +79,7 @@ module eth_wrapper (
         return temp;
     endfunction
 
-    function automatic eth_pkt_t read_mac(input logic [5:0] read_addr);
+    function automatic eth_pkt_t read_reg(input logic [5:0] read_addr);
         automatic eth_pkt_t temp;
 
         temp.write = 1'b0;
@@ -99,31 +93,50 @@ module eth_wrapper (
     endfunction 
 
     
-    logic write, read, write_done, read_done; logic [5:0] write_address, read_address; logic [31:0] write_data, read_data;
-    eth_pkt_t temporary;
+    /* Write interface */
+    logic [2:0] write_address; logic [3:0][7:0] write_data;
+    logic write_error, write_done, write;
+
+    /* Read interface */
+    logic [2:0] read_address; logic [31:0] read_data;
+    logic read_error, read, read_done;
+
+    eth_pkt_t temporary; 
+    spi_status_t setup;
+
+    assign setup.clock_divisor = 'd49;
+    assign setup.cpol = 1'b0;
+    assign setup.cpha = 1'b0;
+    assign setup.bit_order = 1'b0;
+    assign setup.interrupt_enable = 1'b1;
+
+    assign setup.TX_empty = 1'b0;
+    assign setup.TX_full = 1'b0;
+    assign setup.RX_full = 1'b0;
+    assign setup.RX_empty = 1'b0;
+    assign setup.idle = 1'b0;
+
+    localparam WRITE_REG = 8'h0A;
+    localparam READ_REG  = 8'h0B;
+    localparam READ_FIFO = 8'h0D;
     
     always_ff @(posedge clk_i) begin
         if (read_command) begin
-            if (rd_ptr > 'd3 & rd_ptr < 'd7) begin
-                case (rd_ptr)
-                    'd4: temporary <= write_mac(0, 16'b0000000100000000);
-                    'd5: temporary <= write_mac(33, {16'hAA_16, 16'd4});
-                    'd6: temporary <= write_mac(34, {32'hD8_BB_C1_57});
+            case (rd_ptr)
+                'd0: temporary <= write_reg(0, {'0, setup});
+                'd1: temporary <= write_reg(4, 1);
+                'd2: temporary <= write_reg(1, {'0, READ_REG});
+                'd3: temporary <= write_reg(1, 0);
+                'd4: temporary <= write_reg(1, 1);
+                'd5: temporary <= write_reg(1, 2);
+                'd6: temporary <= write_reg(1, 0);
+                'd7: temporary <= read_reg(2);
+                'd8: temporary <= read_reg(2);
+                'd9: temporary <= read_reg(2);
+                'd10: temporary <= read_reg(2);
 
-                    default: temporary <= '1;
-                endcase
-            end else if (rd_ptr < 'd4) begin
-                case (rd_ptr % 4) 
-                    'd0: temporary <= write_mac(35, 8'hDE);
-                    'd1: temporary <= write_mac(35, 8'hAD);
-                    'd2: temporary <= write_mac(35, 8'hBE);
-                    'd3: temporary <= write_mac(35, 8'hEF);
-
-                    default: temporary <= '1;
-                endcase 
-            end else begin
-                temporary <= read_mac(38);
-            end 
+                default: temporary <= 46'b0;
+            endcase 
         end else begin
             temporary <= 46'b0;
         end
@@ -146,7 +159,6 @@ module eth_wrapper (
     end 
 
 
-
     typedef enum logic [1:0] { IDLE, COMMAND, WAIT } state_t;
 
     state_t state_CRT, state_NXT; logic [5:0] address_CRT, address_NXT;
@@ -164,14 +176,14 @@ module eth_wrapper (
         always_comb begin
             state_NXT = state_CRT;
             address_NXT = address_CRT;
-            read_address = '0;
             read_command = 1'b0;
+            read_address = '0;
             increment = 1'b0;
             unlock = 1'b0;
 
             case (state_CRT)
                 IDLE: begin
-                    if (block & (times != _TIMES_) & rmii_rstn_o) begin
+                    if (block & (times != _TIMES_)) begin
                         state_NXT = COMMAND;
 
                         read_command = 1'b1;
@@ -203,51 +215,60 @@ module eth_wrapper (
             endcase 
         end
 
+    logic interrupt;
 
-    ethernet #(5'b00001, 48'hDE_AD_BE_EF_00_00, 512, 512, 32, 32) mac (
-        /* Global signals */
-        .clk_i       ( clk_i ),
-        .rst_n_i     ( rst_n_i ),
-        .interrupt_o (  ),
+    spi #(32, 32, 1) spi_device (
+        .clk_i       ( clk_i     ),
+        .rst_n_i     ( rst_n_i   ),
+        .interrupt_o ( interrupt ),
 
-        /* Write interface */
+        .sclk_o ( sclk_o ),
+        .cs_n_o ( cs_n_o ),
+        .mosi_o ( mosi_o ),
+        .miso_i ( miso_i ),  
+
         .write_i         ( write         ),
         .write_address_i ( write_address ),
         .write_data_i    ( write_data    ),
-        .write_error_o   (  ),
+        .write_strobe_i  ( '1            ),
+        .write_error_o   (               ),
         .write_done_o    ( write_done    ),
 
-        /* Read interface */
         .read_i         ( read         ),
         .read_address_i ( read_address ),
         .read_data_o    ( read_data    ),
-        .read_error_o   (  ),
-        .read_done_o    ( read_done    ),
-
-        /* RMII Interface */
-        .phy_interrupt_i ( phy_interrupt_i ),
-        .rmii_rxd_io     ( rmii_rxd_io     ),
-        .rmii_crsdv_io   ( rmii_crsdv_io   ),
-        .rmii_rxer_i     ( rmii_rxer_i     ),
-        .rmii_txd_o      ( rmii_txd_o      ),
-        .rmii_txen_o     ( rmii_txen_o     ),
-        .rmii_refclk_o   ( rmii_refclk_o   ),
-        .rmii_rstn_o     ( rmii_rstn_o     ),
-
-        /* SMII interface */
-        .smii_mdc_o   ( smii_mdc_o   ),
-        .smii_mdio_io ( smii_mdio_io )
+        .read_error_o   (              ),
+        .read_done_o    ( read_done    )
     );
+
+
+    logic [7:0] read_data_ff;
 
     always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
         if (!rst_n_i) begin 
-            read_data_o <= '0;
+            read_data_ff <= '0;
         end else begin 
             if (read_done) begin
-                read_data_o <= read_data;
+                read_data_ff <= read_data;
             end
         end 
     end 
+
+    assign data_o = read_data_ff != '0;
+
+
+    logic [2:0] interrupt_ff; 
+
+    always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+        if (!rst_n_i) begin 
+            interrupt_ff <= 3'b0;
+        end else begin 
+            interrupt_ff[2] <= interrupt;
+            interrupt_ff[1:0] <= interrupt_i;
+        end 
+    end 
+
+    assign interrupt_o = interrupt_ff != 0;
 
 endmodule 
 
