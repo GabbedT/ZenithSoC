@@ -16,6 +16,8 @@
 /* Number of UART */
 #define UART_NUMBER 1
 
+/* SPI slave number */
+#define SPI_SLAVES 1
 
 
 #define SET_BIT(old, index) old |= 1 << index 

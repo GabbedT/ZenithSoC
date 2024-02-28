@@ -9,6 +9,7 @@ class SPI {
 
 public:
 
+    enum spiError_e { ILLEGAL_CLOCK, INDEX_OUT_OF_RANGE, RECEIVE_SIZE_ERROR };
     /* Bit sent first */
     enum bitOrder_e { MSB_FIRST, LSB_FIRST };
 
@@ -80,26 +81,39 @@ public:
      * @param clkFreq Frequency of SCLK pin in Hz.
      * @param spiMode Specify the values of CPOL and CPHA.
      * @param bitOrder Specify the order of the bit transmission.
+     * @param error Pointer to an error variable.
+     * 
+     * @warning The clock frequency must be less or equal to half of the system
+     * clock frequency.
      * 
      * @return SPI& to chain the function call.
      */
-    SPI& init(uint32_t clkFreq, spiMode_e spiMode, bitOrder_e bitOrder);
+    SPI& init(uint32_t clkFreq, spiMode_e spiMode, bitOrder_e bitOrder, spiError_e* error);
 
     /**
      * @brief Select the slave to correctly lower the spi signal CS.
      * 
      * @param slaveIndex Index of the slave device.
+     * @param error Pointer to an error variable.
+     * 
+     * @warning The slave index must not surpass the number of slaves in the system.
+     * 
      * @return SPI& to chain the function call. 
      */
-    SPI& connect(uint32_t slaveIndex);
+    SPI& connect(uint32_t slaveIndex, spiError_e* error);
 
     /**
      * @brief Set SPI pin SCLK frequency.
      * 
      * @param clkFreq Desired frequency in Hz that is less than the system clock.
+     * @param error Pointer to an error variable.
+     * 
+     * @warning The clock frequency must be less or equal to half of the system
+     * clock frequency.
+     * 
      * @return SPI& to chain the function call.
      */
-    SPI& setFrequency(uint32_t clkFreq);
+    SPI& setFrequency(uint32_t clkFreq, spiError_e* error);
 
     /**
      * @brief Set the order of transmission / reception.
@@ -125,18 +139,39 @@ public:
     SPI& enableInterrupt(bool enable);
 
     /**
-     * @brief Return the value of SPI status register.
-     * 
-     * @return Pointer to the status register.
-     */
-    volatile struct spiStatus_s* getStatus();
-
-    /**
      * @brief Check if the SPI device is idle or is engaged in a transaction.
      * 
      * @return A boolean value to express the idle status 
      */
     inline bool isIdle();
+
+    /**
+     * @brief Check if the SPI TX buffer is full.
+     * 
+     * @return A boolean value to express the buffer status 
+     */
+    inline bool isFullTX();
+
+    /**
+     * @brief Check if the SPI TX buffer is empty.
+     * 
+     * @return A boolean value to express the buffer status 
+     */
+    inline bool isEmptyTX();
+
+    /**
+     * @brief Check if the SPI RX buffer is full.
+     * 
+     * @return A boolean value to express the buffer status 
+     */
+    inline bool isFullRX();
+
+    /**
+     * @brief Check if the SPI RX buffer is empty.
+     * 
+     * @return A boolean value to express the buffer status 
+     */
+    inline bool isEmptyRX();
 
 
 /*****************************************************************/
@@ -144,14 +179,15 @@ public:
 /*****************************************************************/
 
     /**
-     * @brief Primitive type transaction: send a number of bytes based on the primitive type passed, wait for the end of the transaction 
-     * and retrieve the received byte. Warning! The function is blocking, so it won't return until the transaction ends!
+     * @brief Primitive type transaction: send a number of bytes based on the primitive type passed, 
+     * wait for the end of the transaction  and retrieve the received byte. Warning! The function is 
+     * blocking, so it won't return until the transaction ends!
      * 
      * @param data TX data to transmit.
      * 
      * @return The data received.
      */
-    template<typename Type> Type transfer(Type data) {
+    template<typename Type> Type exchange(Type data) {
         /* Store the parameter bytes */
         uint8_t txBytes[sizeof(Type)]; 
         extractBytes(data, txBytes);
@@ -177,8 +213,9 @@ public:
     };
 
     /**
-     * @brief Generic transaction: send a stream of bytes, wait for the end of the transaction and retrieve the received bytes.
-     * Warning! The function is blocking, so it won't return until the transaction ends!
+     * @brief Generic transaction: exchange a stream of bytes, wait for the end of the transaction 
+     * and retrieve the received bytes. Warning! The function is blocking, so it won't return until 
+     * the transaction ends!
      * 
      * @param txBuf Buffer containing data to send.
      * @param rxBuf Buffer that will contain the read data at the end of the transaction.
@@ -186,8 +223,44 @@ public:
      * 
      * @return The SPI object itself to chain the function call.
      */
-    SPI& transferStream(uint8_t* txBuf, uint8_t* rxBuf, uint32_t size);
+    SPI& exchangeStream(uint8_t* txBuf, uint8_t* rxBuf, uint32_t size);
 
+    /**
+     * @brief Primitive type transaction: send a number of bytes based on the primitive type passed, 
+     * don't wait for the end of the transaction: the function is non-blocking. It's possible to
+     * retrieve later the data received.
+     * 
+     * @param data TX data to transmit.
+     * 
+     * @return The SPI object itself to chain the function call.
+     */
+    template<typename Type> SPI& transfer(Type data) {
+        /* Store the parameter bytes */
+        uint8_t txBytes[sizeof(Type)]; 
+        extractBytes(data, txBytes);
+
+        for (int i = 0; i < sizeof(Type); ++i) {
+            /* Wait until the TX buffer become not full */
+            while (status->fullTX) {  }
+
+            /* Write to the TX buffer */
+            *bufferTX = txBytes[i];
+        }
+    };
+
+    /**
+     * @brief Read the RX buffer and retrieve the bytes received in the previous transaction.
+     * 
+     * @param data Buffer that will contain the read data at the end of the transaction.
+     * @param size Number of bytes that must be read from the RX buffer.
+     * @param error Pointer to an error variable.
+     * 
+     * @warning The size of the read must be equal or less than the number of elements in the RX buffer
+     * otherwise the function stops reading and returns an error.
+     * 
+     * @return The SPI object itself to chain the function call. 
+     */
+    SPI& retrieve(uint8_t* rxBuf, uint32_t size, spiError_e* error);
 
 private: 
 

@@ -20,9 +20,9 @@ Ethernet::Ethernet() :
     macRxBuffer    ( (uint8_t *) (ethBaseAddress + 38)         ),
     macInterrupt   ( (uint32_t *) (ethBaseAddress + 39)        ) {  
     
-    /* Reset and put PHY on sleep */    
-    reset();
-    powerDown();
+    /* Reset and Wake up PHY */    
+    reset(); 
+    wakeUp();
 
     /* Disable interrupts */
     macCtrlStatus->interruptEnable = 0;
@@ -49,34 +49,19 @@ Ethernet& Ethernet::init(ethSpeed_e speed, ethDuplex_e duplexMode, bool autoNego
     /* Configure MAC speed */
     macCtrlStatus->speed = speed; 
 
-    /* Wake up PHY */
-    wakeUp();
+    /* Configure auto negotiation */
+    setAutoNegotiation(autoNegotiation);
 
     /* Configure PHY */
     configure(speed, duplexMode);
 
-    /* Configure auto negotiation */
-    setAutoNegotiation(autoNegotiation);
-
     return *this;
 };
 
 
-Ethernet& Ethernet::enableTestMode(bool enable) {
-    volatile union phyControl_s phyControl; 
-
-    /* Set test */
-    phyControl.raw = readPHYRegister(_BasicControl_);
-    phyControl.fields.loopback = enable;
-    writePHYRegister(_BasicControl_, phyControl.raw);
-
-    return *this;
-};
-
-
-Ethernet& Ethernet::setMacInterrupt(uint8_t index, bool enable, bool* error) {
+Ethernet& Ethernet::setMacInterrupt(uint8_t index, bool enable, Ethernet::ethError_e* error) {
     if (index > 3) {
-        *error = true;
+        *error = INDEX_OUT_OF_RANGE;
 
         return *this;
     }
@@ -96,42 +81,61 @@ Ethernet& Ethernet::setMacInterrupt(uint8_t index, bool enable, bool* error) {
 /*****************************************************************/
 
 bool Ethernet::isSending() {
-    return macCtrlStatus->idleTX;
+    return !macCtrlStatus->idleTX;
 };
 
 
 bool Ethernet::isReceiving() {
-    return macCtrlStatus->idleRX;
+    return !macCtrlStatus->idleRX;
 };
 
 
-bool Ethernet::isEmptyTX() {
-    return macCtrlStatus->emptyTX;
+bool Ethernet::isEmptyPayloadTX() {
+    return macCtrlStatus->payloadEmptyTX;
 };
 
 
-bool Ethernet::isFullTX() {
-    return macCtrlStatus->fullTX;
+bool Ethernet::isFullPayloadTX() {
+    return macCtrlStatus->payloadFullTX;
 };
 
 
-bool Ethernet::isEmptyRX() {
-    return macCtrlStatus->emptyRX;
+bool Ethernet::isEmptyPayloadRX() {
+    return macCtrlStatus->payloadEmptyRX;
 };
 
 
-bool Ethernet::isFullRX() {
-    return macCtrlStatus->fullRX;
+bool Ethernet::isFullPayloadRX() {
+    return macCtrlStatus->payloadFullRX;
+};
+
+bool Ethernet::isEmptyPacketTX() {
+    return macCtrlStatus->packetEmptyTX;
+};
+
+
+bool Ethernet::isFullPacketTX() {
+    return macCtrlStatus->packetFullTX;
+};
+
+
+bool Ethernet::isEmptyPacketRX() {
+    return macCtrlStatus->packetEmptyRX;
+};
+
+
+bool Ethernet::isFullPacketRX() {
+    return macCtrlStatus->packetFullRX;
 };
 
 
 struct Ethernet::ethInterrupt_s Ethernet::getInterrupt() {
     /* Get PHY interrupt pending status */
-    union phyInterrupt_s phyIntPending;
+    union phyInterrupt_s phyIntPending; phyIntPending.raw = 0; 
     phyIntPending.raw = readPHYRegister(_InterruptSource_);
 
     /* Get MAC interrupt pending status */
-    union macInterrupt_s macIntPending;
+    union macInterrupt_s macIntPending; macIntPending.raw = 0; 
     macIntPending.raw = *macInterrupt;
 
     /* Fuse infos */
@@ -144,7 +148,7 @@ struct Ethernet::ethInterrupt_s Ethernet::getInterrupt() {
 
 
 bool Ethernet::isLinked() {
-    union phyStatus_s status;
+    union phyStatus_s status; status.raw = 0; 
     status.raw = readPHYRegister(_BasicStatus_);
 
     return status.fields.linkStatus;
@@ -152,10 +156,26 @@ bool Ethernet::isLinked() {
 
 
 bool Ethernet::energyOn() {
-    union phyModeCtrl_s status;
+    union phyModeCtrl_s status; status.raw = 0; 
     status.raw = readPHYRegister(_ModeCtrlStatus_);
 
     return status.fields.energyOn;
+};
+
+
+Ethernet::ethChannel_e Ethernet::getChannel() {
+    union phyCtrlStatusInd_s status; status.raw = 0; 
+    status.raw = readPHYRegister(_CtrlStatusIndication_);
+
+    return (Ethernet::ethChannel_e) status.fields.channelSelect;
+};
+
+
+uint16_t Ethernet::getErrorCount() {
+    uint16_t status = 0;
+    status = readPHYRegister(_SymbolErrorCnt_);
+
+    return status;
 };
 
 
@@ -163,13 +183,23 @@ bool Ethernet::energyOn() {
 /*                      MAC COMMUNICATION                        */
 /*****************************************************************/
 
-Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct Ethernet::macAddr_s destMac, bool* error) {
+Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct Ethernet::macAddr_s destMac, Ethernet::ethError_e* error) {
     /* Check if the length exceed the maximum payload size */
     if (length > MAX_PAYLOAD_LENGTH) {
-        *error = true;
+        *error = LENGTH_EXCEEDED;
 
         return *this;
     }
+
+    /* Check if buffers are full */
+    if (isFullPacketTX()) {
+        *error = TX_FULL;
+
+        return *this;
+    }
+    
+    /* Wait in case of a buffer full */
+    while (isFullPacketTX()) {  }
 
     /* Send payload bytes to the TX buffer */
     for (int i = 0; i < length; ++i) {
@@ -181,6 +211,7 @@ Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct Eth
 
     if (padding != 0) {
         for (int i = 0; i < padding; ++i) {
+            while (isFullPayloadTX()) {  }
             *macTxBuffer = 0;
         }
     }
@@ -220,15 +251,19 @@ Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct Eth
 };
 
 
-Ethernet& Ethernet::receiveFrame(uint8_t* buffer, uint32_t length, bool* error) {
-    if (length > MAX_PAYLOAD_LENGTH || length < MIN_PAYLOAD_LENGTH) {
-        *error = true;
+Ethernet& Ethernet::receiveFrame(uint8_t* buffer, uint32_t length, Ethernet::ethError_e* error) {
+    if (length > MAX_PAYLOAD_LENGTH) {
+        *error = LENGTH_EXCEEDED;
+
+        return *this;
+    } else if (length < MIN_PAYLOAD_LENGTH) {
+        *error = LENGTH_SUBCEEDED;
 
         return *this;
     }
 
     /* Fill the buffer */
-    for (int i = 0; i < length; ++i) {
+    for (int i = 0; i < length + 4; ++i) {
         buffer[i] = *macRxBuffer;
     }
 
@@ -250,76 +285,114 @@ union Ethernet::macDescriptor_s Ethernet::getRxDescriptor() {
 /*****************************************************************/
 
 Ethernet& Ethernet::reset() {
-    volatile union phyControl_s phyControl; 
+    volatile union phyControl_s phyRegister; phyRegister.raw = 0; 
 
     /* Read control register and set reset */    
-    phyControl.raw = readPHYRegister(_BasicControl_);
-    phyControl.fields.reset = true;
-    phyControl.fields.powerDown = false;
-    phyControl.fields.isolate = true;
+    phyRegister.raw = readPHYRegister(_BasicControl_);
+    phyRegister.fields.reset = true;
 
     /* Write it again to reset the PHY */
-    writePHYRegister(_BasicControl_, phyControl.raw);
+    writePHYRegister(_BasicControl_, phyRegister.raw);
 
     return *this;
 };
 
 
 Ethernet& Ethernet::powerDown() {
-    volatile union phyControl_s phyControl; 
+    volatile union phyControl_s phyRegister; phyRegister.raw = 0;
+
+    /* The Auto-Negotiation Enable must be cleared before setting the Power Down */
+    phyRegister.raw = readPHYRegister(_BasicControl_);
+    phyRegister.fields.enableAutoNegot = false;
+    writePHYRegister(_BasicControl_, phyRegister.raw);
 
     /* Put PHY on sleep */
-    phyControl.raw = readPHYRegister(_BasicControl_);
-    phyControl.fields.powerDown = true;
-    writePHYRegister(_BasicControl_, phyControl.raw);
+    phyRegister.raw = readPHYRegister(_BasicControl_);
+    phyRegister.fields.powerDown = true;
+    writePHYRegister(_BasicControl_, phyRegister.raw);
 
     return *this;
 };
 
 
 Ethernet& Ethernet::wakeUp() {
-    volatile union phyControl_s phyControl; 
+    volatile union phyControl_s phyRegister; phyRegister.raw = 0;
 
     /* Wake up PHY */
-    phyControl.raw = readPHYRegister(_BasicControl_);
-    phyControl.fields.powerDown = false;
-    writePHYRegister(_BasicControl_, phyControl.raw);
+    phyRegister.raw = readPHYRegister(_BasicControl_);
+    phyRegister.fields.powerDown = false;
+    writePHYRegister(_BasicControl_, phyRegister.raw);
 
     return *this;
 };
 
 
 Ethernet& Ethernet::configure(ethSpeed_e speed, ethDuplex_e duplexMode) {
-    volatile union phyControl_s phyControl;
+    volatile union phyControl_s phyRegister; phyRegister.raw = 0;
 
     /* Configure PHY */
-    phyControl.raw = readPHYRegister(_BasicControl_);
-    phyControl.fields.duplexMode = duplexMode;
-    phyControl.fields.speedSelect = speed;
+    phyRegister.raw = readPHYRegister(_BasicControl_);
+    phyRegister.fields.speedSelect = speed;
+    phyRegister.fields.duplexMode = duplexMode;
+    writePHYRegister(_BasicControl_, phyRegister.raw);
 
-    writePHYRegister(_BasicControl_, phyControl.raw);
+    return *this;
+};
+
+
+Ethernet& Ethernet::setTestMode(bool enable) {
+    volatile union phyControl_s phyRegister; phyRegister.raw = 0;
+
+    /* Set test */
+    phyRegister.raw = readPHYRegister(_BasicControl_);
+    phyRegister.fields.loopback = enable;
+    writePHYRegister(_BasicControl_, phyRegister.raw);
+
+    return *this;
+};
+
+
+Ethernet& Ethernet::setHeartbeatTest(bool enable) {
+    volatile union phyCtrlStatusInd_s phyRegister; phyRegister.raw = 0;
+
+    /* Set heartbeat */
+    phyRegister.raw = readPHYRegister(_CtrlStatusIndication_);
+    phyRegister.fields.sqeTest = !enable;
+    writePHYRegister(_CtrlStatusIndication_, phyRegister.raw);
 
     return *this;
 };
 
 
 Ethernet& Ethernet::setAutoNegotiation(bool enable) {
-    volatile union phyControl_s phyControl;
+    volatile union phyControl_s phyRegister; phyRegister.raw = 0;
 
     /* Setup PHY */
-    phyControl.raw = readPHYRegister(_BasicControl_);
-    phyControl.fields.enableAutoNegot = enable;
-    phyControl.fields.restartAutoNegot = enable;
-
-    writePHYRegister(_BasicControl_, phyControl.raw);
+    phyRegister.raw = readPHYRegister(_BasicControl_);
+    phyRegister.fields.enableAutoNegot = enable;
+    phyRegister.fields.restartAutoNegot = enable;
+    writePHYRegister(_BasicControl_, phyRegister.raw);
 
     return *this;
 };
 
 
-Ethernet& Ethernet::setPhyInterrupt(uint8_t index, bool enable, bool* error) {
-    if (index > 3) {
-        *error = true;
+Ethernet& Ethernet::setChannel(Ethernet::ethChannel_e channel) {
+    volatile union phyCtrlStatusInd_s phyRegister; phyRegister.raw = 0;
+
+    /* Clear AMDIXCTRL field and set CH_SELECT field */
+    phyRegister.raw = readPHYRegister(_CtrlStatusIndication_);
+    phyRegister.fields.channelSelect = channel;
+    phyRegister.fields.autoMDIX = true;
+    writePHYRegister(_CtrlStatusIndication_, phyRegister.raw);
+
+    return *this;
+};
+
+
+Ethernet& Ethernet::setPhyInterrupt(uint8_t index, bool enable, Ethernet::ethError_e* error) {
+    if (index > 6) {
+        *error = INDEX_OUT_OF_RANGE;
 
         return *this;
     }
@@ -328,9 +401,9 @@ Ethernet& Ethernet::setPhyInterrupt(uint8_t index, bool enable, bool* error) {
     intMask.raw = readPHYRegister(_InterruptMask_);
 
     if (enable) {
-        intMask.raw |= 1 << index;
+        intMask.fields.mask |= 1 << index;
     } else {
-        intMask.raw &= ~(1 << index);
+        intMask.fields.mask &= ~(1 << index);
     }
 
     writePHYRegister(_InterruptMask_, intMask.raw);

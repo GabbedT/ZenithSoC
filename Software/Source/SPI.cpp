@@ -28,7 +28,7 @@ SPI::SPI(uint32_t spiNumber) :
     /* Set operation mode */
     status->bitOrder = MSB_FIRST;
     setMode(MODE0);
-    setFrequency(1'000'000); 
+    setFrequency(1'000'000, nullptr); 
 };
 
 
@@ -39,7 +39,7 @@ SPI::~SPI() {
     /* Set operation mode */
     status->bitOrder = MSB_FIRST;
     setMode(MODE0);
-    setFrequency(1'000'000); 
+    setFrequency(1'000'000, nullptr); 
 };
 
 
@@ -47,17 +47,23 @@ SPI::~SPI() {
 /*                         CONFIGURATION                         */
 /*****************************************************************/
 
-SPI& SPI::init(uint32_t clkFreq, spiMode_e spiMode, bitOrder_e bitOrder) {
+SPI& SPI::init(uint32_t clkFreq, spiMode_e spiMode, bitOrder_e bitOrder, spiError_e* error) {
     status->bitOrder = bitOrder;
 
     setMode(spiMode);
-    setFrequency(clkFreq); 
+    setFrequency(clkFreq, error); 
 
     return *this;
 };
 
 
-SPI& SPI::connect(uint32_t slaveIndex) {
+SPI& SPI::connect(uint32_t slaveIndex, spiError_e* error) {
+    if (slaveIndex > (SPI_SLAVES - 1)) {
+        *error = INDEX_OUT_OF_RANGE;
+
+        return *this;
+    }
+
     /* Wait until a previous transaction ends */
     while (!status->idle) {  }
 
@@ -71,8 +77,14 @@ SPI& SPI::connect(uint32_t slaveIndex) {
 }
 
 
-SPI& SPI::setFrequency(uint32_t clkFreq) {
-    status->clockDivider = (SYSTEM_FREQUENCY / clkFreq) - 1;
+SPI& SPI::setFrequency(uint32_t clkFreq, spiError_e* error) {
+    if (clkFreq > (SYSTEM_FREQUENCY / 2)) {
+        *error = ILLEGAL_CLOCK;
+
+        return *this;
+    }
+
+    status->clockDivider = ((SYSTEM_FREQUENCY / 2) / clkFreq) - 1;
 
     return *this;
 };
@@ -103,13 +115,28 @@ SPI& SPI::enableInterrupt(bool enable) {
 };
 
 
-volatile struct SPI::spiStatus_s* SPI::getStatus() {
-    return status;
+inline bool SPI::isIdle() {
+    return status->idle;
 };
 
 
-inline bool SPI::isIdle() {
-    return status->idle;
+inline bool SPI::isFullTX() {
+    return status->fullTX;
+};
+
+
+inline bool SPI::isEmptyTX() {
+    return status->emptyTX;
+};
+
+
+inline bool SPI::isFullRX() {
+    return status->fullTX;
+};
+
+
+inline bool SPI::isEmptyRX() {
+    return status->emptyRX;
 };
 
 
@@ -118,7 +145,7 @@ inline bool SPI::isIdle() {
 /*****************************************************************/
 
 
-SPI& SPI::transferStream(uint8_t* txBuf, uint8_t* rxBuf, uint32_t size) {
+SPI& SPI::exchangeStream(uint8_t* txBuf, uint8_t* rxBuf, uint32_t size) {
     /* Write to TX buffer the entire array */
     loadBufferTX(txBuf, size);
 
@@ -129,7 +156,22 @@ SPI& SPI::transferStream(uint8_t* txBuf, uint8_t* rxBuf, uint32_t size) {
     unloadBufferRX(rxBuf, size);
 
     return *this;
-}
+};
+
+
+SPI& SPI::retrieve(uint8_t* rxBuf, uint32_t size, spiError_e* error) {
+    for (int i = 0; i < size; ++i) {
+        if (!isEmptyRX()) {
+            rxBuf[i] = *bufferRX;
+        } else {
+            *error = RECEIVE_SIZE_ERROR;
+
+            return *this;
+        }
+    }
+
+    return *this;
+};
 
 
 /***********************************************************/

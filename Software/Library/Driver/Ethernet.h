@@ -3,6 +3,8 @@
 
 #include <inttypes.h>
 
+#include "UART.h"
+
 #include "../mmio.h"
 
 
@@ -10,8 +12,16 @@ class Ethernet {
 
 public:
 
+    UART debug;
+
+    /* Function errors */
+    enum ethError_e { NO_ERROR, TX_FULL, RX_EMPTY, LENGTH_EXCEEDED, LENGTH_SUBCEEDED, INDEX_OUT_OF_RANGE };
+
     /* Bandwidth */
     enum ethSpeed_e { MBPS10, MBPS100 };
+
+    /* Medium Dependent Interface */
+    enum ethChannel_e { MDI, MDI_X };
 
     /* MAC Address */
     struct macAddr_s { uint8_t byte[6]; };
@@ -42,11 +52,17 @@ public:
 
     /* Status register fields */
     struct macCtrlStatus_s {
-        /* Buffer status */
-        unsigned int emptyRX : 1;
-        unsigned int fullRX : 1;
-        unsigned int emptyTX : 1;
-        unsigned int fullTX : 1;
+        /* Payload buffer status */
+        unsigned int payloadEmptyRX : 1;
+        unsigned int payloadFullRX : 1;
+        unsigned int payloadEmptyTX : 1;
+        unsigned int payloadFullTX : 1;
+
+        /* Packet buffer status */
+        unsigned int packetEmptyRX : 1;
+        unsigned int packetFullRX : 1;
+        unsigned int packetEmptyTX : 1;
+        unsigned int packetFullTX : 1;
 
         /* TX and RX FSMs status */
         unsigned int idleRX : 1;
@@ -56,7 +72,9 @@ public:
         unsigned int interruptEnable : 4;     
 
         /* Select MAC speed */   
-        unsigned int speed : 1;        
+        unsigned int speed : 1;     
+
+        unsigned int padding : 17;   
     };
 
 
@@ -300,7 +318,7 @@ public:
             /* Mask fo interrupt register */
             unsigned int mask : 7;
 
-            unsigned int reserved1 : 1;
+            unsigned int reserved1 : 8;
         } fields;
 
         uint16_t raw;
@@ -321,6 +339,34 @@ public:
             unsigned int autodone : 1;
 
             unsigned int reserved2 : 3;
+        } fields;
+
+        uint16_t raw;
+    };
+
+
+    /* Special Control / Status Indication Register */
+    union phyCtrlStatusInd_s {
+        struct fields {
+            unsigned int reserved0 : 4;
+
+            /* HCDSPEED value */
+            unsigned int xpol : 1;
+
+            unsigned int reserved1 : 6;
+
+            /* Disable SQE test */
+            unsigned int sqeTest : 1;
+
+            unsigned int reserved2 : 1;
+
+            /* Manual channel select */
+            unsigned int channelSelect : 1;
+
+            unsigned int reserved3 : 1;
+
+            /* HP Auto-MDIX Control */
+            unsigned int autoMDIX : 1;
         } fields;
 
         uint16_t raw;
@@ -393,44 +439,157 @@ public:
 /*                         CONSTRUCTORS                         */
 /****************************************************************/
 
+    /**
+     * @brief Construct a new Ethernet object, reset PHY chip. Disable
+     * interrupts and clear old ones. 
+     */
     Ethernet();
 
+    /**
+     * @brief Destroy the Ethernet object, reset PHY chip and power it down. Disable
+     * interrupts and clear old ones. 
+     */
     ~Ethernet();
 
 
 /*****************************************************************/
 /*                         CONFIGURATION                         */
 /*****************************************************************/
-     
+    
+    /**
+     * @brief Initialize Ethernet device with speed, duplex settings and auto negotiation with the
+     * other end. The PHY chip is waken up and setted along with the MAC.
+     * 
+     * @param speed Select between 10 - 100 Mbps modes.
+     * @param duplexMode Half or Full duplex mode.
+     * @param autoNegotiation Enable auto negotiation with the other end device.
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
     Ethernet& init(ethSpeed_e speed, ethDuplex_e duplexMode, bool autoNegotiation);
 
-    Ethernet& enableTestMode(bool enable);
-
-    Ethernet& setMacInterrupt(uint8_t index, bool enable, bool* error);
+    /**
+     * @brief Enable or disable a specific interrupt for the MAC device, if the index is out of bound,
+     * the error pointer will be changed into: INDEX_OUT_OF_RANGE.
+     * 
+     * @param index Interrupt mask bit position.
+     * @param enable Enable or disable interrupt.
+     * @param error Pointer to an error variable.
+     * 
+     * @warning The parameter index must not be greater than 3!
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
+    Ethernet& setMacInterrupt(uint8_t index, bool enable, ethError_e* error);
 
 
 /*****************************************************************/
 /*                            STATUS                             */
 /*****************************************************************/
 
+    /**
+     * @brief Check if the transmitter FSM is sending data to the PHY or not.
+     * 
+     * @return The status of the transmitter FSM.
+     */
     bool isSending();
 
+    /**
+     * @brief Check if the PHY is sending received data to the MAC or not.
+     * 
+     * @return The status of the receiver FSM.
+     */
     bool isReceiving();
 
-    bool isEmptyTX();
+    /**
+     * @brief Check if the TX payload buffer register is empty.
+     * 
+     * @return The status of the TX payload buffer.
+     */
+    bool isEmptyPayloadTX();
 
-    bool isFullTX();
+    /**
+     * @brief Check if the TX payload buffer register is full.
+     * 
+     * @return The status of the TX payload buffer.
+     */
+    bool isFullPayloadTX();
 
-    bool isEmptyRX();
+    /**
+     * @brief Check if the RX payload buffer register is empty.
+     * 
+     * @return The status of the RX payload buffer.
+     */
+    bool isEmptyPayloadRX();
 
-    bool isFullRX();
+    /**
+     * @brief Check if the RX payload buffer register is full.
+     * 
+     * @return The status of the RX payload buffer.
+     */
+    bool isFullPayloadRX();
 
+    /**
+     * @brief Check if the TX packet descriptor buffer register is empty.
+     * 
+     * @return The status of the TX packet descriptor buffer.
+     */
+    bool isEmptyPacketTX();
+
+    /**
+     * @brief Check if the TX packet descriptor buffer register is full.
+     * 
+     * @return The status of the TX packet descriptor buffer.
+     */
+    bool isFullPacketTX();
+
+    /**
+     * @brief Check if the RX packet descriptor buffer register is empty.
+     * 
+     * @return The status of the RX packet descriptor buffer.
+     */
+    bool isEmptyPacketRX();
+
+    /**
+     * @brief Check if the RX packet descriptor buffer register is full.
+     * 
+     * @return The status of the RX packet descriptor buffer.
+     */
+    bool isFullPacketRX();
+
+    /**
+     * @brief Get the MAC and PHY interrupt status.
+     * 
+     * @return A struct containing both MAC and PHY interrupt status.
+     */
     struct ethInterrupt_s getInterrupt();
 
+    /**
+     * @brief Check if the PHY link is enstablished.
+     * 
+     * @return The status of the PHY link.
+     */
     bool isLinked();
 
+    /**
+     * @brief Check if the PHY is detecting energy.
+     * 
+     * @return The status of the PHY.
+     */
     bool energyOn();
 
+    /**
+     * @brief Check the channel mode of the PHY
+     * 
+     * @return Channel status of the PHY
+     */
+    ethChannel_e getChannel();
+
+    /**
+     * @brief Read the Error Count Register from the PHY.
+     * 
+     * @return A 16 bit value containing the number of errors.
+     */
     uint16_t getErrorCount();
 
 
@@ -438,10 +597,38 @@ public:
 /*                      MAC COMMUNICATION                        */
 /*****************************************************************/
 
-    Ethernet& sendFrame(const uint8_t* packet, uint32_t length, struct macAddr_s destMac, bool* error);
+    /**
+     * @brief Send an Ethernet frame on the link.
+     * 
+     * @param packet An array of bytes containing the payload to send.
+     * @param length The length of the payload.
+     * @param destMac The destination MAC address.
+     * @param error Pointer to an error variable.
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
+    Ethernet& sendFrame(const uint8_t* packet, uint32_t length, struct macAddr_s destMac, ethError_e* error);
 
-    Ethernet& receiveFrame(uint8_t* buffer, uint32_t length, bool* error);
+    /**
+     * @brief Receive the payload received plus 4 bytes of CRC.
+     * 
+     * @param packet An array of bytes to contain the payload and CRC received.
+     * @param length The length of the payload.
+     * @param error Pointer to an error variable.
+     * 
+     * @warning The array size must accomodate the entire payload plus 4 bytes of CRC, however
+     * the length passed in the function refers only to the payload size!
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
+    Ethernet& receiveFrame(uint8_t* buffer, uint32_t length, ethError_e* error);
 
+    /**
+     * @brief Get the packet received descriptor containing the source MAC address and
+     * the payload length
+     * 
+     * @return The packet descriptor data. 
+     */
     union macDescriptor_s getRxDescriptor();
 
 
@@ -449,17 +636,88 @@ public:
 /*                      PHY CONFIGURATION                        */
 /*****************************************************************/
     
+    /**
+     * @brief Software reset for PHY chip.
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
     Ethernet& reset();
 
+    /**
+     * @brief Put PHY chip on sleep.
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
     Ethernet& powerDown();
 
+    /**
+     * @brief Wake up PHY chip.
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
     Ethernet& wakeUp();
 
+    /**
+     * @brief Configure PHY chip directly with speed and duplex mode.
+     * 
+     * @param speed Select between 10 - 100 Mbps modes.
+     * @param duplexMode Half or Full duplex mode.
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
     Ethernet& configure(ethSpeed_e speed, ethDuplex_e duplexMode);
 
+    /**
+     * @brief Setup the PHY in near-loopback mode to redirect transmitted data to the RX bus of the 
+     * RMII interface.
+     * 
+     * @param enable Enable or disable test mode.
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
+    Ethernet& setTestMode(bool enable);
+
+    /**
+     * @brief Setup the SQE or Heartbeat bit in the PHY register.
+     * 
+     * @param enable Enable or disable SQE mode.
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
+    Ethernet& setHeartbeatTest(bool enable);
+
+    /**
+     * @brief Set PHY chip auto negotiation ability to exchange infos with
+     * the device on the other end.
+     * 
+     * @param enable Enable or disable auto negotiation.
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
     Ethernet& setAutoNegotiation(bool enable);
 
-    Ethernet& setPhyInterrupt(uint8_t index, bool enable, bool* error);
+    /**
+     * @brief Disable Auto-MDIX and force to use a specific channel
+     * 
+     * @param channel Select MDI or MDI-X channel
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
+    Ethernet& setChannel(ethChannel_e channel);
+
+    /**
+     * @brief Enable or disable a specific interrupt for the PHY device, if the index is out of bound,
+     * the error pointer will be changed into: INDEX_OUT_OF_RANGE.
+     * 
+     * @param index Interrupt mask bit position.
+     * @param enable Enable or disable interrupt.
+     * @param error Pointer to an error variable.
+     * 
+     * @warning The parameter index must not be greater than 6!
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
+    Ethernet& setPhyInterrupt(uint8_t index, bool enable, ethError_e* error);
 };
 
 #endif 
