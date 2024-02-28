@@ -12,6 +12,7 @@ module ethernet_rx #(
     input logic clk_i,
     input logic rst_n_i,
     input logic sample_i,
+    input eth_speed_t speed_i, 
 
     /* Packet info */
     output logic [5:0][7:0] source_address_o,
@@ -99,6 +100,42 @@ module ethernet_rx #(
         end 
 
 
+    /* Counter for IPG */
+    logic [1:0] ipg_bit_counter; logic ipg_bit_increment, ipg_bit_reset;
+    logic [3:0] ipg_bytes_counter; logic ipg_byte_increment, ipg_byte_reset;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                ipg_bit_counter <= '0;
+                ipg_bytes_counter <= '0;
+            end else begin 
+                if (ipg_bit_reset) begin
+                    ipg_bit_counter <= '0;
+                end else if (ipg_bit_increment) begin 
+                    ipg_bit_counter <= ipg_bit_counter + 1'b1;
+                end 
+
+                if (ipg_byte_reset) begin
+                    ipg_bytes_counter <= '0;
+                end else if (ipg_byte_increment) begin 
+                    ipg_bytes_counter <= ipg_bytes_counter + 1'b1;
+                end 
+            end 
+        end
+
+
+    logic crsdv_deasserted;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                crsdv_deasserted <= 1'b0;
+            end else if (sample_i) begin 
+                crsdv_deasserted <= !rmii_crsdv_i;
+            end 
+        end 
+    
+
+
     logic crc32_init, crc32_compute; logic [7:0] crc32_data; logic [3:0][7:0] crc32;
 
     ethernet_crc32 crc32_engine (
@@ -113,7 +150,7 @@ module ethernet_rx #(
     );
 
     /* Save the last 4 CRCs */
-    logic [3:0][31:0] crc32_saved; logic shift_crc, shift_crc_nxt;
+    logic [3:0][31:0] crc32_saved; logic shift_crc, shift_crc_nxt; logic [3:0][7:0] final_crc;
 
         always_ff @(posedge clk_i) begin
             shift_crc_nxt <= shift_crc;
@@ -123,19 +160,21 @@ module ethernet_rx #(
             end
         end 
 
+    assign final_crc = crc32_saved[3] ^ '1;
+
 
 //====================================================================================
 //      FSM LOGIC
 //====================================================================================
 
-    typedef enum logic [3:0] {IDLE, PREAMBLE, START_FRAME_DELIMITER, MAC_DESTINATION, MAC_SOURCE, ETH_TYPE, PAYLOAD, WAIT_END} ethernet_tx_states_t;
+    typedef enum logic [3:0] {IDLE, PREAMBLE, SDF, MAC_DESTINATION, MAC_SOURCE, ETH_TYPE, PAYLOAD, WAIT_IPG, WAIT_END} ethernet_tx_states_t;
 
     ethernet_tx_states_t state_CRT, state_NXT;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 state_CRT <= IDLE;
-            end else if (rmii_rxer_i | !rmii_crsdv_i) begin
+            end else if (rmii_rxer_i | (!rmii_crsdv_i & (state_CRT != PAYLOAD & state_CRT != WAIT_IPG))) begin
                 state_CRT <= IDLE;
             end else begin 
                 state_CRT <= state_NXT;
@@ -166,6 +205,10 @@ module ethernet_rx #(
             byte_increment = 1'b0;
             bit_increment = 1'b0;
             bit_reset = 1'b0;
+            ipg_byte_reset = 1'b0;
+            ipg_byte_increment = 1'b0;
+            ipg_bit_increment = 1'b0;
+            ipg_bit_reset = 1'b0;
 
 
             case (state_CRT)
@@ -180,7 +223,7 @@ module ethernet_rx #(
                     crc32_init = 1'b1;
 
                     if (rmii_crsdv_i) begin
-                        state_NXT = PREAMBLE;
+                        state_NXT = (speed_i == MBPS10) ? SDF : PREAMBLE;
 
                         bit_reset = 1'b0;
                     end
@@ -189,12 +232,14 @@ module ethernet_rx #(
 
                 /* Check for 7 bytes of alternating 1 and 0 */
                 PREAMBLE: begin
+                    idle_o = 1'b1;
+                    
                     if (sample_i & (rmii_rxd_i == 2'b01)) begin
                         bit_increment = 1'b1;
 
                         if (bit_counter == '1) begin
                             if (bytes_counter == (PREAMBLE_BYTES - 1)) begin
-                                state_NXT = START_FRAME_DELIMITER; 
+                                state_NXT = SDF; 
 
                                 byte_reset = 1'b1;
                                 bit_reset = 1'b1;
@@ -203,14 +248,19 @@ module ethernet_rx #(
                             byte_increment = 1'b1;
                             bit_reset = 1'b1;
                         end
+                    end else begin
+                        byte_reset = 1'b1;
+                        bit_reset = 1'b1;
                     end
                 end
 
 
                 /* Last byte before actual useful data, it marks the 
                  * start of a frame */
-                START_FRAME_DELIMITER: begin
-                    if (sample_i) begin
+                SDF: begin
+                    idle_o = 1'b1;
+
+                    if (sample_i & ((rmii_rxd_i == 2'b01) | ((rmii_rxd_i == 2'b11)))) begin
                         bit_increment = 1'b1;
 
                         if (bit_counter == '1) begin 
@@ -228,6 +278,8 @@ module ethernet_rx #(
                  * received MAC, if they don't match, wait for the 
                  * end of the frame */
                 MAC_DESTINATION: begin
+                    idle_o = 1'b1;
+
                     if (sample_i) begin
                         bit_increment = 1'b1;
 
@@ -319,7 +371,7 @@ module ethernet_rx #(
                             bit_increment = 1'b1;
 
                             payload_NXT = {rmii_rxd_i, payload_CRT[7:2]}; 
-                            frame_check_NXT = {rmii_rxd_i, frame_check_CRT[31:2]}; 
+                            frame_check_NXT = {frame_check_CRT[29:0], rmii_rxd_i[0], rmii_rxd_i[1]}; 
 
                             if (bit_counter == '1) begin 
                                 /* Compute the CRC */
@@ -334,19 +386,62 @@ module ethernet_rx #(
                             end 
                         end
                     end else begin
-                        state_NXT = IDLE;
+                        state_NXT = WAIT_IPG;
 
                         packet_write = 1'b1;  
-                        packet_error_o = {frame_check_CRT[7:0], frame_check_CRT[15:8], frame_check_CRT[23:16], frame_check_CRT[31:24]} != crc32_saved[3];
+                    end
+                end
 
-                        idle_o = 1'b1; 
+
+                WAIT_IPG: begin
+                    if (rmii_crsdv_i) begin
+                        state_NXT = PAYLOAD;
+
+                        ipg_byte_reset = 1'b1;
+                        ipg_bit_reset = 1'b1;
+                    end else begin
+                        if (sample_i) begin
+                            bit_increment = 1'b1;
+
+                            /* Keep saving data in case of a temporary loss of CRSDV signal */
+                            payload_NXT = {rmii_rxd_i, payload_CRT[7:2]};
+
+                            if (bit_counter == '1) begin 
+                                /* Compute the CRC */
+                                crc32_compute = 1'b1;
+                                crc32_data = payload_NXT[7:0];
+                                shift_crc = 1'b1;
+
+                                byte_increment = 1'b1;
+                                bit_reset = 1'b1;
+                            end 
+
+
+                            ipg_bit_increment = 1'b1;
+
+                            if (ipg_bit_counter == '1) begin
+                                if (ipg_bytes_counter == (IPG_BYTES - 1)) begin
+                                    state_NXT = IDLE; 
+
+                                    idle_o = 1'b1;
+
+                                    packet_error_o = frame_check_CRT != final_crc;
+
+                                    ipg_byte_reset = 1'b1;
+                                    ipg_bit_reset = 1'b1;
+                                end else begin 
+                                    ipg_byte_increment = 1'b1;
+
+                                    ipg_bit_reset = 1'b1;
+                                end
+                            end 
+                        end
                     end
                 end
 
 
                 WAIT_END: begin
                     idle_o = 1'b1;
-                    
                 end
             endcase 
         end
