@@ -114,17 +114,16 @@ module ethernet_tx #(
         end 
 
 
-    logic [5:0][7:0] inv_dest_address, inv_src_address; logic [3:0][7:0] inv_crc32;
+    logic [5:0][7:0] inv_dest_address, inv_src_address; logic [3:0][7:0] final_crc;
+
+    /* Final CRC32 calculation */
+    assign final_crc = crc32 ^ '1;
 
         /* Invert bytes */
         always_comb begin
             for (int i = 0; i < 6; ++i) begin
                 inv_dest_address[i] = dest_address_i[5 - i];
                 inv_src_address[i] = MAC_ADDRESS[5 - i];
-            end
-
-            for (int i = 0; i < 4; ++i) begin
-                inv_crc32[i] = crc32[3 - i];
             end
         end
 
@@ -203,7 +202,7 @@ module ethernet_tx #(
                     if (bit_counter == '1) begin
                         rmii_txd_o = 2'b11;
                     end else begin
-                        rmii_txd_o = 2'b10;
+                        rmii_txd_o = 2'b01;
                     end
 
                     if (transmit_i) begin
@@ -372,10 +371,10 @@ module ethernet_tx #(
                 /* Transmit computed CRC sequence */
                 FRAME_CHECK_SEQUENCE: begin
                     if ((bit_counter == '0) & (bytes_counter[1:0] == '0)) begin
-                        rmii_txd_o = inv_crc32[0][1:0];
+                        rmii_txd_o = final_crc[0][1:0];
 
                         /* Load CRC data */
-                        load_data = {2'b0, inv_crc32[0][7:2]};
+                        load_data = {2'b0, final_crc[0][7:2]};
                         load = 1'b1;
                     end else begin 
                         rmii_txd_o = data_shift[1:0];
@@ -397,7 +396,7 @@ module ethernet_tx #(
 
                                 bit_reset = 1'b1;
 
-                                load_data = inv_crc32[bytes_counter + 1];
+                                load_data = final_crc[bytes_counter + 1];
                                 load = 1'b1;
                             end
                         end 
