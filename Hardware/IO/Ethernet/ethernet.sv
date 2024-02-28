@@ -28,7 +28,6 @@ module ethernet #(
 ) (
     /* Global signals */
     input logic clk_i,
-    input logic phy_clk_i,
     input logic rst_n_i,
     output logic interrupt_o,
 
@@ -48,8 +47,8 @@ module ethernet #(
 
     /* RMII Interface */
     input logic phy_interrupt_i,
-    input logic [1:0] rmii_rxd_i,
-    input logic rmii_crsdv_i,
+    inout logic [1:0] rmii_rxd_io,
+    inout logic rmii_crsdv_io,
     input logic rmii_rxer_i,
     output logic [1:0] rmii_txd_o,
     output logic rmii_txen_o,
@@ -62,12 +61,51 @@ module ethernet #(
 );
 
 //====================================================================================
+//      CLOCK GENERATOR
+//====================================================================================
+
+    ethernet_reset generator (
+        .clk_i    ( clk_i    ),
+        .rst_n_i  ( rst_n_i  ),
+
+        .rst_n_o ( rmii_rstn_o   )
+    );
+
+
+    logic [4:0] clk_counter; logic clk_5MHz, clk_50MHz; 
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                clk_counter <= '0;
+            end else begin 
+                clk_counter <= (clk_counter == 'd19) ? '0 : (clk_counter + 1'b1);
+            end 
+        end 
+
+    assign clk_5MHz = clk_counter == 'd19;
+    assign clk_50MHz = clk_counter[0];
+
+
+    eth_speed_t eth_speed;
+
+    /* Pulse to shift bits inside TX and RX FSMs */
+    assign pulse_in = (eth_speed == MBPS100) ? clk_50MHz : clk_5MHz;
+
+    /* Reference clock is always 50MHz */
+    assign rmii_refclk_o = clk_50MHz;
+
+
+    /* Bootstrap Mode */
+    assign rmii_crsdv_io = rmii_rstn_o ? 1'bZ : 1'b1;
+    assign rmii_rxd_io = rmii_rstn_o ? 2'bZZ : 2'b00;
+
+
+//====================================================================================
 //      REGISTERS
 //====================================================================================
 
     logic read_payload, read_descriptor, write_payload, write_descriptor; logic tx_idle, rx_idle, rx_error, data_ready;
     logic [5:0][7:0] tx_dest_address, rx_src_address; logic [1:0][7:0] tx_payload_length, rx_payload_length; logic [7:0] tx_payload, rx_payload;
-    eth_speed_t eth_speed;
 
     logic [4:0] smii_address; logic smii_write, smii_read, smii_done; logic [15:0] smii_data_tx, smii_data_rx;
 
@@ -140,21 +178,45 @@ module ethernet #(
 //      RECEIVER
 //====================================================================================
 
-    logic pulse_in;
+    logic [1:0] rxd_sync; logic crsdv_sync; 
+
+    genvar i;
+
+    generate 
+        for (i = 0; i < 2; ++i) begin
+            synchronizer #(2, '0) rxd_synchronizer (
+                .clk_i   ( clk_i   ),
+                .rst_n_i ( rst_n_i ),
+
+                .signal_i ( rmii_rxd_io[i] ),
+                .sync_o   ( rxd_sync[i]    )
+            );
+        end
+    endgenerate
+
+    synchronizer #(2, '0) crsdv_synchronizer (
+        .clk_i   ( clk_i   ),
+        .rst_n_i ( rst_n_i ),
+
+        .signal_i ( rmii_crsdv_io ),
+        .sync_o   ( crsdv_sync    )
+    );
+
 
     ethernet_rx #(MAC_ADDRESS) receiver (
-        .clk_i    ( clk_i    ),
-        .rst_n_i  ( rst_n_i  ),
-        .sample_i ( pulse_in ),
+        .clk_i    ( clk_i     ),
+        .rst_n_i  ( rst_n_i   ),
+        .sample_i ( pulse_in  ),
+        .speed_i  ( eth_speed ),
 
         .source_address_o ( rx_src_address    ), 
         .lenght_type_o    ( rx_payload_length ),
         .payload_o        ( rx_payload        ),
         .packet_error_o   ( rx_error          ),
 
-        .rmii_rxd_i   ( rmii_rxd_i   ),
-        .rmii_crsdv_i ( rmii_crsdv_i ),
-        .rmii_rxer_i  ( rmii_rxer_i  ),
+        .rmii_rxd_i   ( rxd_sync    ),
+        .rmii_crsdv_i ( crsdv_sync  ),
+        .rmii_rxer_i  ( rmii_rxer_i ),
 
         .idle_o          ( rx_idle          ),
         .packet_valid_o  ( write_descriptor ),
@@ -184,38 +246,6 @@ module ethernet #(
 
         .idle_o ( tx_idle )
     );
-
-
-//====================================================================================
-//      CLOCK GENERATOR
-//====================================================================================
-
-    ethernet_reset generator (
-        .clk_i    ( clk_i    ),
-        .rst_n_i  ( rst_n_i  ),
-
-        .rst_n_o ( rmii_rstn_o   )
-    );
-
-
-    logic [3:0] clk_counter; logic clk_5MHz, clk_50MHz;
-
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin 
-                clk_counter <= '0;
-            end else begin 
-                clk_counter <= (clk_counter == 'd9) ? '0 : (clk_counter + 1'b1);
-            end 
-        end 
-
-    assign clk_5MHz = clk_counter == 'd9;
-    assign clk_50MHz = clk_counter[0];
-
-    /* Pulse to shift bits inside TX and RX FSMs */
-    assign pulse_in = (eth_speed == MBPS100) ? clk_50MHz : clk_5MHz;
-
-    /* Reference clock is always 50MHz */
-    assign rmii_refclk_o = clk_50MHz;
 
 endmodule : ethernet 
 
