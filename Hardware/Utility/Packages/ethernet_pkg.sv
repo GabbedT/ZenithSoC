@@ -49,11 +49,17 @@ package ethernet_pkg;
         logic TX_idle;
         logic RX_idle;
 
-        /* FIFOs status (non writable) */
-        logic TX_full;
-        logic TX_empty;
-        logic RX_full;
-        logic RX_empty;   
+        /* Packet FIFOs status (non writable) */
+        logic TX_packet_full;
+        logic TX_packet_empty;
+        logic RX_packet_full;
+        logic RX_packet_empty;
+
+        /* Payload FIFOs status (non writable) */
+        logic TX_payload_full;
+        logic TX_payload_empty;
+        logic RX_payload_full;
+        logic RX_payload_empty;   
     } eth_status_t;
 
 
