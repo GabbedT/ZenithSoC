@@ -271,7 +271,7 @@ module spi #(
 
     logic miso_sync;
 
-    synchronizer #(2, '1) miso_line_sync (
+    synchronizer #(2, '0) miso_line_sync (
         .clk_i   ( clk_i   ),
         .rst_n_i ( rst_n_i ),
 
