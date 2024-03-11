@@ -262,7 +262,7 @@ module basic_system #(
                 end
 
                 HALF_WORD: begin 
-                    master_write_strobe = 2'b11 << ({store_channel.address[0], 1'b0});
+                    master_write_strobe = 2'b11 << ({store_channel.address[1], 1'b0});
                 end 
 
                 BYTE: begin
