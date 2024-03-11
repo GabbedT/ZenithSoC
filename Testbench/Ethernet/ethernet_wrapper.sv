@@ -24,7 +24,7 @@ module eth_wrapper (
     inout logic smii_mdio_io
 );
 
-    localparam _TIMES_ = 7;
+    localparam _TIMES_ = 20;
 
     localparam S10 = 39'd10_000_000;
     localparam N10 = 39'd30;
@@ -51,7 +51,7 @@ module eth_wrapper (
             end
 
             if (!unlock) begin
-                block <= cnt > S10; 
+                block <= cnt > N10; 
             end else begin
                 block <= 1'b0;
             end
@@ -104,20 +104,23 @@ module eth_wrapper (
     
     always_ff @(posedge clk_i) begin
         if (read_command) begin
-            if (rd_ptr > 'd3 & rd_ptr < 'd7) begin
+            if (rd_ptr > 'd4 & rd_ptr < 'd8) begin
                 case (rd_ptr)
-                    'd4: temporary <= write_mac(0, 16'b0000000100000000);
-                    'd5: temporary <= write_mac(33, {16'hAA_16, 16'd4});
-                    'd6: temporary <= write_mac(34, {32'hD8_BB_C1_57});
+                    'd5: temporary <= write_mac(0, 16'b0000000100000000);
+                    // 'd6: temporary <= write_mac(33, {16'hAA_16, 16'd4});
+                    'd6: temporary <= write_mac(33, {16'hFF_FF, 16'd4});
+                    // 'd7: temporary <= write_mac(34, {32'hD8_BB_C1_57});
+                    'd7: temporary <= write_mac(34, '1);
 
                     default: temporary <= '1;
                 endcase
-            end else if (rd_ptr < 'd4) begin
-                case (rd_ptr % 4) 
-                    'd0: temporary <= write_mac(35, 8'hDE);
-                    'd1: temporary <= write_mac(35, 8'hAD);
-                    'd2: temporary <= write_mac(35, 8'hBE);
-                    'd3: temporary <= write_mac(35, 8'hEF);
+            end else if (rd_ptr < 'd5) begin
+                case (rd_ptr) 
+                    'd0: temporary <= write_mac(32, {'0, 1'b1, 4'b0, 1'b1, 2'b11, 2'b0, 4'b0, 4'b0});
+                    'd1: temporary <= write_mac(35, 8'hDE);
+                    'd2: temporary <= write_mac(35, 8'hAD);
+                    'd3: temporary <= write_mac(35, 8'hBE);
+                    'd4: temporary <= write_mac(35, 8'hEF);
 
                     default: temporary <= '1;
                 endcase 
