@@ -16,6 +16,9 @@
 /* Number of UART */
 #define UART_NUMBER 1
 
+/* The UART ID for debugging */
+#define DEBUG_UART 0
+
 /* SPI slave number */
 #define SPI_SLAVES 1
 
