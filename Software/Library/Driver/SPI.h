@@ -9,7 +9,7 @@ class SPI {
 
 public:
 
-    enum spiError_e { ILLEGAL_CLOCK, INDEX_OUT_OF_RANGE, RECEIVE_SIZE_ERROR };
+    enum spiError_e { NO_ERROR, ILLEGAL_CLOCK, INDEX_OUT_OF_RANGE, RECEIVE_SIZE_ERROR };
     /* Bit sent first */
     enum bitOrder_e { MSB_FIRST, LSB_FIRST };
 
