@@ -63,8 +63,7 @@ Timer::~Timer() {
 /*****************************************************************/
 
 /**
- * @brief Initializes a Timer pin with specified parameters and returns a reference to the GPIO
- * object.
+ * @brief Initializes a Timer pin with specified parameters, disable interrupts.
  * 
  * @return The Timer object itself to chain the function call.
  */
@@ -78,7 +77,6 @@ Timer& Timer::init(uint64_t threshold, timerMode_e mode) {
 
     /* Reset timer value and enable interrupts */
     *value = 0L;
-    configuration->interruptEnable = true;
 
     return *this;
 }
@@ -179,7 +177,8 @@ uint64_t Timer::getThreshold() const {
 /*****************************************************************/
 
 /**
- * @brief Enable timer: start incrementing.
+ * @brief Enable timer: start incrementing. The timer needs to be in 
+ * ONE_SHOT mode, otherwise the function never returns.
  * 
  * @return The Timer object itself to chain the function call.
  */
