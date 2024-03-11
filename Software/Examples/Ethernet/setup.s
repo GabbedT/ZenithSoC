@@ -2,7 +2,7 @@
 
 .global boot_program 
 
-.extern eth 
+.extern ethernet 
 
 boot_program:
     li sp, 0x24800
@@ -14,6 +14,6 @@ boot_program:
     csrs mie, t0 
     
     # Jump to main function 
-    jal ra, eth 
+    jal ra, ethernet 
     unimp 
     

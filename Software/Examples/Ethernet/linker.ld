@@ -18,6 +18,6 @@ SECTIONS
     .text : { 
         *(.text) 
 
-        eth.o (.text.eth)
+        ethernet.o (.text.ethernet)
     } > text
 }
