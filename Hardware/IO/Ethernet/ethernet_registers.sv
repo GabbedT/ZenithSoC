@@ -19,6 +19,7 @@ module ethernet_registers #(
     input logic clk_i,
     input logic rst_n_i,
     output logic interrupt_o,
+    output logic ethernet_II_o,
     output eth_speed_t eth_speed_o,
 
     /* Write register interface */
@@ -43,6 +44,7 @@ module ethernet_registers #(
     output logic [1:0][7:0] payload_length_o,
     output logic [7:0] payload_o,
     output logic data_ready_o,
+    output logic tx_enable_o,
 
     /* RX interface */
     input logic write_payload_i,
@@ -52,6 +54,7 @@ module ethernet_registers #(
     input logic [5:0][7:0] source_address_i,
     input logic [1:0][7:0] payload_length_i,
     input logic [7:0] payload_i,
+    output logic rx_enable_o,
 
     /* SMII interface */
     output logic [4:0] smii_address_o,
@@ -101,19 +104,30 @@ module ethernet_registers #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 status_register.interrupt_enable <= 4'b0;
+                status_register.ethernet_mode <= 1'b0;
+                status_register.TX_enable <= 1'b0;
+                status_register.RX_enable <= 1'b0;
                 status_register.speed <= MBPS10;
             end else begin 
                 if ((write_address_i.select == MAC) & (write_address_i.registers == ETH_MAC_STATUS) & write_i) begin
-                    status_register.interrupt_enable <= write_data_i[13:10];
-                    status_register.speed <= eth_speed_t'(write_data_i[14]);
+                    status_register.RX_enable <= write_data_i[10];
+                    status_register.TX_enable <= write_data_i[11];
+                    status_register.ethernet_mode <= write_data_i[12];
+                    status_register.interrupt_enable <= write_data_i[16:13];
+                    status_register.speed <= eth_speed_t'(write_data_i[17]);
                 end
             end 
         end 
+
+    assign ethernet_II_o = status_register.ethernet_mode;
 
     assign status_register.TX_idle = tx_idle_i;
     assign status_register.RX_idle = rx_idle_i;
 
     assign eth_speed_o = status_register.speed;
+
+    assign tx_enable_o = status_register.TX_enable;
+    assign rx_enable_o = status_register.RX_enable;
 
 
 //====================================================================================

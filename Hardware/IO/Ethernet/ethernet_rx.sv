@@ -12,6 +12,8 @@ module ethernet_rx #(
     input logic clk_i,
     input logic rst_n_i,
     input logic sample_i,
+    input logic enable_i, 
+    input logic ethernet_II_i,
     input eth_speed_t speed_i, 
 
     /* Packet info */
@@ -51,23 +53,6 @@ module ethernet_rx #(
     assign payload_o = payload_CRT;
 
 
-    logic [1:0][7:0] length; logic [5:0][7:0] address;
-
-        /* Invert bytes */
-        always_comb begin
-            length = length_CRT;
-            address = address_NXT;
-
-            for (int i = 0; i < 6; ++i) begin
-                source_address_o[i] = address[5 - i];
-            end
-
-            for (int i = 0; i < 2; ++i) begin
-                lenght_type_o[i] = length[1 - i];
-            end
-        end
-
-
     /* Counter to select the payload bits */
     logic [1:0] bit_counter; logic bit_increment, bit_reset;
 
@@ -98,6 +83,27 @@ module ethernet_rx #(
                 end
             end 
         end 
+
+
+    logic [1:0][7:0] length; logic [5:0][7:0] address;
+
+        /* Invert bytes */
+        always_comb begin
+            if (ethernet_II_i) begin
+                length = {'0, bytes_counter};
+            end else begin
+                length = length_CRT;
+            end
+            address = address_NXT;
+
+            for (int i = 0; i < 6; ++i) begin
+                source_address_o[i] = address[5 - i];
+            end
+
+            for (int i = 0; i < 2; ++i) begin
+                lenght_type_o[i] = length[1 - i];
+            end
+        end
 
 
     /* Counter for IPG */
@@ -176,7 +182,7 @@ module ethernet_rx #(
                 state_CRT <= IDLE;
             end else if (rmii_rxer_i | (!rmii_crsdv_i & (state_CRT != PAYLOAD & state_CRT != WAIT_IPG))) begin
                 state_CRT <= IDLE;
-            end else begin 
+            end else if (enable_i) begin 
                 state_CRT <= state_NXT;
             end 
         end 
@@ -248,9 +254,6 @@ module ethernet_rx #(
                             byte_increment = 1'b1;
                             bit_reset = 1'b1;
                         end
-                    end else begin
-                        byte_reset = 1'b1;
-                        bit_reset = 1'b1;
                     end
                 end
 
@@ -342,6 +345,7 @@ module ethernet_rx #(
                         bit_increment = 1'b1;
 
                         length_NXT = {rmii_rxd_i, length_CRT[15:2]}; 
+                        payload_NXT = {rmii_rxd_i, payload_CRT[7:2]}; 
 
                         if (bit_counter == '1) begin 
                             if (bytes_counter == (ETH_TYPE_BYTES - 1)) begin
@@ -350,6 +354,10 @@ module ethernet_rx #(
                                 byte_reset = 1'b1;
                                 bit_reset = 1'b1;                        
                             end 
+
+                            if (ethernet_II_i) begin
+                                payload_write = 1'b1;
+                            end
 
                             /* Compute the CRC */
                             crc32_compute = 1'b1;

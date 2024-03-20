@@ -12,6 +12,8 @@ module ethernet_tx #(
     input logic clk_i,
     input logic rst_n_i,
     input logic transmit_i,
+    input logic enable_i,
+    input logic ethernet_II_i,
 
     /* Packet info */
     input logic [5:0][7:0] dest_address_i,
@@ -108,7 +110,7 @@ module ethernet_tx #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 state_CRT <= IDLE;
-            end else begin 
+            end else if (enable_i) begin 
                 state_CRT <= state_NXT;
             end 
         end 
@@ -275,8 +277,15 @@ module ethernet_tx #(
                                 byte_reset = 1'b1;
                                 bit_reset = 1'b1;
 
-                                /* Load the payload lenght info */
-                                load_data = payload_length_i[1];
+                                /* Load the payload lenght / type info */
+                                if (ethernet_II_i) begin
+                                    load_data = payload_data_i;
+
+                                    read_data_o = 1'b1;
+                                end else begin
+                                    load_data = payload_length_i[1];
+                                end 
+
                                 load = 1'b1;
                             end else begin 
                                 byte_increment = 1'b1;
@@ -323,13 +332,25 @@ module ethernet_tx #(
                                 bit_reset = 1'b1;
 
                                 /* Load next byte of the payload */
-                                load_data = payload_length_i[0];
+                                if (ethernet_II_i) begin
+                                    load_data = payload_data_i;
+
+                                    read_data_o = 1'b1;
+                                end else begin
+                                    load_data = payload_length_i[0];
+                                end 
+
                                 load = 1'b1;
                             end
 
                             /* Compute the CRC */
                             crc32_compute = 1'b1;
-                            crc32_data = payload_length_i[!bytes_counter[0]];
+
+                            if (ethernet_II_i) begin
+                                crc32_data = saved_data;
+                            end else begin
+                                crc32_data = payload_length_i[!bytes_counter[0]];
+                            end 
                         end
                     end
                 end

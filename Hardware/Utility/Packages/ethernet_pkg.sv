@@ -45,6 +45,13 @@ package ethernet_pkg;
         /* Enable interrupt generation */
         logic [3:0] interrupt_enable;
 
+        /* Ethernet mode (Eth II or standard) */
+        logic ethernet_mode;
+        
+        /* Enable FSMs */
+        logic TX_enable;
+        logic RX_enable;
+
         /* FSMs status */
         logic TX_idle;
         logic RX_idle;

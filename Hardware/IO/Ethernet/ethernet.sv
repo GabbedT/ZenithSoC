@@ -30,6 +30,7 @@ module ethernet #(
     input logic clk_i,
     input logic rst_n_i,
     output logic interrupt_o,
+    output logic busy_o,
 
     /* Write interface */
     input logic write_i,
@@ -104,16 +105,18 @@ module ethernet #(
 //      REGISTERS
 //====================================================================================
 
-    logic read_payload, read_descriptor, write_payload, write_descriptor; logic tx_idle, rx_idle, rx_error, data_ready;
+    logic read_payload, read_descriptor, write_payload, write_descriptor; logic tx_idle, rx_idle, rx_error, data_ready, smii_idle;
     logic [5:0][7:0] tx_dest_address, rx_src_address; logic [1:0][7:0] tx_payload_length, rx_payload_length; logic [7:0] tx_payload, rx_payload;
+    logic tx_enable, rx_enable, ethernet_II;
 
     logic [4:0] smii_address; logic smii_write, smii_read, smii_done; logic [15:0] smii_data_tx, smii_data_rx;
 
     ethernet_registers #(TX_BUFFER_SIZE, RX_BUFFER_SIZE, TX_PACKETS, RX_PACKETS) registers (
-        .clk_i       ( clk_i       ),
-        .rst_n_i     ( rst_n_i     ),
-        .interrupt_o ( interrupt_o ),
-        .eth_speed_o ( eth_speed   ),
+        .clk_i         ( clk_i       ),
+        .rst_n_i       ( rst_n_i     ),
+        .interrupt_o   ( interrupt_o ),
+        .ethernet_II_o ( ethernet_II ),
+        .eth_speed_o   ( eth_speed   ),
 
         .write_address_i ( write_address_i ),
         .write_i         ( write_i         ),
@@ -134,6 +137,7 @@ module ethernet #(
         .payload_length_o  ( tx_payload_length ),
         .payload_o         ( tx_payload        ),
         .data_ready_o      ( data_ready        ),
+        .tx_enable_o       ( tx_enable         ),
 
         .write_payload_i    ( write_payload     ),
         .write_descriptor_i ( write_descriptor  ),
@@ -142,6 +146,7 @@ module ethernet #(
         .source_address_i   ( rx_src_address    ),
         .payload_length_i   ( rx_payload_length ),
         .payload_i          ( rx_payload        ),
+        .rx_enable_o        ( rx_enable         ),
 
         .smii_address_o   ( smii_address    ),
         .smii_write_o     ( smii_write      ),
@@ -170,8 +175,11 @@ module ethernet #(
         .smii_mdc_o   ( smii_mdc_o   ),
         .smii_mdio_io ( smii_mdio_io ),
 
-        .done_o ( smii_done )
+        .done_o ( smii_done ),
+        .idle_o ( smii_idle )
     );
+
+    assign busy_o = !smii_idle;
 
 
 //====================================================================================
@@ -204,10 +212,12 @@ module ethernet #(
 
 
     ethernet_rx #(MAC_ADDRESS) receiver (
-        .clk_i    ( clk_i     ),
-        .rst_n_i  ( rst_n_i   ),
-        .sample_i ( pulse_in  ),
-        .speed_i  ( eth_speed ),
+        .clk_i         ( clk_i       ),
+        .rst_n_i       ( rst_n_i     ),
+        .sample_i      ( pulse_in    ),
+        .speed_i       ( eth_speed   ),
+        .ethernet_II_i ( ethernet_II ),
+        .enable_i      ( rx_enable   ),
 
         .source_address_o ( rx_src_address    ), 
         .lenght_type_o    ( rx_payload_length ),
@@ -229,9 +239,11 @@ module ethernet #(
 //====================================================================================
 
     ethernet_tx #(MAC_ADDRESS) transmitter (
-        .clk_i      ( clk_i    ),
-        .rst_n_i    ( rst_n_i  ),
-        .transmit_i ( pulse_in ),
+        .clk_i         ( clk_i       ),
+        .rst_n_i       ( rst_n_i     ),
+        .transmit_i    ( pulse_in    ),
+        .ethernet_II_i ( ethernet_II ),
+        .enable_i      ( tx_enable   ),
 
         .dest_address_i   ( tx_dest_address   ),
         .payload_length_i ( tx_payload_length ),

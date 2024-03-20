@@ -19,7 +19,8 @@ module ethernet_mac2phy #(
     output logic smii_mdc_o,
     inout logic smii_mdio_io,
 
-    output logic done_o
+    output logic done_o,
+    output logic idle_o
 );
 
 //====================================================================================
@@ -74,7 +75,7 @@ module ethernet_mac2phy #(
     localparam WRITE = 0;
     localparam READ = 1;
 
-    logic smii_mdio, enable, pulse, sample, done;
+    logic smii_mdio, enable, pulse, sample, done, idle;
 
         always_comb begin
             /* Default Values */
@@ -88,12 +89,16 @@ module ethernet_mac2phy #(
             smii_mdio = 1'b0;
 
             done = 1'b0;
+            idle = 1'b0;
             enable = 1'b0;
             
             case (state_CRT)
                 IDLE: begin
+                    idle = 1'b1;
+                    
                     if (write_i | read_i) begin
                         state_NXT = PREAMBLE;
+                        idle = 1'b0;
 
                         address_NXT = address_i;
                     end
@@ -253,6 +258,7 @@ module ethernet_mac2phy #(
                 done_o <= 1'b0;
             end else begin 
                 done_o <= done;
+                idle_o <= idle;
             end 
         end 
 
