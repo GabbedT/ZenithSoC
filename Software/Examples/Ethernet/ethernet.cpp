@@ -14,30 +14,31 @@ void getRegister(uint8_t addr, const char *name, Ethernet& ethernet);
 void packetLoop(GPIO& gpio, Ethernet& ethernet, struct Ethernet::macAddr_s macDestination, uint16_t txEtherType, bool eth_II);
 
 uint8_t RX_payload[Ethernet::MAX_PAYLOAD_LENGTH];
-uint8_t TX_payload[] =  "LLC[INIZIO FRAME ETHERNET]\n\n"
-                        "MEMBRI DEL TEAM FRANCO:\n"
-                        "Gabriele: Il piu' figo di tutti naturalmente.\n"
-                        "Emanuele: Lecca il buco del culo di Nanouk e la figa di Zoe.\n"
-                        "Andrea: Si sta scagazzando nelle mutande per TdS di domani.\n"
-                        "Hermes: Si crede fortissimo quando si incazza ma in realta e' un cucciolo di topo.\n\n"
-                        "[FINE FRAME ETHERNET]";
+uint8_t TX_payload[] =  "LLC[INIZIO FRAME ETHERNET] PAYLOAD PAYLOAD [FINE FRAME ETHERNET]";
 
 
 extern "C" void ethernet() {
 
-    GPIO gpio(0);
     Timer timer(0);
-    Ethernet ethernet;
-
-    gpio.init(0x00, 0xF0, 0x00, 0x00);
 
     timer.init(-1, Timer::ONE_SHOT)
          .setInterrupt(false);
 
+    #ifndef _TEST_ 
+    
+    timer.delay(10); 
+    
+    #endif
+
+
+    GPIO gpio(0);
+    Ethernet ethernet;
+
+    gpio.init(0x00, 0xF0, 0x00, 0x00);
+
+    SerialOut::init();
 
     SerialOut::printf("===================== TEST START =====================\n\n Reading PHY LAN8720A registers...\n");
-
-    timer.delay(10);
 
     ethernet.init(Ethernet::MBPS100, Ethernet::FULL_DUPLEX, false, Ethernet::IEEE_8023);
 
@@ -84,14 +85,15 @@ extern "C" void ethernet() {
 
 
     SerialOut::printf("\n\n\n===================== IEEE 802.3 100Mbps Test =====================");
+
+    getRegister(Ethernet::_BasicControl_, "\n[0] BASIC CONTROL REGISTER: ", ethernet);
+    getRegister(Ethernet::_BasicStatus_, "\n[1] BASIC STATUS REGISTER: ", ethernet);
     
     #ifndef _TEST_
 
     timer.delay(1000);
     SerialOut::println("\n\n[LINK STATUS] Linking...\n");
-    
-    while (!ethernet.isLinked()) { }
-
+    ethernet.waitLink();
     SerialOut::println("[LINK STATUS] Enstablished!\n\n");
     timer.delay(1000);
 
@@ -104,13 +106,14 @@ extern "C" void ethernet() {
 
     ethernet.init(Ethernet::MBPS10, Ethernet::FULL_DUPLEX, false, Ethernet::IEEE_8023);
 
+    getRegister(Ethernet::_BasicControl_, "\n[0] BASIC CONTROL REGISTER: ", ethernet);
+    getRegister(Ethernet::_BasicStatus_, "\n[1] BASIC STATUS REGISTER: ", ethernet);
+
     #ifndef _TEST_
     
     timer.delay(1000);
     SerialOut::println("\n\n[LINK STATUS] Linking...\n");
-
-    while (!ethernet.isLinked()) { }
-
+    ethernet.waitLink();
     SerialOut::println("[LINK STATUS] Enstablished!\n\n");
     timer.delay(1000);
 
@@ -123,13 +126,14 @@ extern "C" void ethernet() {
     
     ethernet.init(Ethernet::MBPS100, Ethernet::FULL_DUPLEX, false, Ethernet::ETHERNET_II);
 
+    getRegister(Ethernet::_BasicControl_, "\n[0] BASIC CONTROL REGISTER: ", ethernet);
+    getRegister(Ethernet::_BasicStatus_, "\n[1] BASIC STATUS REGISTER: ", ethernet);
+
     #ifndef _TEST_
 
     timer.delay(1000);
     SerialOut::println("\n\n[LINK STATUS] Linking...\n");
-
-    while (!ethernet.isLinked()) { }
-
+    ethernet.waitLink();
     SerialOut::println("[LINK STATUS] Enstablished!\n\n");
     timer.delay(1000);
 
@@ -142,13 +146,14 @@ extern "C" void ethernet() {
 
     ethernet.init(Ethernet::MBPS10, Ethernet::FULL_DUPLEX, false, Ethernet::ETHERNET_II);
 
+    getRegister(Ethernet::_BasicControl_, "\n[0] BASIC CONTROL REGISTER: ", ethernet);
+    getRegister(Ethernet::_BasicStatus_, "\n[1] BASIC STATUS REGISTER: ", ethernet);
+
     #ifndef _TEST_
     
     timer.delay(1000);
     SerialOut::println("\n\n[LINK STATUS] Linking...\n");
-    
-    while (!ethernet.isLinked()) { }
-
+    ethernet.waitLink();
     SerialOut::println("[LINK STATUS] Enstablished!\n\n");
     timer.delay(1000);
 
@@ -163,21 +168,9 @@ extern "C" void ethernet() {
 
 void getRegister(uint8_t addr, const char *name, Ethernet& ethernet) {
     uint16_t reg = ethernet.readPHYRegister(addr);
+
     SerialOut::printf(name);
-
-    char str[17];
-
-    /* EOS char */    
-    str[16] = '\0';
-
-    for (int i = 0; i < 16; ++i) {
-        bool lsb = reg & 1;
-        str[15 - i] = lsb ? '1' : '0';
-
-        reg >>= 1;
-    }
-
-    SerialOut::println(str);
+    SerialOut::writeB(reg);
 }
 
 
@@ -232,12 +225,10 @@ void packetLoop(GPIO& gpio, Ethernet& ethernet, struct Ethernet::macAddr_s macDe
             }
 
             SerialOut::printf("\nLength: ");
-            SerialOut::writeH(rxDescriptor.fields.length >> 8);
-            SerialOut::writeH(rxDescriptor.fields.length);
+            SerialOut::writeH((uint16_t) rxDescriptor.fields.length);
 
             if (eth_II) {
                 SerialOut::printf("\nEtherType: ");
-                SerialOut::writeH(rxEtherType >> 8);
                 SerialOut::writeH(rxEtherType);
             }
 

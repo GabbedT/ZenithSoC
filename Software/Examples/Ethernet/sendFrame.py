@@ -43,9 +43,10 @@ def main():
 
     threading.Thread(target=listen_for_input, args=(interface, packet_data), daemon=True).start()
 
+    i = 0
+    
     while True:
-        sendeth(src, dst, eth_type, payload, interface)
-        time.sleep(5)
+        i = i + 1
 
 if __name__ == "__main__":
     try:

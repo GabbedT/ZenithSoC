@@ -79,7 +79,7 @@ module basic_system_testbench();
     always #5 clk_i <= !clk_i; 
 
 
-    assign smi_mdio_io = dut.ethernet_mac.mac2phy.enable ? 1'bZ : 1'b1;
+    assign smi_mdio_io = dut.ethernet_mac.mac2phy.enable ? 1'bZ : 1'b0;
 
     /* Trace */
     typedef struct packed {
@@ -173,7 +173,7 @@ module basic_system_testbench();
         repeat(40) @(posedge clk_i);
         rst_n_i <= 1'b1;
 
-        while (!(`CPU.apogeo_backend.exception_generated & `CPU.apogeo_backend.exception_vector == 2) & ($time() < 245000)) begin
+        while (!(`CPU.apogeo_backend.exception_generated & `CPU.apogeo_backend.exception_vector == 2) & ($time() < 600000)) begin
             /* Write the registers */
             if (`CPU.apogeo_backend.writeback_o) begin
                 registers[`CPU.apogeo_backend.reg_destination_o] <= `CPU.apogeo_backend.writeback_result_o;
