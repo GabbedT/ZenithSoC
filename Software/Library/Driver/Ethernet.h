@@ -3,8 +3,6 @@
 
 #include <inttypes.h>
 
-#include "UART.h"
-
 #include "../mmio.h"
 
 
@@ -12,13 +10,14 @@ class Ethernet {
 
 public:
 
-    UART debug;
-
     /* Function errors */
-    enum ethError_e { NO_ERROR, TX_FULL, RX_EMPTY, LENGTH_EXCEEDED, LENGTH_SUBCEEDED, INDEX_OUT_OF_RANGE };
+    enum ethError_e { NO_ERROR, TX_FULL, RX_EMPTY, LENGTH_EXCEEDED, LENGTH_SUBCEEDED, INDEX_OUT_OF_RANGE, BAD_CONFIG };
 
     /* Bandwidth */
     enum ethSpeed_e { MBPS10, MBPS100 };
+
+    /* Mode */
+    enum ethMode_e { IEEE_8023, ETHERNET_II };
 
     /* Medium Dependent Interface */
     enum ethChannel_e { MDI, MDI_X };
@@ -68,13 +67,20 @@ public:
         unsigned int idleRX : 1;
         unsigned int idleTX : 1;
 
+        /* TX and RX FSMs enable bit */
+        unsigned int enableRX : 1;
+        unsigned int enableTX : 1;
+
+        /* MAC mode TX / RX */
+        unsigned int ethernetMode : 1;
+
         /* Enable interrupt for each event */
         unsigned int interruptEnable : 4;     
 
         /* Select MAC speed */   
         unsigned int speed : 1;     
 
-        unsigned int padding : 17;   
+        unsigned int padding : 14;   
     };
 
 
@@ -463,10 +469,11 @@ public:
      * @param speed Select between 10 - 100 Mbps modes.
      * @param duplexMode Half or Full duplex mode.
      * @param autoNegotiation Enable auto negotiation with the other end device.
+     * @param ethernetMode Mac mode.
      * 
      * @return The Ethernet object itself to chain the function call.
      */
-    Ethernet& init(ethSpeed_e speed, ethDuplex_e duplexMode, bool autoNegotiation);
+    Ethernet& init(ethSpeed_e speed, ethDuplex_e duplexMode, bool autoNegotiation, ethMode_e ethernetMode);
 
     /**
      * @brief Enable or disable a specific interrupt for the MAC device, if the index is out of bound,
@@ -481,6 +488,35 @@ public:
      * @return The Ethernet object itself to chain the function call.
      */
     Ethernet& setMacInterrupt(uint8_t index, bool enable, ethError_e* error);
+
+    /**
+     * @brief Set the MAC to receive IEEE 802.3 or Ethernet II packets
+     * 
+     * @param ethernetMode Mac mode.
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
+    Ethernet& setEthernetMode(ethMode_e ethernetMode);
+
+    /**
+     * @brief Enable or disable transmitter FSM. If the FSM is active, the function waits
+     * until it become idle.
+     * 
+     * @param enable A boolean value to enable / disable the TX FSM.
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
+    Ethernet& enableTX(bool enable);
+
+    /**
+     * @brief Enable or disable receiver FSM. If the FSM is active, the function waits
+     * until it become idle.
+     * 
+     * @param enable A boolean value to enable / disable the RX FSM.
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
+    Ethernet& enableRX(bool enable);
 
 
 /*****************************************************************/
@@ -572,6 +608,11 @@ public:
     bool isLinked();
 
     /**
+     * @brief Block execution until an Ethernet link is detected.
+     */
+    void waitLink();
+
+    /**
      * @brief Check if the PHY is detecting energy.
      * 
      * @return The status of the PHY.
@@ -598,7 +639,7 @@ public:
 /*****************************************************************/
 
     /**
-     * @brief Send an Ethernet frame on the link.
+     * @brief Send an Ethernet (IEEE 802.3) frame on the link.
      * 
      * @param packet An array of bytes containing the payload to send.
      * @param length The length of the payload.
@@ -610,7 +651,7 @@ public:
     Ethernet& sendFrame(const uint8_t* packet, uint32_t length, struct macAddr_s destMac, ethError_e* error);
 
     /**
-     * @brief Receive the payload received plus 4 bytes of CRC.
+     * @brief Receive (IEEE 802.3) the payload received plus 4 bytes of CRC.
      * 
      * @param packet An array of bytes to contain the payload and CRC received.
      * @param length The length of the payload.
@@ -622,6 +663,34 @@ public:
      * @return The Ethernet object itself to chain the function call.
      */
     Ethernet& receiveFrame(uint8_t* buffer, uint32_t length, ethError_e* error);
+
+    /**
+     * @brief Send an Ethernet (IEEE 802.3) frame on the link.
+     * 
+     * @param packet An array of bytes containing the payload to send.
+     * @param length The length of the payload.
+     * @param destMac The destination MAC address.
+     * @param type Payload packet identification.
+     * @param error Pointer to an error variable.
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
+    Ethernet& sendFrame(const uint8_t* packet, uint32_t length, struct macAddr_s destMac, uint16_t type, ethError_e* error);
+
+    /**
+     * @brief Receive (IEEE 802.3) the payload received plus 4 bytes of CRC.
+     * 
+     * @param packet An array of bytes to contain the payload and CRC received.
+     * @param length The length of the payload.
+     * @param type Pointer to a packet type variable.
+     * @param error Pointer to an error variable.
+     * 
+     * @warning The array size must accomodate the entire payload plus 4 bytes of CRC, however
+     * the length passed in the function refers only to the payload size!
+     * 
+     * @return The Ethernet object itself to chain the function call.
+     */
+    Ethernet& receiveFrame(uint8_t* buffer, uint32_t length, uint16_t* type, ethError_e* error);
 
     /**
      * @brief Get the packet received descriptor containing the source MAC address and

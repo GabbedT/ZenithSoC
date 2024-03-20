@@ -45,9 +45,12 @@ Ethernet::~Ethernet() {
 /*                         CONFIGURATION                         */
 /*****************************************************************/
 
-Ethernet& Ethernet::init(ethSpeed_e speed, ethDuplex_e duplexMode, bool autoNegotiation) {
+Ethernet& Ethernet::init(ethSpeed_e speed, ethDuplex_e duplexMode, bool autoNegotiation, ethMode_e ethernetMode) {
     /* Configure MAC speed */
     macCtrlStatus->speed = speed; 
+    macCtrlStatus->ethernetMode = ethernetMode;
+    macCtrlStatus->enableRX = true;
+    macCtrlStatus->enableTX = true;
 
     /* Configure auto negotiation */
     setAutoNegotiation(autoNegotiation);
@@ -71,6 +74,27 @@ Ethernet& Ethernet::setMacInterrupt(uint8_t index, bool enable, Ethernet::ethErr
     } else {
         macCtrlStatus->interruptEnable &= ~(1 << index);
     }
+
+    return *this;
+};
+
+
+Ethernet& Ethernet::setEthernetMode(ethMode_e ethernetMode) {
+    macCtrlStatus->ethernetMode = ethernetMode;
+
+    return *this;
+};
+
+
+Ethernet& Ethernet::enableTX(bool enable) {
+    macCtrlStatus->enableTX = enable;
+
+    return *this;
+};
+
+
+Ethernet& Ethernet::enableRX(bool enable) {
+    macCtrlStatus->enableRX = enable;
 
     return *this;
 };
@@ -148,15 +172,26 @@ struct Ethernet::ethInterrupt_s Ethernet::getInterrupt() {
 
 
 bool Ethernet::isLinked() {
-    union phyStatus_s status; status.raw = 0; 
+    volatile union phyStatus_s status; status.raw = 0; 
     status.raw = readPHYRegister(_BasicStatus_);
 
     return status.fields.linkStatus;
 };
 
 
+void Ethernet::waitLink() {
+    volatile bool link = false;
+    volatile union phyStatus_s status; status.raw = 0; 
+
+    while (!link) {
+        status.raw = readPHYRegister(_BasicStatus_);
+
+        link = status.fields.linkStatus;
+    }    
+}
+
 bool Ethernet::energyOn() {
-    union phyModeCtrl_s status; status.raw = 0; 
+    volatile union phyModeCtrl_s status; status.raw = 0; 
     status.raw = readPHYRegister(_ModeCtrlStatus_);
 
     return status.fields.energyOn;
@@ -164,7 +199,7 @@ bool Ethernet::energyOn() {
 
 
 Ethernet::ethChannel_e Ethernet::getChannel() {
-    union phyCtrlStatusInd_s status; status.raw = 0; 
+    volatile union phyCtrlStatusInd_s status; status.raw = 0; 
     status.raw = readPHYRegister(_CtrlStatusIndication_);
 
     return (Ethernet::ethChannel_e) status.fields.channelSelect;
@@ -172,7 +207,7 @@ Ethernet::ethChannel_e Ethernet::getChannel() {
 
 
 uint16_t Ethernet::getErrorCount() {
-    uint16_t status = 0;
+    volatile uint16_t status = 0;
     status = readPHYRegister(_SymbolErrorCnt_);
 
     return status;
@@ -184,16 +219,13 @@ uint16_t Ethernet::getErrorCount() {
 /*****************************************************************/
 
 Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct Ethernet::macAddr_s destMac, Ethernet::ethError_e* error) {
+    if (macCtrlStatus->ethernetMode == ethMode_e::ETHERNET_II) {
+        *error = BAD_CONFIG;
+    }
+    
     /* Check if the length exceed the maximum payload size */
     if (length > MAX_PAYLOAD_LENGTH) {
         *error = LENGTH_EXCEEDED;
-
-        return *this;
-    }
-
-    /* Check if buffers are full */
-    if (isFullPacketTX()) {
-        *error = TX_FULL;
 
         return *this;
     }
@@ -251,16 +283,125 @@ Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct Eth
 };
 
 
-Ethernet& Ethernet::receiveFrame(uint8_t* buffer, uint32_t length, Ethernet::ethError_e* error) {
+Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct macAddr_s destMac, uint16_t etherType, ethError_e* error) {
+    /* Check MAC mode */
+    if (macCtrlStatus->ethernetMode == ethMode_e::IEEE_8023) {
+        *error = BAD_CONFIG;
+    }
+
+    /* Check if the length exceed the maximum payload size */
     if (length > MAX_PAYLOAD_LENGTH) {
         *error = LENGTH_EXCEEDED;
 
         return *this;
-    } else if (length < MIN_PAYLOAD_LENGTH) {
+    }
+    
+    /* Wait in case of a buffer full */
+    while (isFullPacketTX()) {  }
+
+    /* Send EtherType MSB first */
+    *macTxBuffer = (etherType & 0xFF00) >> 8;
+    *macTxBuffer = etherType & 0x00FF;
+
+    /* Send payload bytes to the TX buffer */
+    for (int i = 0; i < length; ++i) {
+        *macTxBuffer = packet[i];
+    }
+
+    /* Compute the padding bytes */
+    uint32_t padding = (length < MIN_PAYLOAD_LENGTH) ? (MIN_PAYLOAD_LENGTH - length) : 0;
+
+    if (padding != 0) {
+        for (int i = 0; i < padding; ++i) {
+            while (isFullPayloadTX()) {  }
+            *macTxBuffer = 0;
+        }
+    }
+
+    union tempDescriptor_u {
+        struct fields {
+            /* Payload length */
+            unsigned int length : 16;
+
+            /* MAC Address */
+            uint8_t macByte0;
+            uint8_t macByte1;
+            uint8_t macByte2;
+            uint8_t macByte3;
+            uint8_t macByte4;
+            uint8_t macByte5;
+        } fields;
+
+        uint64_t raw;
+    };
+
+    /* Create the 8-byte descriptor */
+    union tempDescriptor_u descriptor;
+
+    descriptor.fields.length = length + padding;
+    descriptor.fields.macByte0 = destMac.byte[0];
+    descriptor.fields.macByte1 = destMac.byte[1];
+    descriptor.fields.macByte2 = destMac.byte[2];
+    descriptor.fields.macByte3 = destMac.byte[3];
+    descriptor.fields.macByte4 = destMac.byte[4];
+    descriptor.fields.macByte5 = destMac.byte[5];
+
+    /* Send the descriptor the the descriptor buffer in the MAC */
+    *macTxPktDesc = descriptor.raw;
+
+    return *this;
+};
+
+
+Ethernet& Ethernet::receiveFrame(uint8_t* buffer, uint32_t length, Ethernet::ethError_e* error) {
+    if (macCtrlStatus->ethernetMode == ethMode_e::ETHERNET_II) {
+        *error = BAD_CONFIG;
+
+        return *this;
+    }
+
+    if (length > MAX_PAYLOAD_LENGTH) {
+        *error = LENGTH_EXCEEDED;
+
+        return *this;
+    } 
+    
+    if (length < MIN_PAYLOAD_LENGTH) {
         *error = LENGTH_SUBCEEDED;
 
         return *this;
     }
+
+    /* Fill the buffer */
+    for (int i = 0; i < length + 4; ++i) {
+        buffer[i] = *macRxBuffer;
+    }
+
+    return *this;
+};
+
+
+Ethernet& Ethernet::receiveFrame(uint8_t* buffer, uint32_t length, uint16_t* etherType, Ethernet::ethError_e* error) {
+    if (macCtrlStatus->ethernetMode == ethMode_e::IEEE_8023) {
+        *error = BAD_CONFIG;
+
+        return *this;
+    }
+
+    if (length > MAX_PAYLOAD_LENGTH) {
+        *error = LENGTH_EXCEEDED;
+
+        return *this;
+    } 
+    
+    if (length < MIN_PAYLOAD_LENGTH) {
+        *error = LENGTH_SUBCEEDED;
+
+        return *this;
+    }
+
+    /* Save EtherType */
+    *etherType = (*macRxBuffer << 8) | (*macRxBuffer);
 
     /* Fill the buffer */
     for (int i = 0; i < length + 4; ++i) {
