@@ -211,6 +211,8 @@ module basic_system #(
     logic [NETWORK_DEVICES - 1:0] read_error, read_done, read_busy, read_ready, read_request; 
     logic [NETWORK_DEVICES - 1:0][31:0] read_address, read_data;
 
+    logic store_pending, load_pending;
+
     axi_network #(NETWORK_DEVICES, LOW_SLAVE_ADDRESS, HIGH_SLAVE_ADDRESS) interconnection (
         .axi_ACLK    ( clk_i   ),
         .axi_ARESETN ( reset_n ),
@@ -218,19 +220,19 @@ module basic_system #(
         .axi_write_error_o ( write_bus_error ),
         .axi_read_error_o  ( read_bus_error  ),
 
-        .write_start_i   ( store_channel.request ),
-        .write_address_i ( store_channel.address ),
-        .write_data_i    ( store_channel.data    ),
-        .write_strobe_i  ( master_write_strobe   ),
-        .write_done_o    ( store_channel.done    ),
-        .write_cts_o     ( write_cts             ),
+        .write_start_i   ( store_channel.request | store_pending ),
+        .write_address_i ( store_channel.address                 ),
+        .write_data_i    ( store_channel.data                    ),
+        .write_strobe_i  ( master_write_strobe                   ),
+        .write_done_o    ( store_channel.done                    ),
+        .write_cts_o     ( write_cts                             ),
 
-        .read_start_i   ( load_channel.request    ),
-        .read_invalid_i ( load_channel.invalidate ),
-        .read_address_i ( load_channel.address    ),
-        .read_data_o    ( load_channel.data       ),
-        .read_done_o    ( load_channel.valid      ),
-        .read_cts_o     ( read_cts                ),
+        .read_start_i   ( load_channel.request | load_pending   ),
+        .read_invalid_i ( load_channel.invalidate               ),
+        .read_address_i ( load_channel.address                  ),
+        .read_data_o    ( load_channel.data                     ),
+        .read_done_o    ( load_channel.valid                    ),
+        .read_cts_o     ( read_cts                              ),
 
         .write_error_i   ( write_error   ),
         .write_done_i    ( write_done    ),
@@ -249,6 +251,25 @@ module basic_system #(
         .read_address_o ( read_address ),
         .read_request_o ( read_request )
     );
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                load_pending <= 1'b0;
+                store_pending <= 1'b0;
+            end else begin 
+                if (!read_cts) begin
+                    load_pending <= load_channel.request;
+                end else begin
+                    load_pending <= 1'b0;
+                end
+                
+                if (!write_cts) begin
+                    store_pending <= store_channel.request;
+                end else begin
+                    store_pending <= 1'b0;
+                end
+            end 
+        end 
 
     assign interrupt_source[INTERRUPT_SOURCES - 1] = write_bus_error | read_bus_error;
 
@@ -404,7 +425,7 @@ module basic_system #(
     assign load_address = read_address[_MEMORY_] - LOW_SLAVE_ADDRESS[NETWORK_DEVICES - 1];
     assign fetch_address = fetch_channel.address - LOW_SLAVE_ADDRESS[NETWORK_DEVICES - 1];
     
-    on_chip_memory #(MEMORY_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Ethernet/program.hex") system_memory (
+    on_chip_memory #(MEMORY_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Examples/Ethernet/program.hex") system_memory (
         .clk_i      ( clk_i   ),
         .rst_n_i    ( reset_n ),
 
@@ -480,9 +501,13 @@ module basic_system #(
 
     localparam _ETHERNET_ = 5;
 
+    logic ethernet_busy;
+
     ethernet #(CHIP_PHY_ADDRESS, MAC_ADDRESS, 4096, 4096, 16, 16) ethernet_mac (
         .clk_i       ( clk_i   ),
         .rst_n_i     ( reset_n ),
+
+        .busy_o ( ethernet_busy ),
 
         .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 6] ),
 
@@ -511,11 +536,11 @@ module basic_system #(
         .smii_mdio_io ( smi_mdio_io )
     );
 
-    assign write_busy[_ETHERNET_] = 1'b0;
-    assign write_ready[_ETHERNET_] = 1'b1;
+    assign write_busy[_ETHERNET_] = ethernet_busy;
+    assign write_ready[_ETHERNET_] = !ethernet_busy;
 
-    assign read_busy[_ETHERNET_] = 1'b0;
-    assign read_ready[_ETHERNET_] = 1'b1;
+    assign read_busy[_ETHERNET_] = ethernet_busy;
+    assign read_ready[_ETHERNET_] = !ethernet_busy;
 
 
 //==========================================================
@@ -527,7 +552,7 @@ module basic_system #(
     logic boot_rom_fetch, boot_rom_done;
     logic [31:0] boot_rom_instr;
 
-    on_chip_memory #(BOOT_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Ethernet/boot.hex") boot_memory (
+    on_chip_memory #(BOOT_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Examples/Ethernet/boot.hex") boot_memory (
         .clk_i      ( clk_i   ),
         .rst_n_i    ( reset_n ),
 
