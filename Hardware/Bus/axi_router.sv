@@ -188,7 +188,7 @@ module axi_router #(
 
     /* Master is clear to send another transaction if its destined to the same slave of the previous transaction or 
      * if no slave is busy and the master is changing slave connection */
-    assign master_write_cts_o = (slave_write_busy_i == '0) ? 1'b1 : (slave_write_busy_i == slave_write_match_i);
+    assign master_write_cts_o = (slave_write_busy_i == '0) ? 1'b1 : !(slave_write_busy_i & slave_write_match_i);
 
 
     /* Foward the busy signal to other slaves */
@@ -249,7 +249,7 @@ module axi_router #(
 
     /* Master is clear to send another transaction if its destined to the same slave of the previous transaction or 
      * if no slave is busy and the master is changing slave connection */
-    assign master_read_cts_o = (slave_read_busy_i == '0) ? 1'b1 : (slave_read_busy_i == slave_read_match_i);
+    assign master_read_cts_o = (slave_read_busy_i == '0) ? 1'b1 : !(slave_read_busy_i & slave_read_match_i);
 
 
     /* Foward the busy signal to other slaves */

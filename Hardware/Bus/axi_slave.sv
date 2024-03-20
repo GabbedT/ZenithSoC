@@ -93,10 +93,10 @@ module axi_slave #(
         end : write_handshake
 
     /* Slave is busy if it's processing a transaction */
-    assign write_busy_o = write_busy_i | write_request_o;
+    assign write_busy_o = write_busy_i;
 
     /* If the Master has presented valid data and the Slave is ready to accept a transaction */
-    assign write_request_o = write_channel.WVALID & write_channel.WREADY & write_match_o & !write_bus_taken_i;
+    assign write_request_o = write_channel.WVALID & write_channel.WREADY & write_match_o;
 
     /* Transaction informations */
     assign write_data_o = write_channel.WDATA;
@@ -146,10 +146,10 @@ module axi_slave #(
         end : read_handshake
 
     /* Slave is busy if it's processing a transaction */
-    assign read_busy_o = read_busy_i | read_request_o;
+    assign read_busy_o = read_busy_i;
 
     /* If the Master has presented a valid address and the Slave is ready to accept a transaction */
-    assign read_request_o = read_channel.ARVALID & read_channel.ARREADY & read_match_o & !read_bus_taken_i;
+    assign read_request_o = read_channel.ARVALID & read_channel.ARREADY & read_match_o;
 
     /* Transaction informations */
     assign read_address_o = read_channel.ARADDR;

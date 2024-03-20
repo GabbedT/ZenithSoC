@@ -94,7 +94,7 @@ module axi_master (
     assign write_channel.BREADY = 1'b1; 
 
     /* Write transaction is completed */
-    assign write_done_o = write_channel.BVALID & write_channel.BREADY;
+    assign write_done_o = write_channel.BVALID & write_channel.BREADY & router_write_cts_i;
 
     /* AXI slave response only valid when the transaction ended */
     assign write_response_o = write_channel.BRESP;
@@ -155,7 +155,7 @@ module axi_master (
     assign read_channel.RREADY = 1'b1;
 
     /* Data sent by slave is valid */
-    assign read_done_o = read_channel.RVALID & read_channel.RREADY;
+    assign read_done_o = read_channel.RVALID & read_channel.RREADY & router_read_cts_i;
     assign read_data_o = read_channel.RDATA; 
     assign read_response_o = read_channel.RRESP;
 
