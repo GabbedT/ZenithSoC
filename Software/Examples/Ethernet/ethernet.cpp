@@ -1,3 +1,11 @@
+/*
+ *  Program example on how to use the Ethernet device with it's driver
+ *  in the Zenith SoC platform. The program use 4 different Ethernet
+ *  modes (IEEE 802.3 100Mbps / 10Mbps and Ethernet II 100Mbps / 10Mbps),
+ *  once the Ethernet MAC receives a packet it's printed out through the
+ *  UART device and a packet is transmitted 
+ */
+
 #include "../../Library/Driver/GPIO.h"
 #include "../../Library/Driver/Timer.h"
 #include "../../Library/Driver/Ethernet.h"
@@ -19,6 +27,8 @@ uint8_t TX_payload[] =  "LLC[INIZIO FRAME ETHERNET] PAYLOAD PAYLOAD [FINE FRAME 
 
 extern "C" void ethernet() {
 
+    /* Setup a timer to wait until the Ethernet 
+     * PHY has been correctly resetted ~200us */
     Timer timer(0);
 
     timer.init(-1, Timer::ONE_SHOT)
@@ -34,6 +44,7 @@ extern "C" void ethernet() {
     GPIO gpio(0);
     Ethernet ethernet;
 
+    /* GPIO used to switch modes later */
     gpio.init(0x00, 0xF0, 0x00, 0x00);
 
     SerialOut::init();
@@ -46,6 +57,7 @@ extern "C" void ethernet() {
 
     #ifndef _BROADCAST_
 
+    /* Receiving machine's MAC address */
     macDestination.byte[0] = 0x16;
     macDestination.byte[1] = 0xAA;
     macDestination.byte[2] = 0x57;
@@ -66,6 +78,7 @@ extern "C" void ethernet() {
 
     timer.delay(10000);
 
+    /* Print all PHY registers */
     getRegister(Ethernet::_BasicControl_, "\n[0] BASIC CONTROL REGISTER: ", ethernet);
     getRegister(Ethernet::_BasicStatus_, "\n[1] BASIC STATUS REGISTER: ", ethernet);
     getRegister(Ethernet::_PHYIdentifier1_, "\n[2] PHY IDENTIFIER 1 REGISTER: ", ethernet);
