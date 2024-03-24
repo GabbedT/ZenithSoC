@@ -425,7 +425,7 @@ module basic_system #(
     assign load_address = read_address[_MEMORY_] - LOW_SLAVE_ADDRESS[NETWORK_DEVICES - 1];
     assign fetch_address = fetch_channel.address - LOW_SLAVE_ADDRESS[NETWORK_DEVICES - 1];
     
-    on_chip_memory #(MEMORY_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Examples/Ethernet/program.hex") system_memory (
+    on_chip_memory #(MEMORY_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Examples/SPI/program.hex") system_memory (
         .clk_i      ( clk_i   ),
         .rst_n_i    ( reset_n ),
 
@@ -552,7 +552,7 @@ module basic_system #(
     logic boot_rom_fetch, boot_rom_done;
     logic [31:0] boot_rom_instr;
 
-    on_chip_memory #(BOOT_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Examples/Ethernet/boot.hex") boot_memory (
+    on_chip_memory #(BOOT_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Examples/SPI/boot.hex") boot_memory (
         .clk_i      ( clk_i   ),
         .rst_n_i    ( reset_n ),
 
