@@ -246,6 +246,8 @@ public:
             /* Write to the TX buffer */
             *bufferTX = txBytes[i];
         }
+
+        return *this;
     };
 
     /**
