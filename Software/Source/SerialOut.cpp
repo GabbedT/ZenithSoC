@@ -82,7 +82,7 @@ void SerialOut::vprintf(const char *format, va_list args) {
             switch (format[i]) {
                 /* Decimal */
                 case 'd': {
-                    int32_t value = va_arg(args, uint32_t);
+                    int32_t value = va_arg(args, int32_t);
 
                     writeD(value, true);
                     break;
@@ -90,7 +90,7 @@ void SerialOut::vprintf(const char *format, va_list args) {
 
                 /* Decimal 64 bit */
                 case 'l': {
-                    int64_t value = va_arg(args, uint64_t);
+                    int64_t value = va_arg(args, int64_t);
 
                     writeD(value, true);
                     break;
