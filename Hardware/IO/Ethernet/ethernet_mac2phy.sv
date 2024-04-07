@@ -115,6 +115,7 @@ module ethernet_mac2phy #(
                 end
 
                 PREAMBLE: begin
+                    /* Hold data line high during preamble for 32 bits */
                     smii_mdio = 1'b1;
                     enable = 1'b1;
 
@@ -161,6 +162,7 @@ module ethernet_mac2phy #(
                 end
 
                 PHY_ADDRESS: begin
+                    /* Send the inverted PHY address */
                     smii_mdio = CHIP_PHY_ADDRESS_INV[bit_counter];
                     enable = 1'b1;
 
@@ -182,6 +184,7 @@ module ethernet_mac2phy #(
                     if (pulse) begin
                         bit_increment = 1'b1;
                         
+                        /* Each MDC pulse shift out a new bit */
                         address_NXT = address_CRT << 1;
 
                         if (bit_counter == 'd4) begin
@@ -197,6 +200,7 @@ module ethernet_mac2phy #(
                         smii_mdio = !bit_counter[0];
                         enable = 1'b1;
                     end else begin
+                        /* Let the PHY drive MDIO line */
                         enable = 1'b0; 
                     end
 
@@ -223,6 +227,7 @@ module ethernet_mac2phy #(
                         if (pulse) begin
                             bit_increment = 1'b1;
                             
+                            /* Each MDC pulse shift out a new bit */
                             data_NXT = data_CRT << 1;
 
                             if (bit_counter == 'd15) begin
@@ -236,6 +241,7 @@ module ethernet_mac2phy #(
                         if (sample) begin
                             bit_increment = 1'b1;
                             
+                            /* Shift in the bits received by the PHY */
                             data_NXT = {data_CRT[14:0], smii_mdio_io};
 
                             if (bit_counter == 'd15) begin
@@ -250,6 +256,7 @@ module ethernet_mac2phy #(
             endcase 
         end
 
+    /* Use a tristate buffer to manage the bidirectional line */
     assign smii_mdio_io = enable ? smii_mdio : 1'bZ;
 
 
