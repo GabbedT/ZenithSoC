@@ -1,0 +1,305 @@
+// Definizioni di tipi e strutture per vertici e matrici
+typedef struct {
+    float x, y, z, w;
+} Vertex;
+
+typedef struct {
+    float m[4][4];
+} Matrix;
+
+// Operazioni SIMD ipotetiche
+void SIMD_Load(Vertex* dest, Vertex* src) {
+    // Carica i dati del vertice in un registro SIMD
+}
+
+void SIMD_MatrixMultiply(Vertex* dest, Matrix* mat, Vertex* src) {
+    // Moltiplicazione matrice-vertice usando SIMD
+    dest->x = mat->m[0][0] * src->x + mat->m[0][1] * src->y + mat->m[0][2] * src->z + mat->m[0][3] * src->w;
+    dest->y = mat->m[1][0] * src->x + mat->m[1][1] * src->y + mat->m[1][2] * src->z + mat->m[1][3] * src->w;
+    dest->z = mat->m[2][0] * src->x + mat->m[2][1] * src->y + mat->m[2][2] * src->z + mat->m[2][3] * src->w;
+    dest->w = mat->m[3][0] * src->x + mat->m[3][1] * src->y + mat->m[3][2] * src->z + mat->m[3][3] * src->w;
+}
+
+void SIMD_Normalize(Vertex* v) {
+    // Normalizza un vertice usando SIMD
+    float length = sqrt(v->x * v->x + v->y * v->y + v->z * v->z + v->w * v->w);
+    v->x /= length;
+    v->y /= length;
+    v->z /= length;
+    v->w /= length;
+}
+
+// Funzione per la trasformazione dei vertici nella pipeline
+void TransformVertices(Vertex* vertices, Matrix* transformationMatrix, int numVertices) {
+    for (int i = 0; i < numVertices; i++) {
+        Vertex temp;
+        SIMD_Load(&temp, &vertices[i]);
+        SIMD_MatrixMultiply(&temp, transformationMatrix, &temp);
+        SIMD_Normalize(&temp);
+        vertices[i] = temp;
+    }
+}
+
+// Esempio di utilizzo della pipeline
+int main() {
+    Vertex vertices[] = {
+        {1.0, 2.0, 3.0, 1.0},
+        {4.0, 5.0, 6.0, 1.0},
+        {7.0, 8.0, 9.0, 1.0}
+    };
+    Matrix transformationMatrix = {
+        {
+            {1, 0, 0, 0},
+            {0, 1, 0, 0},
+            {0, 0, 1, 0},
+            {0, 0, 0, 1}
+        }
+    };
+
+    TransformVertices(vertices, &transformationMatrix, 3);
+
+    for (int i = 0; i < 3; i++) {
+        printf("Vertex %d: (%f, %f, %f, %f)\n", i, vertices[i].x, vertices[i].y, vertices[i].z, vertices[i].w);
+    }
+
+    return 0;
+}
+
+
+
+
+// Definizioni di tipi e strutture per vertici, colori e luci
+typedef struct {
+    float x, y, z, w;
+} Vertex;
+
+typedef struct {
+    float r, g, b, a;
+} Color;
+
+typedef struct {
+    float m[4][4];
+} Matrix;
+
+typedef struct {
+    Vertex position;
+    Color intensity;
+} Light;
+
+// Operazioni SIMD ipotetiche
+void SIMD_LoadVertex(Vertex* dest, Vertex* src) {
+    // Carica i dati del vertice in un registro SIMD
+}
+
+void SIMD_LoadColor(Color* dest, Color* src) {
+    // Carica i dati del colore in un registro SIMD
+}
+
+void SIMD_MatrixMultiply(Vertex* dest, Matrix* mat, Vertex* src) {
+    // Moltiplicazione matrice-vertice usando SIMD
+    // Operazione eseguita come nel precedente esempio
+}
+
+void SIMD_AddColors(Color* dest, Color* src1, Color* src2) {
+    // Addizione di colori usando SIMD
+    dest->r = src1->r + src2->r;
+    dest->g = src1->g + src2->g;
+    dest->b = src1->b + src2->b;
+    dest->a = src1->a + src2->a;
+}
+
+void SIMD_MultiplyColorByScalar(Color* dest, Color* src, float scalar) {
+    // Moltiplicazione di un colore per uno scalare usando SIMD
+    dest->r = src->r * scalar;
+    dest->g = src->g * scalar;
+    dest->b = src->b * scalar;
+    dest->a = src->a * scalar;
+}
+
+void SIMD_ComputeLighting(Color* dest, Vertex* position, Light* lights, int numLights) {
+    // Calcola l'illuminazione del vertice usando SIMD
+    Color totalLight = {0, 0, 0, 1};
+    Color tempColor;
+    for (int i = 0; i < numLights; i++) {
+        float distance = sqrt(pow(position->x - lights[i].position.x, 2) +
+                              pow(position->y - lights[i].position.y, 2) +
+                              pow(position->z - lights[i].position.z, 2));
+        SIMD_LoadColor(&tempColor, &lights[i].intensity);
+        SIMD_MultiplyColorByScalar(&tempColor, &tempColor, 1.0 / distance);
+        SIMD_AddColors(&totalLight, &totalLight, &tempColor);
+    }
+    SIMD_LoadColor(dest, &totalLight);
+}
+
+// Esempio di utilizzo delle operazioni SIMD per la trasformazione e illuminazione
+int main() {
+    Vertex vertices[] = {
+        {1.0, 2.0, 3.0, 1.0},
+        {4.0, 5.0, 6.0, 1.0},
+        {7.0, 8.0, 9.0, 1.0}
+    };
+    Matrix transformationMatrix = {
+        {
+            {1, 0, 0, 0},
+            {0, 1, 0, 0},
+            {0, 0, 1, 0},
+            {0, 0, 0, 1}
+        }
+    };
+    Light lights[] = {
+        {{0, 0, 10, 1}, {1, 0.8, 0.7, 1}}
+    };
+
+    for (int i = 0; i < 3; i++) {
+        Vertex transformed;
+        Color illuminated;
+        SIMD_LoadVertex(&transformed, &vertices[i]);
+        SIMD_MatrixMultiply(&transformed, &transformationMatrix, &transformed);
+        SIMD_ComputeLighting(&illuminated, &transformed, lights, 1);
+        printf("Vertex %d: Transformed (%f, %f, %f, %f) and Illuminated (%f, %f, %f, %f)\n",
+               i, transformed.x, transformed.y, transformed.z, transformed.w,
+               illuminated.r, illuminated.g, illuminated.b, illuminated.a);
+    }
+
+    return 0;
+}
+
+
+
+// Definizioni di tipi e strutture per vertici e matrici
+typedef struct {
+    float x, y, z, w;  // Coordinate omogenee
+} Vertex;
+
+typedef struct {
+    float m[4][4];
+} Matrix;
+
+typedef struct {
+    float x, y;
+} Point2D;
+
+// Funzioni SIMD ipotetiche
+void SIMD_LoadVertex(Vertex* dest, Vertex* src) {
+    // Carica i dati del vertice in un registro SIMD
+}
+
+void SIMD_Transform(Vertex* dest, Matrix* mat, Vertex* src) {
+    // Trasforma il vertice usando una matrice 4x4
+    dest->x = mat->m[0][0] * src->x + mat->m[0][1] * src->y + mat->m[0][2] * src->z + mat->m[0][3] * src->w;
+    dest->y = mat->m[1][0] * src->x + mat->m[1][1] * src->y + mat->m[1][2] * src->z + mat->m[1][3] * src->w;
+    dest->z = mat->m[2][0] * src->x + mat->m[2][1] * src->y + mat->m[2][2] * src->z + mat->m[2][3] * src->w;
+    dest->w = mat->m[3][0] * src->x + mat->m[3][1] * src->y + mat->m[3][2] * src->z + mat->m[3][3] * src->w;
+}
+
+void SIMD_Project(Vertex* vertex, Point2D* point) {
+    // Proietta il vertice 3D in un punto 2D applicando la divisione prospettica
+    if (vertex->w != 0) {
+        point->x = vertex->x / vertex->w;
+        point->y = vertex->y / vertex->w;
+    } else {
+        point->x = vertex->x;  // Prevenire la divisione per zero
+        point->y = vertex->y;
+    }
+}
+
+// Esempio di utilizzo delle funzioni SIMD per proiezione 3D a 2D
+int main() {
+    Vertex vertices[] = {
+        {1.0, 2.0, 5.0, 1.0},
+        {3.0, 4.0, 6.0, 1.0},
+        {5.0, 6.0, 7.0, 1.0}
+    };
+    Matrix perspectiveMatrix = {
+        {
+            {1.0, 0.0, 0.0, 0.0},
+            {0.0, 1.0, 0.0, 0.0},
+            {0.0, 0.0, 1.0, -1/5.0},
+            {0.0, 0.0, 1.0, 0.0}
+        }
+    };
+    Point2D points[3];
+
+    for (int i = 0; i < 3; i++) {
+        Vertex transformed;
+        SIMD_LoadVertex(&transformed, &vertices[i]);
+        SIMD_Transform(&transformed, &perspectiveMatrix, &transformed);
+        SIMD_Project(&transformed, &points[i]);
+        printf("Point %d: (%f, %f)\n", i, points[i].x, points[i].y);
+    }
+
+    return 0;
+}
+
+
+
+
+// Definizioni di tipi e strutture per vertici e colori
+typedef struct {
+    float x, y, z, w; // Coordinate omogenee per trasformazioni 3D
+} Vertex;
+
+typedef struct {
+    float r, g, b, a; // Componenti RGBA per colore
+} Color;
+
+// Istruzioni SIMD ipotetiche
+void SIMD_LoadVertex(Vertex* dest, Vertex* src) {
+    // Carica i dati del vertice in un registro SIMD
+}
+
+void SIMD_LoadColor(Color* dest, Color* src) {
+    // Carica i dati del colore in un registro SIMD
+}
+
+void SIMD_ClipVertex(Vertex* vertex, float plane[4], int* isInside) {
+    // Valuta se il vertice è dentro o fuori da un piano di clipping
+    float distance = vertex->x * plane[0] + vertex->y * plane[1] + vertex->z * plane[2] + vertex->w * plane[3];
+    *isInside = (distance >= 0);
+}
+
+void SIMD_BlendColors(Color* dest, Color* src1, Color* src2, float alpha) {
+    // Miscela due colori basandosi su un valore alpha
+    dest->r = src1->r * (1 - alpha) + src2->r * alpha;
+    dest->g = src1->g * (1 - alpha) + src2->g * alpha;
+    dest->b = src1->b * (1 - alpha) + src2->b * alpha;
+    dest->a = src1->a * (1 - alpha) + src2->a * alpha;
+}
+
+// Funzione per il clippaggio e blending di un array di vertici e colori
+void ProcessVertices(Vertex* vertices, Color* colors, int numVertices, float clipPlane[4], Color blendColor, float alpha) {
+    for (int i = 0; i < numVertices; i++) {
+        int isInside;
+        SIMD_ClipVertex(&vertices[i], clipPlane, &isInside);
+        if (isInside) {
+            Color blended;
+            SIMD_BlendColors(&blended, &colors[i], &blendColor, alpha);
+            colors[i] = blended;
+        }
+    }
+}
+
+// Esempio di utilizzo delle operazioni
+int main() {
+    Vertex vertices[] = {
+        {1.0, 2.0, -1.0, 1.0},
+        {2.0, -3.0, 1.0, 1.0},
+        {3.0, 4.0, 5.0, 1.0}
+    };
+    Color colors[] = {
+        {1.0, 0.0, 0.0, 1.0},
+        {0.0, 1.0, 0.0, 1.0},
+        {0.0, 0.0, 1.0, 1.0}
+    };
+    float clipPlane[] = {0.0, 0.0, 1.0, 0.0}; // Z >= 0
+    Color blendColor = {1.0, 1.0, 1.0, 0.5};
+    float alpha = 0.5;
+
+    ProcessVertices(vertices, colors, 3, clipPlane, blendColor, alpha);
+
+    for (int i = 0; i < 3; i++) {
+        printf("Vertex %d: Color (%f, %f, %f, %f)\n", i, colors[i].r, colors[i].g, colors[i].b, colors[i].a);
+    }
+
+    return 0;
+}
