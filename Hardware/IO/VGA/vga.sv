@@ -47,6 +47,9 @@ module vga #(
     logic enable_video, write_buffer, video_on, buffer_empty, frame_done; 
     logic [$clog2(BUFFER_SIZE) - 1:0] buffer_address, buffer_size;
 
+    logic [9:0] sprite_x, sprite_y; logic sprite_enable, write_ptable, write_ctable;
+    logic [11:0] sprite_data; logic [6:0] sprite_address; logic [8:0] vsync_counter;
+
     resolution_t resolution;
     pixel_t pixel;
 
@@ -62,10 +65,19 @@ module vga #(
         .write_buffer_o ( write_buffer   ),
         .pixel_o        ( pixel          ),
 
-        .buffer_size_i  ( buffer_size  ),
-        .video_on_i     ( video_on     ),
-        .buffer_empty_i ( buffer_empty ),
-        .frame_done_i   ( frame_done   ),
+        .write_ctable_o   ( write_ctable   ),
+        .write_ptable_o   ( write_ptable   ),
+        .sprite_data_o    ( sprite_data    ),
+        .sprite_address_o ( sprite_address ),
+        .sprite_x_o       ( sprite_x       ),
+        .sprite_y_o       ( sprite_y       ),
+        .sprite_enable_o  ( sprite_enable  ),
+
+        .vsync_counter_i ( vsync_counter ),
+        .buffer_size_i   ( buffer_size   ),
+        .video_on_i      ( video_on      ),
+        .buffer_empty_i  ( buffer_empty  ),
+        .frame_done_i    ( frame_done    ),
 
         .write_i         ( write_i         ),
         .write_address_i ( write_address_i ),
@@ -104,6 +116,30 @@ module vga #(
 
 
 //====================================================================================
+//      SPRITE MODULE
+//====================================================================================
+
+    logic read_sprite, transparent; 
+    pixel_t sprite_pixel;
+
+    vga_sprite sprite (
+        .clk_i       ( clk_i ),
+        .rst_n_i     ( rst_n_i ),
+
+        /* Controller interface */
+        .read_i        ( read_sprite  ),
+        .pixel_o       ( sprite_pixel ),
+        .transparent_o ( transparent  ),
+
+        /* Register interface */
+        .write_ptable_i ( write_ptable   ),
+        .write_ctable_i ( write_ctable   ),
+        .data_i         ( sprite_data    ),
+        .address_i      ( sprite_address )
+    );
+
+
+//====================================================================================
 //      LINE BUFFER
 //====================================================================================
 
@@ -115,6 +151,7 @@ module vga #(
         .rst_n_i ( rst_n_i ),
 
         .enable_video_i ( enable_video ),
+        .resolution_i   ( resolution   ),
 
         .write_i   ( write_buffer   ),
         .address_i ( buffer_address ),
@@ -135,14 +172,22 @@ module vga #(
     pixel_t pixel_out; logic hsync, vsync;
 
     vga_controller controller (
-        .clk_i        ( clk_i        ),
-        .rst_n_i      ( rst_n_i      ),
+        .clk_i   ( clk_i   ),
+        .rst_n_i ( rst_n_i ),
 
-        .resolution_i ( resolution   ),
-        .display_i    ( enable_video ),
-        .next_pixel_i ( pixel_pulse  ),
-        .video_on_o   ( video_on     ),
-        .frame_done_o ( frame_done   ),
+        .resolution_i    ( resolution    ),
+        .display_i       ( enable_video  ),
+        .next_pixel_i    ( pixel_pulse   ),
+        .video_on_o      ( video_on      ),
+        .frame_done_o    ( frame_done    ),
+        .vsync_counter_o ( vsync_counter ),
+
+        .sprite_x_i     ( sprite_x      ),
+        .sprite_y_i     ( sprite_y      ),
+        .sprite_pixel_i ( sprite_pixel  ),
+        .transparent_i  ( transparent   ),
+        .enabled_i      ( sprite_enable ),
+        .read_sprite_o  ( read_sprite   ),
 
         .pixel_i      ( buffer_pixel     ), 
         .read_pixel_o ( read_line_buffer ),

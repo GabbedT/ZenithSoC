@@ -3,6 +3,14 @@
 
 package vga_pkg;
     
+    localparam LINES_IN_BUFFER_1 = 96;
+    localparam LINES_IN_BUFFER_2 = 75;
+
+    /* MAX address buffers */
+    localparam MAX_ADDR_1 = 640 * LINES_IN_BUFFER_1;
+    localparam MAX_ADDR_2 = 800 * LINES_IN_BUFFER_2;
+
+
     typedef struct packed {
         logic [3:0] red;
         logic [3:0] green;
@@ -14,6 +22,10 @@ package vga_pkg;
 
 
     typedef struct packed {
+        /* Value of VSYNC */
+        logic [8:0] vsync_counter;
+
+        /* Interrupt generation enable */
         logic [2:0] enable_interrupt;
 
         /* Enable VGA output */
@@ -49,7 +61,19 @@ package vga_pkg;
     } event_register_t;
 
 
-    typedef enum logic [1:0] { VGA_STATUS, VGA_INCREMENT, VGA_BUFFER_SIZE, VGA_EVENT } registers_t;
+    typedef struct packed {
+        /* Sprite top left X-position */
+        logic [9:0] x_position;
+
+        /* Sprite top left Y-position */
+        logic [9:0] y_position;
+
+        /* Sprite is visible */
+        logic enable;
+    } sprite_register_t;
+
+
+    typedef enum logic [2:0] { VGA_STATUS, VGA_INCREMENT, VGA_BUFFER_SIZE, VGA_EVENT, VGA_SPRITE } registers_t;
 
 endpackage : vga_pkg
 

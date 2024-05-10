@@ -12,6 +12,15 @@ module vga_controller (
     input logic next_pixel_i,
     output logic video_on_o,
     output logic frame_done_o,
+    output logic [8:0] vsync_counter_o,
+
+    /* Sprite interface */
+    input logic [9:0] sprite_x_i,
+    input logic [9:0] sprite_y_i,
+    input logic [11:0] sprite_pixel_i,
+    input logic transparent_i,
+    input logic enabled_i,
+    output logic read_sprite_o,
 
     /* Image pixel interface */ 
     input pixel_t pixel_i, 
@@ -77,6 +86,8 @@ module vga_controller (
     logic [$clog2(H_SCAN_PIXEL_2) - 1:0] hsync;
     logic [$clog2(V_SCAN_PIXEL_2) - 1:0] vsync;
 
+    assign vsync_counter_o = vsync;
+
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 hsync <= H_SCAN_PIXEL_1 - 1;
@@ -136,6 +147,26 @@ module vga_controller (
 
 
 //====================================================================================
+//      SPRITE LOGIC
+//====================================================================================
+    
+    logic x_match, y_match, sprite_on;
+    pixel_t sprite_pixel, final_pixel;
+
+
+    /* Sprite is 8x8 so the HSYNC and VSYNC counter must fall between the two boundaries */
+    assign x_match = (hsync >= sprite_x_i) & (hsync <= (sprite_x_i + 8));
+    assign y_match = (vsync >= sprite_y_i) & (vsync <= (sprite_y_i + 8));
+
+    assign read_sprite_o = x_match & y_match & next_pixel_i;
+
+    assign sprite_on = !transparent_i & x_match & y_match & enabled_i;
+
+
+    assign sprite_pixel = (sprite_on) ? sprite_pixel_i : '0;
+
+
+//====================================================================================
 //      PIXEL LOGIC
 //====================================================================================
 
@@ -148,7 +179,18 @@ module vga_controller (
         end
 
 
-    assign pixel_o = video_on_o ? pixel_i : '0;
+        always_comb begin
+            pixel_o = '0;
+
+            if (video_on_o) begin
+                if (sprite_on) begin
+                    pixel_o = sprite_pixel;
+                end else begin
+                    pixel_o = pixel_i;
+                end
+            end
+        end
+
 
         always_comb begin
             read_pixel_o = 1'b0;

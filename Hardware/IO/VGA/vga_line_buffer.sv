@@ -9,6 +9,7 @@ module vga_line_buffer #(
     input logic clk_i,
     input logic rst_n_i,
     input logic enable_video_i,
+    input resolution_t resolution_i,
 
     /* Write interface */
     input logic write_i,
@@ -58,7 +59,11 @@ module vga_line_buffer #(
                 read_address <= '0;
             end else begin 
                 if (read_i) begin
-                    read_address <= read_address + 1'b1;
+                    if (resolution_i == _640x480_) begin
+                        read_address <= (read_address == (MAX_ADDR_1 - 1)) ? '0 : read_address + 1'b1;
+                    end else begin
+                        read_address <= (read_address == (MAX_ADDR_2 - 1)) ? '0 : read_address + 1'b1;
+                    end
                 end
             end 
         end 

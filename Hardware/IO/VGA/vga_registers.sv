@@ -21,7 +21,17 @@ module vga_registers #(
     output logic write_buffer_o,
     output pixel_t pixel_o,
 
+    /* Sprite interface */
+    output logic write_ctable_o,
+    output logic write_ptable_o,
+    output logic [11:0] sprite_data_o,
+    output logic [6:0] sprite_address_o,
+    output logic [9:0] sprite_x_o,
+    output logic [9:0] sprite_y_o,
+    output logic sprite_enable_o,
+
     /* Status */
+    input logic [8:0] vsync_counter_i,
     input logic [$clog2(BUFFER_SIZE) - 1:0] buffer_size_i,
     input logic video_on_i,
     input logic buffer_empty_i,
@@ -87,6 +97,8 @@ module vga_registers #(
     assign status_register.buffer_empty = buffer_empty_i;
     assign status_register.frame_done = frame_done_i;
 
+    assign status_register.vsync_counter = vsync_counter_i;
+
     assign enable_video_o = status_register.enable_video;
     assign resolution_o = status_register.resolution;
 
@@ -105,9 +117,13 @@ module vga_registers #(
                 increment <= '0;
             end else if (write_register & (write_address == VGA_INCREMENT)) begin 
                 increment <= write_data_i;
-            end else if (write_i & !write_address_i[$clog2(BUFFER_SIZE)]) begin
-                /* Increment each time the buffer is written */
-                increment <= increment + 1'b1;
+            end else if (write_i & (write_address_i == '0)) begin
+                /* Increment each time the buffer base is written */
+                if (status_register.resolution == _640x480_) begin
+                    increment <= (increment == (MAX_ADDR_1 - 1)) ? '0 : increment + 1'b1;
+                end else begin
+                    increment <= (increment == (MAX_ADDR_2 - 1)) ? '0 : increment + 1'b1;
+                end
             end
         end 
 
@@ -177,6 +193,41 @@ module vga_registers #(
 
 
 //====================================================================================
+//      SPRITE REGISTER
+//====================================================================================
+
+    sprite_register_t sprite_register;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                sprite_register.enable <= 1'b1;
+            end else if (write_register & (write_address == VGA_SPRITE)) begin 
+                sprite_register.enable <= write_data_i[0][0];
+            end 
+        end 
+
+        always_ff @(posedge clk_i) begin
+            if (write_register & (write_address == VGA_SPRITE)) begin 
+                sprite_register.x_position <= {write_data_i[1][2:0], write_data_i[0][7:1]};
+                sprite_register.y_position <= {write_data_i[2][4:0], write_data_i[1][7:3]};
+            end 
+        end 
+
+    assign sprite_enable_o = sprite_register.enable;
+
+    assign sprite_x_o = sprite_register.x_position;
+    assign sprite_y_o = sprite_register.y_position;
+
+
+    assign write_ptable_o = write_register & write_address_i[4] & !write_address_i[7];
+    assign write_ctable_o = write_register & write_address_i[7];
+
+    assign sprite_data_o = {write_data_i[1][2:0], write_data_i[0][7:0]};
+
+    assign sprite_address_o = write_address_i[6:0];
+
+
+//====================================================================================
 //      DATA READ
 //====================================================================================
 
@@ -192,6 +243,8 @@ module vga_registers #(
                 VGA_BUFFER_SIZE: read_data_o = buffer_size_i;
 
                 VGA_EVENT: read_data_o = event_register;
+
+                VGA_SPRITE: read_data_o = sprite_register;
             endcase 
         end
 
