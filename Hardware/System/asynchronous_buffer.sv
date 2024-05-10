@@ -57,19 +57,19 @@ module asynchronous_buffer #(
 //      POINTERS LOGIC
 //====================================================================================
 
-        always_ff @(posedge write_clk_i `ifdef ASYNC or negedge write_rstn_i `endif) begin : write_pointer_logic
+        always_ff @(posedge write_clk_i or negedge write_rstn_i) begin : write_pointer_logic
             if (!write_rstn_i) begin 
                 write_ptr <= '0;
-            end else if (write_i) begin 
+            end else if (write_i & !full_o) begin 
                 write_ptr <= write_ptr + 1;
             end 
         end : write_pointer_logic
 
 
-        always_ff @(posedge read_clk_i `ifdef ASYNC or negedge read_rstn_i `endif) begin : read_pointer_logic
+        always_ff @(posedge read_clk_i or negedge read_rstn_i) begin : read_pointer_logic
             if (!read_rstn_i) begin 
                 read_ptr <= '0;
-            end else if (read_i) begin 
+            end else if (read_i & !empty_o) begin 
                 read_ptr <= read_ptr + 1;
             end 
         end : read_pointer_logic
@@ -88,11 +88,9 @@ module asynchronous_buffer #(
 
     logic [1:0][PTR_SIZE:0] g_write_ptr_sync;
 
-        always_ff @(posedge write_clk_i `ifdef ASYNC or negedge write_rstn_i `endif) begin : write_syncronizer
-            if (!write_rstn_i) begin 
-                for (int i = 0; i < 2; ++i) begin 
-                    g_write_ptr_sync[i] <= 1;
-                end
+        always_ff @(posedge read_clk_i or negedge read_rstn_i) begin : write_syncronizer
+            if (!read_rstn_i) begin 
+                g_write_ptr_sync <= '{default: '0};
             end else begin 
                 g_write_ptr_sync <= {g_write_ptr_sync[0], gray_write_ptr};
             end 
@@ -101,11 +99,9 @@ module asynchronous_buffer #(
 
     logic [1:0][PTR_SIZE:0] g_read_ptr_sync;
 
-        always_ff @(posedge read_clk_i `ifdef ASYNC or negedge read_rstn_i `endif) begin : read_syncronizer
-            if (!read_rstn_i) begin 
-                for (int i = 0; i < 2; ++i) begin 
-                    g_read_ptr_sync[i] <= 1;
-                end
+        always_ff @(posedge write_clk_i or negedge write_rstn_i) begin : read_syncronizer
+            if (!write_rstn_i) begin 
+                g_read_ptr_sync <= '{default: '0};
             end else begin 
                 g_read_ptr_sync <= {g_read_ptr_sync[0], gray_read_ptr};
             end 
@@ -116,15 +112,11 @@ module asynchronous_buffer #(
 //      FIFO STATUS LOGIC
 //====================================================================================
 
-        /* Full is generated on the write side, check the wraparound bit and the MSB, if it's equal to the read one and the pointer wrapped around */
-        always_ff @(posedge write_clk_i) begin
-            full_o <= gray_write_ptr == {~g_read_ptr_sync[1][PTR_SIZE:PTR_SIZE - 1], g_read_ptr_sync[1][PTR_SIZE - 2:0]};
-        end 
+    /* Full is generated on the write side, check the wraparound bit and the MSB, if it's equal to the read one and the pointer wrapped around */
+    // assign full_o = (gray_write_ptr[PTR_SIZE - 1:0] == g_read_ptr_sync[1][PTR_SIZE - 1:0]) & (gray_write_ptr[PTR_SIZE] != g_read_ptr_sync[1][PTR_SIZE]);
+    assign full_o = gray_write_ptr == {~g_read_ptr_sync[1][PTR_SIZE:PTR_SIZE - 1], g_read_ptr_sync[1][PTR_SIZE - 2:0]};
 
-
-        always_ff @(posedge read_clk_i) begin
-            empty_o <= gray_read_ptr == g_write_ptr_sync[1];
-        end
+    assign empty_o = gray_read_ptr == g_write_ptr_sync[1];
 
 endmodule : asynchronous_buffer
 

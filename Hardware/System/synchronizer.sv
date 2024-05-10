@@ -1,6 +1,8 @@
 `ifndef SYNCHRONIZER_SV
     `define SYNCHRONIZER_SV 
 
+`define _VIVADO_
+
 module synchronizer #(
     /* Number of sync flops */
     parameter FLOP_NUMBER = 2,
@@ -17,7 +19,7 @@ module synchronizer #(
     output logic sync_o
 );
 
-    logic [FLOP_NUMBER - 1:0] sync_signal;
+    `ifdef _VIVADO_ (* ASYNC_REG = "TRUE" *) `endif logic [FLOP_NUMBER - 1:0] sync_signal;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
