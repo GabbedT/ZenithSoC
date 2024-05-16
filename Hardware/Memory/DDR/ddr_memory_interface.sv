@@ -4,6 +4,8 @@
 `include "../../System/asynchronous_buffer.sv"
 `include "../../System/flag_synchronizer.sv"
 
+// TODO: Continuous sending of command, external interface can write in fifo whenever it wants
+
 module ddr_memory_interface (
     input logic clk_i,
     input logic rst_n_i,
@@ -47,8 +49,11 @@ module ddr_memory_interface (
 
     /* Data interface */
     input logic push_i, 
+    input logic pull_i, 
     input logic [63:0] write_data_i,
+    input logic [1:0] write_mask_i,
     output logic [63:0] read_data_o,
+    output logic read_valid_o,
 
     /* Status */
     input logic done_i,
@@ -97,9 +102,17 @@ module ddr_memory_interface (
     assign write_packet = {read_i, address_i};
 
 
-    logic [63:0] write_data; logic write_data_empty, write_data_full, read_fifo;
+    typedef struct packed {
+        /* Data to write */
+        logic [63:0] data;
 
-    asynchronous_buffer #(16, 64) write_data_buffer (
+        /* Data mask */
+        logic [1:0] mask;
+    } dram_data_t;
+
+    dram_data_t write_data; logic write_data_empty, write_data_full, read_fifo;
+
+    asynchronous_buffer #(16, $bits(dram_data_t)) write_data_buffer (
         /* Global signals */
         .write_clk_i  ( clk_i   ),
         .write_rstn_i ( rst_n_i ),
@@ -115,8 +128,8 @@ module ddr_memory_interface (
         .full_o  ( write_data_full  ),
 
         /* Data */
-        .write_data_i ( write_data_i ),
-        .read_data_o  ( write_data   )
+        .write_data_i ( {write_data_i, write_mask_i} ),
+        .read_data_o  ( write_data                   )
     );
 
 
@@ -131,7 +144,7 @@ module ddr_memory_interface (
 
         /* Control signals */
         .write_i ( write_fifo ),
-        .read_i  ( read_i     ),
+        .read_i  ( pull_i     ),
 
         /* Status signals */
         .empty_o ( read_data_empty ),
@@ -141,6 +154,8 @@ module ddr_memory_interface (
         .write_data_i ( read_data   ),
         .read_data_o  ( read_data_o )
     );
+
+    assign read_valid_o = !read_data_empty;
 
 
     logic done_sync;
@@ -211,7 +226,6 @@ module ddr_memory_interface (
         .sys_rst   ( mem_rst_n_i ) 
     );
 
-    assign app_wdf_mask = '0;
 
 //====================================================================================
 //      FSM LOGIC
@@ -246,6 +260,8 @@ module ddr_memory_interface (
             case (cmd_state_CRT)
                 CMD_IDLE: begin
                     if (!command_empty & done_sync) begin
+                        /* Start memory request if the FIFO is filled
+                         * and the external module issue a done signal */
                         read_fifo_command = 1'b1;
 
                         cmd_state_NXT = CMD_TYPE;
@@ -257,22 +273,25 @@ module ddr_memory_interface (
                     app_addr = read_packet.address;
 
                     if (app_rdy) begin
-                        read_fifo_command = 1'b1;
-                    end
+                        /* Go immediately IDLE if the transaction requested is 1 */
+                        cmd_state_NXT = command_empty ? CMD_IDLE : CMD_SEND;
 
-                    cmd_state_NXT = CMD_SEND;
+                        read_fifo_command = !command_empty;
+                    end
                 end
 
                 CMD_SEND: begin
                     app_en = 1'b1;
                     app_addr = read_packet.address;
 
-                    if (command_empty & app_rdy) begin
-                        cmd_state_NXT = CMD_IDLE;
-                    end else begin
-                        if (app_rdy) begin
-                            read_fifo_command = 1'b1;
+                    if (app_rdy) begin
+                        if (command_empty) begin
+                            /* Once finished writing all the data, go to idle */
+                            cmd_state_NXT = CMD_IDLE;
                         end
+
+                        /* Read only if FIFO is not empty */
+                        read_fifo_command = !command_empty;
                     end
                 end
             endcase
@@ -300,6 +319,7 @@ module ddr_memory_interface (
             app_wdf_wren = 1'b0;
             app_wdf_end = 1'b0;
             app_wdf_data = '0;
+
             read_fifo = 1'b0;
 
             case (dat_state_CRT)
@@ -318,15 +338,26 @@ module ddr_memory_interface (
                 DAT_WRITE: begin
                     app_wdf_wren = 1'b1;
                     app_wdf_end = wr_data_end_CRT;
-                    app_wdf_data = write_data;
+                    app_wdf_data = write_data.data;
 
-                    if (write_data_empty & app_wdf_rdy) begin
-                        dat_state_NXT = DAT_IDLE;
-                    end else begin
-                        if (app_wdf_rdy) begin
-                            read_fifo = 1'b1;
+                    case (write_data.mask)
+                        2'b00: app_wdf_mask = '0;
 
-                            wr_data_end_NXT = !wr_data_end_CRT;
+                        2'b01: app_wdf_mask = {4'h0, 4'hF};
+
+                        2'b10: app_wdf_mask = {4'hF, 4'h0};
+                    endcase 
+
+                    if (app_wdf_rdy) begin
+                        /* Read only if FIFO is not empty */
+                        read_fifo = !write_data_empty;
+
+                        /* Data end must alterate between 1 and 0 */
+                        wr_data_end_NXT = !wr_data_end_CRT;
+
+                        if (write_data_empty) begin
+                            /* Once finished writing all the data, go to idle */
+                            dat_state_NXT = DAT_IDLE;
                         end
                     end
                 end

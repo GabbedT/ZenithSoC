@@ -84,7 +84,7 @@ endtask : reset
 // app_rd_data_valid is asserted. The app_rd_data_end
 // signal indicates the end of each read command burst and is not needed in user logic
 
-logic [26:0] address; logic write = 0, read = 0, push = 0, ready, done = 0; logic [63:0] write_data, read_data;
+logic [26:0] address; logic write = 0, read = 0, push = 0, pull = 0, ready, read_valid, done = 0; logic [63:0] write_data, read_data;
 
 ddr_memory_interface mem_intf (
     .clk_i       ( sys_clk  ),
@@ -110,9 +110,11 @@ ddr_memory_interface mem_intf (
     .address_i    ( address    ), 
     .write_i      ( write      ), 
     .push_i       ( push       ),
+    .pull_i       ( pull       ),
     .read_i       ( read       ), 
     .write_data_i ( write_data ),
     .read_data_o  ( read_data  ),
+    .read_valid_o ( read_valid ),
 
     .done_i  ( done  ),
     .ready_o ( ready )
@@ -120,8 +122,6 @@ ddr_memory_interface mem_intf (
 
 task write_memory(input bit sequential, input bit random, input int length, input int address_in);
     automatic logic [26:0] address_gen = random ? $random() : address_in;
-
-    length += (length % 2);
 
     wait(ready);
     @(posedge sys_clk);
@@ -179,8 +179,6 @@ endtask : write_memory
 task read_memory(input bit sequential, input bit random, input int length, input int address_in);
 automatic logic [26:0] address_gen = random ? $random() : address_in;
 
-    length += (length % 2);
-
     wait(ready);
     @(posedge sys_clk);
 
@@ -216,6 +214,16 @@ automatic logic [26:0] address_gen = random ? $random() : address_in;
     end
 
     wait(!ready);
+
+    wait(read_valid);
+
+    for (int i = 0; i < 2 * length; ++i) begin
+        wait(read_valid);
+        pull = 1'b1;
+        @(posedge sys_clk);
+    end
+
+    pull = 1'b0;
 endtask : read_memory
 
 
@@ -243,7 +251,7 @@ ddr2_model ddr2 (
         wait(ready);
 
         /* Random addresses */
-        write_memory(1, 1, 8, 0);
+        write_memory(1, 0, 8, 0);
         write_memory(0, 1, 8, 0);
         write_memory(0, 1, 8, 0);
         write_memory(1, 1, 8, 0);
@@ -251,6 +259,11 @@ ddr2_model ddr2 (
         /* Specific addresses */
         write_memory(1, 0, 8, 0);
         read_memory(1, 0, 8, 0);
+
+        read_memory(1, 0, 1, 0);
+        read_memory(1, 0, 1, 8);
+        read_memory(1, 0, 1, 16);
+        read_memory(1, 0, 1, 4);
 
         $finish();
     end
