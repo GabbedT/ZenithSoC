@@ -40,14 +40,14 @@ module asynchronous_buffer #(
 
         /* Write clocked port */
         always_ff @(posedge write_clk_i) begin
-            if (write_i) begin
+            if (write_i & !full_o) begin
                 buffer_memory[write_ptr[PTR_SIZE - 1:0]] <= write_data_i;
             end
         end 
 
         /* Read clocked port */
         always_ff @(posedge read_clk_i) begin
-            if (read_i) begin
+            if (read_i & !empty_o) begin
                 read_data_o <= buffer_memory[read_ptr[PTR_SIZE - 1:0]];
             end
         end 
