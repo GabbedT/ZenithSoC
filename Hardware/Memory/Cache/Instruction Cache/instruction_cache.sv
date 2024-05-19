@@ -1,8 +1,7 @@
 `ifndef INSTRUCTION_CACHE_SV
     `define INSTRUCTION_CACHE_SV
 
-`include "../../../Include/Packages/apogeo_pkg.sv"
-`include "../../../Include/Packages/cache_pkg.sv"
+`include "../../../Utility/Packages/cache_pkg.sv"
 
 `include "../Memory/instruction_block.sv"
 `include "../Memory/valid_memory.sv"
@@ -23,13 +22,13 @@ module instruction_cache #(
     /* Write port */
     input data_word_t write_address_i,
     input instruction_enable_t write_i,
-    input data_word_t instruction_i,
+    input logic [(BLOCK_SIZE / 4) - 1:0][31:0] instruction_i,
     input logic valid_i,
 
     /* Read ports */    
     input data_word_t read_address_i,
     input instruction_enable_t read_i,
-    output logic [BLOCK_SIZE - 1:0][7:0] instruction_o,
+    output logic [(BLOCK_SIZE / 4) - 1:0][31:0] instruction_o,
     output logic hit_o
 );
 
@@ -77,14 +76,13 @@ module instruction_cache #(
     instruction_block #(INDEX, OFFSET) instruction_memory (
         .clk_i ( clk_i ),
 
-        .write_bank_i    ( write_address.bank_select ),
-        .write_address_i ( write_address.index       ),
-        .write_i         ( write_i.data              ),
-        .instruction_i   ( instruction_i             ),
+        .write_address_i ( write_address.index ),
+        .write_i         ( write_i.data        ),
+        .instruction_i   ( instruction_i       ),
 
-        .read_address_i ( read_address.index       ),
-        .read_i         ( read_i.data           ),
-        .instruction_o  ( instruction_o            )
+        .read_address_i ( read_address.index ),
+        .read_i         ( read_i.data        ),
+        .instruction_o  ( instruction_o      )
     ); 
 
 
