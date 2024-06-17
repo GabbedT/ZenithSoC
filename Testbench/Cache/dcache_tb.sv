@@ -181,6 +181,9 @@ module dcache_tb ();
     initial begin
         rst_n_i <= 1'b0;
 
+        ldu_channel.request <= 1'b0;
+        stu_channel.request <= 1'b0;
+
         for (int i = 0; i < CACHE_SIZE * 8; ++i) begin
             memory[i] = i;
         end
