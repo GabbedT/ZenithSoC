@@ -18,6 +18,8 @@ module data_cache_complex #(
     input logic clk_i,
     input logic rst_n_i,
 
+    output logic single_trx_o,
+
     /* Load unit interface */
     load_interface.slave ldu_channel,
 
@@ -240,6 +242,8 @@ module data_cache_complex #(
 
             sctrl_memory_halt = 1'b0;
 
+            single_trx_o = 1'b0;
+
             case ({sctrl_store_channel.request, lctrl_store_channel.request})
 
                 2'b11, 2'b01: begin
@@ -254,6 +258,8 @@ module data_cache_complex #(
                     ddr_store_channel.data = sctrl_store_channel.data;
                     ddr_store_channel.address = sctrl_store_channel.address;
                     ddr_store_channel.width = sctrl_store_channel.width;  
+
+                    single_trx_o = 1'b1;
 
                     sctrl_memory_halt = 1'b0;
                 end

@@ -167,14 +167,14 @@ module load_controller #(
                             cache_address_o = {cache_tag_i, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0}; 
 
                             /* Increment word counter */
-                            word_counter_NXT = 1'd1;
+                            word_counter_NXT = 'd1;
                         end else begin
                             state_NXT = ALLOCATION_REQ;
                             
                             load_channel.request = 1'b1;
                             load_channel.address = {cache_address.tag, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0};
 
-                            word_counter_NXT = 1'd1;
+                            word_counter_NXT = 'd1;
                         end
                     end
                 end
@@ -208,7 +208,7 @@ module load_controller #(
                         load_channel.address = {cache_address.tag, cache_address.index, word_counter_NXT[OFFSET - 1:0], 2'b0};
                         
                         /* Reset word counter */ 
-                        word_counter_NXT = '0;
+                        word_counter_NXT = 'd1;
                     end
 
                     store_channel.address = {cache_tag_i, cache_address.index, word_counter_CRT[OFFSET - 1:0] - 1'b1, 2'b0}; 
