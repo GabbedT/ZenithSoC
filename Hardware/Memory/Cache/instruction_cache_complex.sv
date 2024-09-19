@@ -18,13 +18,10 @@ module instruction_cache_complex #(
     input logic clk_i, 
     input logic rst_n_i,
     input logic stall_i,
+    input logic region_switch_i,
 
     /* Fetch unit interface */
-    input logic fetch_i,
-    input logic invalidate_i,
-    input logic [31:0] program_counter_i,
-    output logic [31:0] instruction_o, 
-    output logic valid_o,
+    fetch_interface.slave fetch_channel,
 
     /* Memory load interface */ 
     load_interface.master load_channel 
@@ -77,15 +74,17 @@ module instruction_cache_complex #(
     logic [BLOCK_WORDS - 1:0][31:0] bundle; logic valid_bundle, request_bundle;
 
     fetch_controller #(BLOCK_WORDS, OFFSET, TAG, INDEX) controller (
-        .clk_i   ( clk_i   ),
-        .rst_n_i ( rst_n_i ),
-        .stall_i ( stall_i ), 
+        .clk_i           ( clk_i           ),
+        .rst_n_i         ( rst_n_i         ),
+        .stall_i         ( stall_i         ), 
+        .region_switch_i ( region_switch_i ),
 
-        .invalidate_i      ( invalidate_i             ),
-        .fetch_i           ( request_bundle & fetch_i ),
-        .program_counter_i ( program_counter_i        ),
-        .instruction_o     ( bundle                   ),  
-        .valid_o           ( valid_bundle             ),
+        .invalidate_i      ( fetch_channel.invalidate             ),
+        .stall_fetch_o     ( fetch_channel.stall                  ),
+        .fetch_i           ( request_bundle & fetch_channel.fetch ),
+        .program_counter_i ( fetch_channel.address                ),
+        .instruction_o     ( bundle                               ),  
+        .valid_o           ( valid_bundle                         ),
 
         .cache_write_address_o ( cache_write_address     ),
         .cache_write_o         ( cache_write             ),
@@ -109,8 +108,8 @@ module instruction_cache_complex #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 previous_pc <= '0;
-            end else if (fetch_i) begin 
-                previous_pc <= program_counter_i;
+            end else if (fetch_channel.fetch) begin 
+                previous_pc <= fetch_channel.address;
             end 
         end 
 
@@ -118,14 +117,14 @@ module instruction_cache_complex #(
     /* Index of the instruction requested */
     logic [OFFSET - 1:0] block_index; 
 
-    assign block_index = program_counter_i[OFFSET + 1:2];
+    assign block_index = fetch_channel.address[OFFSET + 1:2];
 
     
     /* Shift register that holds instruction in sequence */
     logic [BLOCK_WORDS - 2:0][31:0] sequencer;
 
         always_ff @(posedge clk_i) begin
-            if (fetch_i) begin
+            if (fetch_channel.fetch) begin
                 /* Shift right */
                 sequencer <= {32'b0, sequencer[BLOCK_WORDS - 2:1]}; 
             end else if (valid_bundle) begin
@@ -141,9 +140,9 @@ module instruction_cache_complex #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 sequencer_size <= '0;
-            end else if (invalidate_i) begin 
+            end else if (fetch_channel.invalidate) begin 
                 sequencer_size <= '0;
-            end else if (fetch_i) begin
+            end else if (fetch_channel.fetch) begin
                 if (request_bundle) begin
                     /* Empty the sequencer if a new bundle is requested */
                     sequencer_size <= '0;
@@ -156,12 +155,12 @@ module instruction_cache_complex #(
             end 
         end 
 
-    assign instruction_o = valid_bundle ? bundle[block_index] : sequencer[0];
+    assign fetch_channel.instruction = valid_bundle ? bundle[block_index] : sequencer[0];
 
     /* Request if the sequencer is empty or if there is a jump */
-    assign request_bundle = (sequencer_size == '0) | (program_counter_i != (previous_pc + 'd4));
+    assign request_bundle = (sequencer_size == '0) | (fetch_channel.address != (previous_pc + 'd4));
 
-    assign valid_o = (!request_bundle & fetch_i) | valid_bundle;
+    assign fetch_channel.valid = (!request_bundle & fetch_channel.fetch) | valid_bundle;
 
 endmodule : instruction_cache_complex 
 
