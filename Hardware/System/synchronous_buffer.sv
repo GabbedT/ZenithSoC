@@ -6,7 +6,10 @@ module synchronous_buffer #(
     parameter BUFFER_DEPTH = 1024,
 
     /* Entries width */
-    parameter DATA_WIDTH = 32
+    parameter DATA_WIDTH = 32,
+
+    /* Word is immediately available */
+    parameter FIRST_WORD_FALL_TROUGH = 0
 ) (
     /* Global signals */
     input logic clk_i,
@@ -43,12 +46,16 @@ module synchronous_buffer #(
             end
         end 
 
-        /* Read clocked port */
-        always_ff @(posedge clk_i) begin
-            if (read_i) begin
-                read_data_o <= buffer_memory[read_ptr];
-            end
-        end 
+        if (!FIRST_WORD_FALL_TROUGH) begin
+            /* Read clocked port */
+            always_ff @(posedge clk_i) begin
+                if (read_i) begin
+                    read_data_o <= buffer_memory[read_ptr];
+                end
+            end 
+        end else begin
+            assign read_data_o = buffer_memory[read_ptr];
+        end
 
 
 //====================================================================================
