@@ -9,7 +9,8 @@
 
 module cache_ddr_interface #(
     /* Number of 32 bits requests by cache */
-    parameter MAX_BURST = 4
+    parameter DATA_MAX_BURST = 4,
+    parameter INSTRUCTION_MAX_BURST = 8
 ) (
     input logic clk_i,
     input logic rst_n_i,
@@ -22,6 +23,8 @@ module cache_ddr_interface #(
     store_interface.slave store_channel,
 
     input logic single_trx_i,
+    input logic instr_req_i,
+    output logic load_empty_o,
 
     /* Common address */
     output logic [26:0] address_o, 
@@ -40,11 +43,11 @@ module cache_ddr_interface #(
 
     /* Status */
     output logic done_o,
-    output logic idle_o,
-    input logic ready_i,
-    input logic start_i
+    input logic ready_i
 );
-
+    
+    localparam MAX_BURST = DATA_MAX_BURST > INSTRUCTION_MAX_BURST ? DATA_MAX_BURST : INSTRUCTION_MAX_BURST; 
+    
 //====================================================================================
 //      STORE TRANSACTIONS BUFFER
 //====================================================================================
@@ -134,9 +137,9 @@ module cache_ddr_interface #(
 
                 if (str_ackn) begin
                     str_ready <= 1'b0;
-                end else begin
+                end else if ((str_count == MAX_BURST / 2) | (str_write & single_trx_i)) begin
                     /* FIFO is ready to be read */
-                    str_ready <= (str_count == MAX_BURST / 2) | (str_write & single_trx_i);
+                    str_ready <= 1'b1;
                 end
             end 
         end 
@@ -206,10 +209,21 @@ module cache_ddr_interface #(
                     ldr_ready <= 1'b0;
                 end else begin
                     /* FIFO is ready to be read */
-                    ldr_ready <= ldr_count == (MAX_BURST / 2);
+                    if (instr_req_i) begin
+                        if (ldr_count == (INSTRUCTION_MAX_BURST / 2)) begin 
+                            ldr_ready <= 1'b1;
+                        end
+                    end else begin
+                        if (ldr_count == (DATA_MAX_BURST / 2)) begin
+                            ldr_ready <= 1'b1;
+                        end
+                    end
                 end
             end 
         end 
+
+    assign load_empty_o = ldr_empty;
+    
 
 //====================================================================================
 //      ARBITER
@@ -248,7 +262,7 @@ module cache_ddr_interface #(
             end 
         end 
 
-    
+
     logic valid_negedge, write_shift_reg, read_shift_reg;
 
         always_comb begin
@@ -262,9 +276,6 @@ module cache_ddr_interface #(
             ldr_ackn = 1'b0;
             str_read = 1'b0;
             str_ackn = 1'b0;
-
-            // write_shift_reg = 1'b0;
-            // read_shift_reg = 1'b0;
 
             write_mask_o = '0;
             write_data_o = '0;
@@ -377,7 +388,6 @@ module cache_ddr_interface #(
                 end
 
                 LOAD_DATA: begin
-                    // write_shift_reg = 1'b1;
                     pull_o = valid_data;
 
                     load_channel.valid = 1'b1;
@@ -396,19 +406,6 @@ module cache_ddr_interface #(
                 end
             endcase 
         end
-
-
-    // logic [(MAX_BURST / 2) - 1:0][63:0] read_data_register; 
-
-    //     always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-    //         if (write_shift_reg) begin
-    //             read_data_register <= {read_data_register[(MAX_BURST / 2) - 2:0], read_data_i}
-    //         end else if (read_shift_reg) begin
-    //             read_data_register <= read_data_register << 32;
-    //         end
-    //     end 
-
-    // assign load_channel.data = read_data_register[(MAX_BURST / 2) - 1][63:32];
 
 
     edge_detector #(0, 0) valid_negedge_detector (
