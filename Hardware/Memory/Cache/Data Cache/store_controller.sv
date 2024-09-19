@@ -10,6 +10,7 @@ module store_controller (
     input logic clk_i,
     input logic rst_n_i, 
     input logic halt_i,
+    input logic stall_i,
 
     /* Store unit interface */
     input logic request_i,
@@ -40,14 +41,14 @@ module store_controller (
 //      FSM LOGIC
 //====================================================================================
 
-    typedef enum logic [1:0] {IDLE, OUTCOME, WRITE_THROUGH} fsm_states_t;
+    typedef enum logic [1:0] {IDLE, OUTCOME, WRITE_THROUGH, WAIT} fsm_states_t;
 
     fsm_states_t state_CRT, state_NXT;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : state_register
             if (!rst_n_i) begin
                 state_CRT <= IDLE;
-            end else if (!halt_i) begin
+            end else begin
                 state_CRT <= state_NXT;
             end
         end : state_register
@@ -90,8 +91,10 @@ module store_controller (
                  * is initiated.                                    */
                 OUTCOME: begin
                     if (cache_hit_i) begin
-                        state_NXT = IDLE; 
-                        valid_o = 1'b1;
+                        if (!halt_i & !stall_i) begin
+                            state_NXT = IDLE; 
+                            valid_o = 1'b1;
+                        end
                             
                         /* Write data and update status bits */
                         cache_write_o.data = 1'b1;
@@ -101,8 +104,10 @@ module store_controller (
                         /* Set dirty and valid bit */
                         cache_status_o = '1;
                     end else begin
-                        state_NXT = WRITE_THROUGH;
-                        store_channel.request = 1'b1; 
+                        if (!halt_i & !stall_i) begin
+                            state_NXT = WRITE_THROUGH;
+                            store_channel.request = !stall_i; 
+                        end
 
                         if (!cache_dirty_i) begin 
                             /* Invalidate cache block */
@@ -127,6 +132,18 @@ module store_controller (
                  * store operation                          */
                 WRITE_THROUGH: begin
                     if (store_channel.done) begin
+                        if (!halt_i & !stall_i) begin
+                            state_NXT = IDLE;
+                            valid_o = 1'b1;
+                        end else begin
+                            state_NXT = WAIT;
+                        end
+                    end
+                end
+
+                /* Wait until the stall is resolved */
+                WAIT: begin
+                    if (!halt_i & !stall_i) begin
                         state_NXT = IDLE;
                         valid_o = 1'b1;
                     end

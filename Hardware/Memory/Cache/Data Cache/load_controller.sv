@@ -17,6 +17,7 @@ module load_controller #(
 ) (
     input logic clk_i,
     input logic rst_n_i, 
+    input logic stall_i, 
 
     /* Load unit interface */
     input logic invalidate_i,
@@ -90,19 +91,38 @@ module load_controller #(
 
     typedef enum logic [2:0] {IDLE, OUTCOME, ALLOCATION_REQ, ALLOCATE, WRITE_BACK} fsm_states_t;
 
-    fsm_states_t state_CRT, state_NXT;
+    fsm_states_t state_CRT, state_NXT; logic force_state;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : state_register
             if (!rst_n_i) begin
                 state_CRT <= IDLE;
-            end else if (invalidate_i) begin 
-                state_CRT <= IDLE;
-            end else begin
+            end else if ((state_CRT == IDLE) | force_state) begin
+                state_CRT <= state_NXT;
+            end else if (!stall_i) begin
                 state_CRT <= state_NXT;
             end
         end : state_register
 
-    assign load_channel.invalidate = invalidate_i;
+    assign load_channel.invalidate = 1'b0;
+
+
+    logic invalidate_pending, invalidate_done;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                invalidate_pending <= 1'b0;
+            end else begin 
+                if (invalidate_i & (state_CRT != IDLE)) begin
+                    invalidate_pending <= 1'b1;
+                end
+
+                if (invalidate_done) begin
+                    invalidate_pending <= 1'b0;
+                end
+            end 
+        end 
+
+    assign invalidate_done = state_CRT == IDLE;
 
         always_comb begin
             /* Default values */
@@ -124,6 +144,8 @@ module load_controller #(
 
             data_o = '0;
             valid_o = '0;
+
+            force_state = 1'b0;
 
             case (state_CRT)
 
@@ -154,11 +176,15 @@ module load_controller #(
                     if (cache_hit_i) begin
                         state_NXT = IDLE;
 
+                        force_state = 1'b1;
+
                         data_o = cache_data_i;
-                        valid_o = 1'b1;
+                        valid_o = !invalidate_i;
                     end else begin
+                        force_state = invalidate_i;
+                        
                         if (cache_dirty_i) begin
-                            state_NXT = WRITE_BACK;
+                            state_NXT = invalidate_i ? IDLE : WRITE_BACK;
 
                             /* Read only data */
                             cache_read_o.data = 1'b1;
@@ -169,9 +195,9 @@ module load_controller #(
                             /* Increment word counter */
                             word_counter_NXT = 'd1;
                         end else begin
-                            state_NXT = ALLOCATION_REQ;
+                            state_NXT = invalidate_i ? IDLE : ALLOCATION_REQ;
                             
-                            load_channel.request = 1'b1;
+                            load_channel.request = !invalidate_i & !stall_i;
                             load_channel.address = {cache_address.tag, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0};
 
                             word_counter_NXT = 'd1;
@@ -195,16 +221,16 @@ module load_controller #(
                         word_counter_NXT = word_counter_CRT + 1'b1;
 
                         /* Request a store to memory controller */
-                        store_channel.request = 1'b1;
+                        store_channel.request = !stall_i;
                     end else if (word_counter_CRT[OFFSET] & word_counter_CRT[OFFSET - 1:0] == '0) begin
                         /* Send store request for the last data. Don't read
                          * any more words after writing back all the block */
                         word_counter_NXT = word_counter_CRT + 1'b1;
-                        store_channel.request = 1'b1;
+                        store_channel.request = !invalidate_i & !invalidate_pending & !stall_i;
 
-                        state_NXT = ALLOCATION_REQ;
+                        state_NXT = (invalidate_i | invalidate_pending) ? IDLE : ALLOCATION_REQ;
                         
-                        load_channel.request = 1'b1; 
+                        load_channel.request = !stall_i; 
                         load_channel.address = {cache_address.tag, cache_address.index, word_counter_NXT[OFFSET - 1:0], 2'b0};
                         
                         /* Reset word counter */ 
@@ -225,7 +251,7 @@ module load_controller #(
                         word_counter_NXT = word_counter_CRT + 1'b1;
 
                         /* Request a load to memory controller */
-                        load_channel.request = 1'b1; 
+                        load_channel.request = !stall_i; 
                     end else begin
                         /* Wait for response */
                         state_NXT = ALLOCATE;
@@ -249,18 +275,18 @@ module load_controller #(
                         word_counter_NXT = word_counter_CRT + 1'b1; 
 
                         cache_data_o = load_channel.data; 
-                        cache_write_o.data = 1'b1;
+                        cache_write_o.data = !invalidate_pending;
 
                         if (word_counter_CRT[OFFSET - 1:0] == '0) begin
                             /* The first time allocate metadata */
-                            cache_write_o = '1;
+                            cache_write_o = invalidate_pending ? '0 : '1;
                         end else if (word_counter_CRT[OFFSET - 1:0] == '1) begin
                             /* Block has been allocated */
                             state_NXT = IDLE; 
                             
                             /* If the requested data is the last word of the cache block, foward it immediately */
                             data_o = cache_address.offset == '1 ? load_channel.data : requested_data_CRT;
-                            valid_o = 1'b1; 
+                            valid_o = !invalidate_pending; 
                         end 
 
                         if (cache_address.offset == word_counter_CRT) begin 
