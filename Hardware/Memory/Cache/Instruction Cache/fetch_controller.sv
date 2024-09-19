@@ -21,6 +21,7 @@ module fetch_controller #(
     input logic clk_i,
     input logic rst_n_i, 
     input logic stall_i, 
+    input logic region_switch_i,
 
     /* Fetch unit interface */
     input logic invalidate_i,
@@ -28,6 +29,7 @@ module fetch_controller #(
     input logic [31:0] program_counter_i,
     output logic [BLOCK_WIDTH - 1:0][31:0] instruction_o, 
     output logic valid_o,
+    output logic stall_fetch_o,
 
     /* Cache write interface */
     output data_word_t cache_write_address_o,
@@ -88,12 +90,31 @@ module fetch_controller #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : state_register
             if (!rst_n_i) begin
                 state_CRT <= IDLE;
-            end else if (invalidate_i) begin 
-                state_CRT <= IDLE;
+            end else if ((state_CRT == IDLE) | cache_hit_i) begin
+                state_CRT <= state_NXT;
             end else if (!stall_i) begin
                 state_CRT <= state_NXT;
             end
         end : state_register
+
+
+    logic invalidate_pending, invalidate_done;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                invalidate_pending <= 1'b0;
+            end else begin 
+                if (invalidate_i & (state_CRT != IDLE)) begin
+                    invalidate_pending <= !region_switch_i;
+                end
+
+                if (invalidate_done) begin
+                    invalidate_pending <= 1'b0;
+                end
+            end 
+        end 
+
+    assign invalidate_done = state_CRT == IDLE;
 
 
         always_comb begin
@@ -103,6 +124,7 @@ module fetch_controller #(
 
             instruction_o = '0; 
             valid_o = 1'b0;
+            stall_fetch_o = 1'b1;
 
             cache_read_o = '0;
             cache_write_o = '0;
@@ -118,11 +140,15 @@ module fetch_controller #(
                  * instruction fetch. As soon as the request *
                  * arrives, a cache read is issued.          */
                 IDLE: begin
+                    stall_fetch_o = 1'b0;
+
                     if (fetch_i) begin
                         state_NXT = OUTCOME;
 
                         /* Read cache */
                         cache_read_o = '1; 
+
+                        stall_fetch_o = 1'b1;
                     end
 
                     word_counter_NXT = '0; 
@@ -141,15 +167,15 @@ module fetch_controller #(
                         state_NXT = IDLE; 
                         
                         /* Load in bundle */
-                        valid_o = 1'b1;
+                        valid_o = !invalidate_i & !invalidate_pending;
                         instruction_o = cache_instruction_i;
                     end else begin
-                        state_NXT = ALLOCATION_REQ;
+                        state_NXT = (invalidate_i | invalidate_pending) ? IDLE : ALLOCATION_REQ;
 
                         word_counter_NXT = 'd1;
 
-                        load_channel.request = 1'b1;
-                        load_channel.address = {program_counter.tag, program_counter.index, word_counter_CRT, 2'b0};
+                        load_channel.request = !stall_i & !invalidate_i;
+                        load_channel.address = {program_counter.tag, program_counter.index, word_counter_CRT[OFFSET - 1:0], 2'b0};
                     end
                 end
 
@@ -186,7 +212,7 @@ module fetch_controller #(
 
                     if (word_counter_CRT[OFFSET] & word_counter_CRT[OFFSET - 1:0] == '0) begin
                         /* Wait for response */
-                        state_NXT = ALLOCATE;
+                        state_NXT = (invalidate_i | invalidate_pending) ? IDLE : ALLOCATE;
                         
                         /* Reset word counter */ 
                         word_counter_NXT = '0; 
@@ -206,7 +232,7 @@ module fetch_controller #(
 
                     /* Load in sequencer */
                     instruction_o = instruction_bundle;
-                    valid_o = 1'b1;
+                    valid_o = !invalidate_i;
                 end
             endcase 
         end
