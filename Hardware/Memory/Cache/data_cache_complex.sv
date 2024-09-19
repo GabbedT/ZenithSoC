@@ -17,6 +17,7 @@ module data_cache_complex #(
 ) (
     input logic clk_i,
     input logic rst_n_i,
+    input logic stall_i,
 
     output logic single_trx_o,
 
@@ -139,6 +140,7 @@ module data_cache_complex #(
     load_controller #(OFFSET, TAG, INDEX) load_cache_controller (
         .clk_i   ( clk_i   ),
         .rst_n_i ( rst_n_i ), 
+        .stall_i ( stall_i ),
 
         .invalidate_i ( ldu_channel.invalidate                 ),
         .request_i    ( ldu_channel.request & !io_load_request ),
@@ -180,6 +182,7 @@ module data_cache_complex #(
         .clk_i   ( clk_i      ),
         .rst_n_i ( rst_n_i    ), 
         .halt_i  ( sctrl_halt ),
+        .stall_i ( stall_i    ),
 
         .request_i      ( stu_channel.request & !io_store_request                    ),
         .buffer_entry_i ( {stu_channel.data, stu_channel.address, stu_channel.width} ),
