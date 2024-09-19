@@ -130,17 +130,6 @@ module ethernet_rx #(
         end
 
 
-    logic crsdv_deasserted;
-
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin 
-                crsdv_deasserted <= 1'b0;
-            end else if (sample_i) begin 
-                crsdv_deasserted <= !rmii_crsdv_i;
-            end 
-        end 
-    
-
 
     logic crc32_init, crc32_compute; logic [7:0] crc32_data; logic [3:0][7:0] crc32;
 
