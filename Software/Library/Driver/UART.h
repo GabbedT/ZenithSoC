@@ -128,7 +128,7 @@ public:
      * @param dataBits Select the number of data bits transmitted / received.
      * @return UART& to chain the function call.
      */
-    UART& init(uint32_t baudRate, bool parityEnable, parityMode_e parityMode, stopBits_e stopBits, dataLenght_e dataBits);
+    UART& init(uint32_t baudRate = 115200, bool parityEnable = true, parityMode_e parityMode = UART::EVEN, stopBits_e stopBits = UART::STOP1, dataLenght_e dataBits = UART::BIT8);
 
     /**
      * @brief Change flow control (CTS/RTS) settings.
