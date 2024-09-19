@@ -5,14 +5,11 @@
 `include "../../System/flag_synchronizer.sv"
 `include "../../System/synchronizer.sv"
 
-// TODO: Continuous sending of command, external interface can write in fifo whenever it wants
-
 module ddr_memory_interface (
     input logic clk_i,
     input logic rst_n_i,
     input logic mem_clk_i,
     input logic mem_rst_n_i,
-
 
     /* Data */
     inout logic [15:0] ddr2_dq_io,
@@ -210,7 +207,7 @@ module ddr_memory_interface (
 //      MEMORY CONTROLLER
 //====================================================================================
 
-    logic [26:0] app_addr; logic [3:0] app_cmd; logic app_en, app_rdy; 
+    logic [26:0] app_addr; logic [2:0] app_cmd; logic app_en, app_rdy; 
     logic [63:0] app_wdf_data; logic [7:0] app_wdf_mask; logic app_wdf_end, app_wdf_rdy, app_wdf_wren;
     logic [63:0] app_rd_data; logic app_rd_data_end, app_rd_data_valid;
     logic init_calib_complete;
@@ -441,8 +438,8 @@ module ddr_memory_interface (
 
     synchronizer ready_synchronizer (
         /* Global signals */
-        .clk_i   ( clk_i   ),
-        .rst_n_i ( rst_n_i ),
+        .clk_i   ( clk_i ),
+        .rst_n_i ( 1'b1  ),
 
         .signal_i ( ready   ),
         .sync_o   ( ready_o )
