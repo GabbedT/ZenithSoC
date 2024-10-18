@@ -212,6 +212,7 @@ module ddr_memory_interface (
     logic [63:0] app_rd_data; logic app_rd_data_end, app_rd_data_valid;
     logic init_calib_complete;
 
+    /* Vivado IP */
     ddr_controller ddr_memory_controller (
         .ddr2_addr  ( ddr2_addr_o   ),
         .ddr2_ba    ( ddr2_ba_o     ),

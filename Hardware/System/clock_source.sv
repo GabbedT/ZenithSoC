@@ -13,6 +13,7 @@ module clock_source (
     output logic locked_o
 );
 
+    /* Vivado IP */
     system_clocking pll (
         .sys_clk_o ( sys_clk_o ),
         .mem_clk_o ( mem_clk_o ), 
