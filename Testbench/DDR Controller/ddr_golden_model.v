@@ -76,7 +76,7 @@
 
 `include "ddr2_model.v"
 `include "ddr_example_top.v"
-`include "/home/gabbed/Vivado/Projects/ZenithSoC/ZenithSoC.gen/sources_1/ip/ddr_controller/ddr_controller/example_design/sim/wiredly.v"
+`include "/home/gabriele/Desktop/Projects/ZenithSoC/ZenithSoC.gen/sources_1/ip/ddr_controller/ddr_controller/example_design/sim/wiredly.v"
 
 module sim_tb_top;
 

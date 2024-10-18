@@ -71,7 +71,7 @@
 
 `timescale 1ps/1ps
 
-`include "/home/gabbed/Vivado/Projects/ZenithSoC/ZenithSoC.gen/sources_1/ip/ddr_controller/ddr_controller/example_design/rtl/traffic_gen/mig_7series_v4_2_traffic_gen_top.v"
+`include "/home/gabriele/Desktop/Projects/ZenithSoC/ZenithSoC.gen/sources_1/ip/ddr_controller/ddr_controller/example_design/rtl/traffic_gen/mig_7series_v4_2_traffic_gen_top.v"
 
 module example_top #
   (
