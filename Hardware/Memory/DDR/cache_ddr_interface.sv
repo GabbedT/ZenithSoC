@@ -263,7 +263,7 @@ module cache_ddr_interface #(
         end 
 
 
-    logic valid_negedge, write_shift_reg, read_shift_reg;
+    logic valid_negedge;
 
         always_comb begin
             state_NXT = state_CRT;
