@@ -4,10 +4,10 @@
 /* Enable or disable tracing */
 `define TRACER
 
-`define CPU_TRACE_FILE "/home/gabbed/Projects/ZenithSoC/Testbench/System/cpu_trace.txt"
-`define BUFFER_TRACE_FILE "/home/gabbed/Projects/ZenithSoC/Testbench/System/buffer_trace.txt"
-`define MEMORY_TRACE_FILE "/home/gabbed/Projects/ZenithSoC/Testbench/System/memory_trace.txt"
-`define DDR_TRACE_FILE "/home/gabbed/Projects/ZenithSoC/Testbench/System/ddr_trace.txt"
+`define CPU_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/cpu_trace.txt"
+`define BUFFER_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/buffer_trace.txt"
+`define MEMORY_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/memory_trace.txt"
+`define DDR_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/ddr_trace.txt"
 
 `include "../../Hardware/Utility/Packages/soc_parameters.sv"
 
@@ -145,7 +145,7 @@ module soc_testbench;
 
 
     // logic stopCondition; assign stopCondition = !`CPU.apogeo_backend.exception_generated;
-    logic stopCondition; assign stopCondition = $time() < 2000;
+    logic stopCondition; // assign stopCondition = $time() > 2000ns;
 
     logic fowardMatch, fowardMatch_prev; assign fowardMatch = `CPU.apogeo_backend.execute_stage.LSU.ldu.foward_match_i;
 
@@ -167,11 +167,13 @@ module soc_testbench;
         repeat(40) @(posedge clk_i);
         rst_n_i <= 1'b1;
 
+        stopCondition = 0;
+
         wait(dut.locked);
 
         fork
             begin : io_watcher
-                while (stopCondition) begin
+                while (!stopCondition) begin
                     if (dut.io_load_channel.request) begin
                         $fdisplay(memoryFile, "[IO][%t] Load address: 0x%h", $time, dut.io_load_channel.address);
                         $display("[IO][%t] Load address: 0x%h", $time, dut.io_load_channel.address);
@@ -202,7 +204,7 @@ module soc_testbench;
             end : io_watcher
 
             begin : cache_watcher
-                while (stopCondition) begin
+                while (!stopCondition) begin
                     if (dut.ApogeoRV.cpu_load_channel.request) begin
                         $fdisplay(memoryFile, "[CACHE][%t] Load address: 0x%h", $time, dut.ApogeoRV.cpu_load_channel.address);
                         $display("[CACHE][%t] Load address: 0x%h", $time, dut.ApogeoRV.cpu_load_channel.address);
@@ -243,7 +245,7 @@ module soc_testbench;
             end : cache_watcher
 
             begin : ddr_watcher
-                while (stopCondition) begin
+                while (!stopCondition) begin
                     if (dut.ddr_load_channel.request) begin
                         $fdisplay(memoryFile, "[DDR][%t] Load address: 0x%h", $time, dut.ddr_load_channel.address);
                         $display("[DDR][%t] Load address: 0x%h", $time, dut.ddr_load_channel.address);
@@ -274,7 +276,7 @@ module soc_testbench;
             end : ddr_watcher
 
             begin : cpu_watcher
-                while (stopCondition) begin
+                while (!stopCondition) begin
                     branch_jump_number += `CPU.executed;
                     misprediction_number += `CPU.apogeo_frontend.mispredicted_o;
 
@@ -297,11 +299,13 @@ module soc_testbench;
             end : cpu_watcher
 
             begin
-                while ($time() < 400_000_000) begin
+                while ($time() < 257000ns) begin
                     @(posedge clk_i);
                 end
 
                 $display("OUT");
+
+                stopCondition = 1;
             end
         join_any
 
