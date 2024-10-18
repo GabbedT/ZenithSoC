@@ -99,7 +99,7 @@ module ZenithSoC (
             if (!rst_n_i) begin
                 rst_sync <= 1'b0;
                 reset_n <= 1'b0;
-            end if (!locked) begin 
+            end else if (!locked) begin 
                 rst_sync <= 1'b0;
                 reset_n <= 1'b0;
             end else if (locked & ddr_ready) begin 
@@ -116,7 +116,7 @@ module ZenithSoC (
             if (!rst_n_i) begin
                 ddr_rst_sync <= 1'b0;
                 ddr_reset_n <= 1'b0;
-            end if (!locked) begin 
+            end else if (!locked) begin 
                 ddr_rst_sync <= 1'b0;
                 ddr_reset_n <= 1'b0;
             end else if (locked) begin 
@@ -589,7 +589,7 @@ module ZenithSoC (
 
     localparam _BOOT_ = 0;
 
-    on_chip_memory #(BOOT_SIZE, "/home/gabbed/Projects/ZenithSoC/Software/Examples/PNRG/output.hex") boot_memory (
+    on_chip_memory #(BOOT_SIZE, "/home/gabriele/Desktop/Projects/ZenithSoC/Software/Examples/PNRG/output.hex") boot_memory (
         .clk_i      ( sys_clk ),
         .rst_n_i    ( reset_n ),
 
