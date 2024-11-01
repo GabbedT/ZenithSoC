@@ -8,6 +8,7 @@
 `define BUFFER_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/buffer_trace.txt"
 `define MEMORY_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/memory_trace.txt"
 `define DDR_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/ddr_trace.txt"
+`define OUTPUT_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/output_trace.txt"
 
 `include "../../Hardware/Utility/Packages/soc_parameters.sv"
 
@@ -141,11 +142,10 @@ module soc_testbench;
         end 
 
 
-    int cpuFile, bufferFile, memoryFile, ddrFile, misprediction_number, branch_jump_number;
+    int cpuFile, bufferFile, memoryFile, ddrFile, outputFile, misprediction_number, branch_jump_number;
 
 
-    // logic stopCondition; assign stopCondition = !`CPU.apogeo_backend.exception_generated;
-    logic stopCondition; // assign stopCondition = $time() > 2000ns;
+    logic stopCondition;
 
     logic fowardMatch, fowardMatch_prev; assign fowardMatch = `CPU.apogeo_backend.execute_stage.LSU.ldu.foward_match_i;
 
@@ -159,6 +159,7 @@ module soc_testbench;
             bufferFile = $fopen(`BUFFER_TRACE_FILE, "w"); $display("%d", bufferFile);
             memoryFile = $fopen(`MEMORY_TRACE_FILE, "w"); $display("%d", memoryFile);
             ddrFile = $fopen(`DDR_TRACE_FILE, "w"); $display("%d", ddrFile);
+            outputFile = $fopen(`OUTPUT_TRACE_FILE, "w"); $display("%d", outputFile);
         `endif 
         
         @(posedge clk_i);
@@ -176,27 +177,22 @@ module soc_testbench;
                 while (!stopCondition) begin
                     if (dut.io_load_channel.request) begin
                         $fdisplay(memoryFile, "[IO][%t] Load address: 0x%h", $time, dut.io_load_channel.address);
-                        $display("[IO][%t] Load address: 0x%h", $time, dut.io_load_channel.address);
                     end
 
                     if (dut.io_load_channel.valid) begin
                         $fdisplay(memoryFile, "[IO][%t] Load data: 0x%h", $time, dut.io_load_channel.data);
-                        $display("[IO][%t] Load data: 0x%h", $time, dut.io_load_channel.data);
                     end
 
                     if (dut.io_store_channel.request) begin
                         $fdisplay(memoryFile, "[IO][%t] Store 0x%h at address: 0x%h", $time, dut.io_store_channel.data, dut.io_store_channel.address);
-                        $display("[IO][%t] Store 0x%h at address: 0x%h", $time, dut.io_store_channel.data, dut.io_store_channel.address);
                     end
 
                     if (dut.io_store_channel.done) begin
                         $fdisplay(memoryFile, "[IO][%t] Store done!", $time);
-                        $display("[IO][%t] Store done!", $time);
                     end
 
                     if (dut.io_load_channel.invalidate) begin
                         $fdisplay(memoryFile, "[IO][%t] Load invalidated!", $time);
-                        $display("[IO][%t] Load invalidated!", $time);
                     end
 
                     @(posedge clk_i);
@@ -207,35 +203,28 @@ module soc_testbench;
                 while (!stopCondition) begin
                     if (dut.ApogeoRV.cpu_load_channel.request) begin
                         $fdisplay(memoryFile, "[CACHE][%t] Load address: 0x%h", $time, dut.ApogeoRV.cpu_load_channel.address);
-                        $display("[CACHE][%t] Load address: 0x%h", $time, dut.ApogeoRV.cpu_load_channel.address);
 
                         load_buffer.push_back({dut.ApogeoRV.cpu_load_channel.address, dut.ApogeoRV.cpu_load_channel.address < `USER_MEMORY_REGION_START});
                     end
 
                     if (dut.ApogeoRV.cpu_load_channel.valid) begin
                         $fdisplay(memoryFile, "[CACHE][%t] Load data: 0x%h", $time, dut.ApogeoRV.cpu_load_channel.data);
-                        $display("[CACHE][%t] Load data: 0x%h", $time, dut.ApogeoRV.cpu_load_channel.data);
                     end
 
                     if (dut.ApogeoRV.cpu_store_channel.request) begin
                         $fdisplay(memoryFile, "[CACHE][%t] Store 0x%h at address: 0x%h", $time, dut.ApogeoRV.cpu_store_channel.data, dut.ApogeoRV.cpu_store_channel.address);
-                        $display("[CACHE][%t] Store 0x%h at address: 0x%h", $time, dut.ApogeoRV.cpu_store_channel.data, dut.ApogeoRV.cpu_store_channel.address);
 
                         store_buffer.push_back({dut.ApogeoRV.cpu_store_channel.address, dut.ApogeoRV.cpu_store_channel.data, dut.ApogeoRV.cpu_store_channel.address < `USER_MEMORY_REGION_START});
                     end
 
                     if (dut.ApogeoRV.cpu_store_channel.done) begin
                         $fdisplay(memoryFile, "[CACHE][%t] Store done!", $time);
-                        $display("[CACHE][%t] Store done!", $time);
                     end
 
                     if (dut.ApogeoRV.cpu_load_channel.invalidate) begin
                         $fdisplay(memoryFile, "[CACHE][%t] Load invalidated!", $time);
-                        $display("[CACHE][%t] Load invalidated!", $time);
 
                         if (!fowardMatch_prev) begin
-                            $display("Popping!");
-                            
                             load_buffer.pop_front();
                         end
                     end
@@ -248,27 +237,22 @@ module soc_testbench;
                 while (!stopCondition) begin
                     if (dut.ddr_load_channel.request) begin
                         $fdisplay(memoryFile, "[DDR][%t] Load address: 0x%h", $time, dut.ddr_load_channel.address);
-                        $display("[DDR][%t] Load address: 0x%h", $time, dut.ddr_load_channel.address);
                     end
 
                     if (dut.ddr_load_channel.valid) begin
                         $fdisplay(memoryFile, "[DDR][%t] Load data: 0x%h", $time, dut.ddr_load_channel.data);
-                        $display("[DDR][%t] Load data: 0x%h", $time, dut.ddr_load_channel.data);
                     end
 
                     if (dut.ddr_store_channel.request) begin
                         $fdisplay(memoryFile, "[DDR][%t] Store 0x%h at address: 0x%h", $time, dut.ddr_store_channel.data, dut.ddr_store_channel.address);
-                        $display("[DDR][%t] Store 0x%h at address: 0x%h", $time, dut.ddr_store_channel.data, dut.ddr_store_channel.address);
                     end
 
                     if (dut.ddr_store_channel.done) begin
                         $fdisplay(memoryFile, "[DDR][%t] Store done!", $time);
-                        $display("[DDR][%t] Store done!", $time);
                     end
 
                     if (dut.ddr_load_channel.invalidate) begin
                         $fdisplay(memoryFile, "[DDR][%t] Load invalidated!", $time);
-                        $display("[DDR][%t] Load invalidated!", $time);
                     end
 
                     @(posedge clk_i);
@@ -298,8 +282,22 @@ module soc_testbench;
                 end
             end : cpu_watcher
 
+            `ifdef TRACER 
+
+            begin: print_watcher
+               while (!stopCondition) begin
+                   if (dut.genblk1[0].uart_device.write_i & dut.genblk1[0].uart_device.write_address_i == UART_TX_BUFFER) begin
+                       $fwrite(outputFile, "%c", dut.genblk1[0].uart_device.write_data_i[7:0]);
+                   end
+
+                   @(posedge clk_i);
+               end
+            end : print_watcher
+
+            `endif
+
             begin
-                while ($time() < 257000ns) begin
+                while ($time() < 500000ns) begin
                     @(posedge clk_i);
                 end
 
