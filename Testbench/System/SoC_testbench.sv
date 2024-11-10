@@ -1,23 +1,36 @@
 `ifndef SOC_TESTBENCH_SV
     `define SOC_TESTBENCH_SV
 
-/* Enable or disable tracing */
-`define TRACER
-
-`define CPU_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/cpu_trace.txt"
-`define BUFFER_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/buffer_trace.txt"
-`define MEMORY_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/memory_trace.txt"
-`define DDR_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/ddr_trace.txt"
-`define OUTPUT_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/output_trace.txt"
-
 `include "../../Hardware/Utility/Packages/soc_parameters.sv"
 
 `define CPU dut.ApogeoRV.system_cpu
+
+
+/* Enable or disable tracing */
+// `define TRACE_CPU
+// `define TRACE_MEMORY
+`define TRACE_OUTPUT
+
+`define CPU_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/cpu_trace.txt"
+`define MEMORY_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/memory_trace.txt"
+`define OUTPUT_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/output_trace.txt"
+
+`define SIM_TIME 750000ns
+
+/* While RUN_CONDITION is true, simulation will continue */
+`define RUN_CONDITION ($time() < `SIM_TIME) & !`CPU.exception
+
+/* The program can write into the Non Cachable Memory, each write is considered as an
+ * output write, if this define is removed, the writes to UART device are considered
+ * as output to be written into the output_trace.txt */
+`define FAST_OUTPUT
+
 
 module soc_testbench;
 
     logic clk_i = 0;
 
+    /* Clock instantiation */
     always #5ns clk_i <= !clk_i;
 
 
@@ -52,40 +65,40 @@ module soc_testbench;
     wire  smi_mdio_io;
 
     /* DDR Interface */
-    wire [15:0] ddr2_dq_io;
-    wire [1:0]  ddr2_dqs_n_io;
-    wire [1:0]  ddr2_dqs_p_io;
-    wire [1:0]  ddr2_dm_o;
-    wire [12:0] ddr2_addr_o;
-    wire [2:0]  ddr2_ba_o;
-    wire        ddr2_ras_n_o;
-    wire        ddr2_cas_n_o;
-    wire        ddr2_we_n_o;
-    wire        ddr2_cke_o;
-    wire        ddr2_ck_p_o;
-    wire        ddr2_ck_n_o;
-    wire        ddr2_cs_n_o;
-    wire        ddr2_odt_o;
+    wire [15:0] ddr2_dq;
+    wire [1:0]  ddr2_dqs_n;
+    wire [1:0]  ddr2_dqs_p;
+    wire [1:0]  ddr2_dm;
+    wire [12:0] ddr2_addr;
+    wire [2:0]  ddr2_ba;
+    wire        ddr2_ras_n;
+    wire        ddr2_cas_n;
+    wire        ddr2_we_n;
+    wire        ddr2_cke;
+    wire        ddr2_ck_p;
+    wire        ddr2_ck_n;
+    wire        ddr2_cs_n;
+    wire        ddr2_odt;
 
 
     ZenithSoC dut (.*);
 
     ddr2_model ddr2 (
-        .ck      ( ddr2_ck_p_o  ),
-        .ck_n    ( ddr2_ck_n_o  ),
-        .cke     ( ddr2_cke_o   ),
-        .cs_n    ( ddr2_cs_n_o  ),
-        .ras_n   ( ddr2_ras_n_o ),
-        .cas_n   ( ddr2_cas_n_o ),
-        .we_n    ( ddr2_we_n_o  ),
-        .dm_rdqs ( ddr2_dm_o    ),
-        .ba      ( ddr2_ba_o    ),
-        .addr    ( ddr2_addr_o  ),
-        .dq      ( ddr2_dq_io    ),
-        .dqs     ( ddr2_dqs_p_io ),
-        .dqs_n   ( ddr2_dqs_n_io ),
+        .ck      ( ddr2_ck_p  ),
+        .ck_n    ( ddr2_ck_n  ),
+        .cke     ( ddr2_cke   ),
+        .cs_n    ( ddr2_cs_n  ),
+        .ras_n   ( ddr2_ras_n ),
+        .cas_n   ( ddr2_cas_n ),
+        .we_n    ( ddr2_we_n  ),
+        .dm_rdqs ( ddr2_dm    ),
+        .ba      ( ddr2_ba    ),
+        .addr    ( ddr2_addr  ),
+        .dq      ( ddr2_dq    ),
+        .dqs     ( ddr2_dqs_p ),
+        .dqs_n   ( ddr2_dqs_n ),
         .rdqs_n  (            ),
-        .odt     ( ddr2_odt_o   )
+        .odt     ( ddr2_odt   )
     );
 
     assign smi_mdio_io = dut.ethernet_mac.mac2phy.enable ? 1'bZ : 1'b0;
@@ -131,18 +144,8 @@ module soc_testbench;
     store_packet_t store_tmp_pkt;
 
 
-    /* Char buffer logic */
-    logic [7:0] char_buffer [$]; 
-    
-        always_ff @(posedge clk_i) begin 
-            /* Writing to UART TX buffer */
-            if (dut.write_request[dut._UART_] & dut.write_address[dut._UART_] == 'd1) begin  
-                char_buffer.push_back(dut.write_data[dut._UART_][7:0]); 
-            end
-        end 
 
-
-    int cpuFile, bufferFile, memoryFile, ddrFile, outputFile, misprediction_number, branch_jump_number;
+    int cpuFile, memoryFile, outputFile, misprediction_number, branch_jump_number;
 
 
     logic stopCondition;
@@ -154,13 +157,9 @@ module soc_testbench;
         end 
 
     initial begin
-        `ifdef TRACER 
-            cpuFile = $fopen(`CPU_TRACE_FILE, "w"); $display("%d", cpuFile);
-            bufferFile = $fopen(`BUFFER_TRACE_FILE, "w"); $display("%d", bufferFile);
-            memoryFile = $fopen(`MEMORY_TRACE_FILE, "w"); $display("%d", memoryFile);
-            ddrFile = $fopen(`DDR_TRACE_FILE, "w"); $display("%d", ddrFile);
-            outputFile = $fopen(`OUTPUT_TRACE_FILE, "w"); $display("%d", outputFile);
-        `endif 
+        cpuFile = $fopen(`CPU_TRACE_FILE, "w"); $display("%d", cpuFile);
+        memoryFile = $fopen(`MEMORY_TRACE_FILE, "w"); $display("%d", memoryFile);
+        outputFile = $fopen(`OUTPUT_TRACE_FILE, "w"); $display("%d", outputFile);
         
         @(posedge clk_i);
         rst_n_i <= 1'b0;
@@ -173,6 +172,9 @@ module soc_testbench;
         wait(dut.locked);
 
         fork
+
+            `ifdef TRACE_MEMORY
+
             begin : io_watcher
                 while (!stopCondition) begin
                     if (dut.io_load_channel.request) begin
@@ -198,6 +200,7 @@ module soc_testbench;
                     @(posedge clk_i);
                 end
             end : io_watcher
+
 
             begin : cache_watcher
                 while (!stopCondition) begin
@@ -233,6 +236,7 @@ module soc_testbench;
                 end
             end : cache_watcher
 
+
             begin : ddr_watcher
                 while (!stopCondition) begin
                     if (dut.ddr_load_channel.request) begin
@@ -259,45 +263,67 @@ module soc_testbench;
                 end
             end : ddr_watcher
 
+            `endif // TRACE_MEMORY
+
+
+            `ifdef TRACE_CPU
+
             begin : cpu_watcher
                 while (!stopCondition) begin
                     branch_jump_number += `CPU.executed;
                     misprediction_number += `CPU.apogeo_frontend.mispredicted_o;
 
-                    `ifdef TRACER 
-                        if (`CPU.apogeo_backend.writeback_o) begin
-                            if (`CPU.apogeo_backend.exception_vector == 18) begin
-                                data2write = {$time(), `CPU.apogeo_backend.trap_iaddress, `CPU.apogeo_backend.writeback_result_o, `CPU.apogeo_backend.reg_destination_o, 1'b1, 1'b0};
-                            end else if (`CPU.apogeo_backend.exception_vector == 19) begin
-                                data2write = {$time(), `CPU.apogeo_backend.trap_iaddress, `CPU.apogeo_backend.writeback_result_o, `CPU.apogeo_backend.reg_destination_o, 1'b0, 1'b1};
-                            end else begin  
-                                data2write = {$time(), `CPU.apogeo_backend.trap_iaddress, `CPU.apogeo_backend.writeback_result_o, `CPU.apogeo_backend.reg_destination_o, 1'b0, 1'b0};
-                            end 
+                    if (`CPU.apogeo_backend.writeback_o) begin
+                        if (`CPU.apogeo_backend.exception_vector == 18) begin
+                            data2write = {$time(), `CPU.apogeo_backend.trap_iaddress, `CPU.apogeo_backend.writeback_result_o, `CPU.apogeo_backend.reg_destination_o, 1'b1, 1'b0};
+                        end else if (`CPU.apogeo_backend.exception_vector == 19) begin
+                            data2write = {$time(), `CPU.apogeo_backend.trap_iaddress, `CPU.apogeo_backend.writeback_result_o, `CPU.apogeo_backend.reg_destination_o, 1'b0, 1'b1};
+                        end else begin  
+                            data2write = {$time(), `CPU.apogeo_backend.trap_iaddress, `CPU.apogeo_backend.writeback_result_o, `CPU.apogeo_backend.reg_destination_o, 1'b0, 1'b0};
+                        end 
 
-                            writeback_buffer.push_back(data2write); 
-                        end
-                    `endif 
+                        writeback_buffer.push_back(data2write); 
+                    end
 
                     @(posedge clk_i);
                 end
             end : cpu_watcher
 
-            `ifdef TRACER 
+            `endif // TRACE_CPU
+
+
+            `ifdef TRACE_OUTPUT 
 
             begin: print_watcher
                while (!stopCondition) begin
-                   if (dut.genblk1[0].uart_device.write_i & dut.genblk1[0].uart_device.write_address_i == UART_TX_BUFFER) begin
-                       $fwrite(outputFile, "%c", dut.genblk1[0].uart_device.write_data_i[7:0]);
-                   end
+                    `ifdef FAST_OUTPUT
+
+                        if (dut.write_request[dut._NC_MEM_]) begin
+                            $fwrite(outputFile, "%h\n", dut.write_data[dut._NC_MEM_]);
+                        end
+
+                    `else 
+
+                        if (dut.genblk1[0].uart_device.write_i & dut.genblk1[0].uart_device.write_address_i == UART_TX_BUFFER) begin
+                            case (dut.genblk1[0].uart_device.write_data_i)
+                                8'h00: $fwrite(outputFile, "");
+
+                                8'h20: $fwrite(outputFile, " ");
+
+                                default: $fwrite(outputFile, "%c", dut.genblk1[0].uart_device.write_data_i[7:0]);
+                            endcase 
+                        end
+
+                    `endif // FAST_OUTPUT
 
                    @(posedge clk_i);
                end
             end : print_watcher
 
-            `endif
+            `endif // TRACE_OUTPUT
 
             begin
-                while ($time() < 500000ns) begin
+                while (`RUN_CONDITION) begin
                     @(posedge clk_i);
                 end
 
@@ -309,7 +335,7 @@ module soc_testbench;
 
         $display("OUT");
 
-        `ifdef TRACER
+        `ifdef TRACE_CPU
 
         while (writeback_buffer.size() != '0) begin
             data2read = writeback_buffer.pop_front(); 
@@ -335,17 +361,11 @@ module soc_testbench;
             end
         end
 
-
-        while (char_buffer.size != '0) begin
-            automatic logic [7:0] temp = char_buffer.pop_front(); 
-            $fwrite(bufferFile, "%c", temp);
-        end
+        `endif // TRACE_CPU
 
         $fclose(cpuFile);
-        $fclose(bufferFile);
         $fclose(memoryFile);
-
-        `endif 
+        $fclose(outputFile);
 
         $finish();
     end
