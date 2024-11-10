@@ -19,3 +19,6 @@
 
 /* PRNG */
 #define PRNG_BASE (ETHERNET_BASE + DEVICE_INTERLEAVE)
+
+/* Non cachable memory */
+#define NC_MEMORY_BASE (PRNG_BASE + DEVICE_INTERLEAVE)
