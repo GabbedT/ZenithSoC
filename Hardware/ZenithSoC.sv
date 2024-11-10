@@ -57,20 +57,20 @@ module ZenithSoC (
     inout logic smi_mdio_io,
 
     /* DDR Interface */
-    inout logic [15:0] ddr2_dq_io,
-    inout logic [1:0] ddr2_dqs_n_io,
-    inout logic [1:0] ddr2_dqs_p_io,
-    output logic [1:0] ddr2_dm_o,
-    output logic [12:0] ddr2_addr_o,
-    output logic [2:0] ddr2_ba_o,
-    output logic ddr2_ras_n_o,
-    output logic ddr2_cas_n_o,
-    output logic ddr2_we_n_o,
-    output logic ddr2_cke_o,
-    output logic ddr2_ck_p_o,
-    output logic ddr2_ck_n_o,
-    output logic ddr2_cs_n_o,
-    output logic ddr2_odt_o
+    inout logic [15:0] ddr2_dq,
+    inout logic [1:0] ddr2_dqs_n,
+    inout logic [1:0] ddr2_dqs_p,
+    output logic [1:0] ddr2_dm,
+    output logic [12:0] ddr2_addr,
+    output logic [2:0] ddr2_ba,
+    output logic ddr2_ras_n,
+    output logic ddr2_cas_n,
+    output logic ddr2_we_n,
+    output logic ddr2_cke,
+    output logic ddr2_ck_p,
+    output logic ddr2_ck_n,
+    output logic ddr2_cs_n,
+    output logic ddr2_odt
 );
 
 //====================================================================================
@@ -452,7 +452,7 @@ module ZenithSoC (
 
     localparam _SPI_ = _GPIO_ + GPIO_DEVICE_NUMBER;
 
-    logic [SPI_DEVICE_NUMBER - 1:0][7:0] spi_interrupt;
+    logic [SPI_DEVICE_NUMBER - 1:0] spi_interrupt;
 
     generate 
         for (i = 0; i < TIMER_DEVICE_NUMBER; ++i) begin
@@ -589,7 +589,7 @@ module ZenithSoC (
 
     localparam _BOOT_ = 0;
 
-    on_chip_memory #(BOOT_SIZE, "/home/gabriele/Desktop/Projects/ZenithSoC/Software/Examples/PNRG/output.hex") boot_memory (
+    on_chip_memory #(BOOT_SIZE, "/home/gabriele/Desktop/Projects/ZenithSoC/Software/Examples/Floating Point/output.hex") boot_memory (
         .clk_i      ( sys_clk ),
         .rst_n_i    ( reset_n ),
 
@@ -663,7 +663,7 @@ module ZenithSoC (
         always_ff @(posedge sys_clk) begin
             if (write_request[_NC_MEM_] & write_strobe[_NC_MEM_]) begin
                 for (int k = 0; k < 4; ++k) begin
-                    if (write_strobe[_BOOT_][k]) begin
+                    if (write_strobe[_NC_MEM_][k]) begin
                         on_chip_ram[write_address[_NC_MEM_][$clog2(NC_MEMORY_SIZE) - 1:2]][k*8 +: 8] <= write_data[_NC_MEM_][k*8 +: 8];
                     end
                 end
@@ -728,30 +728,30 @@ module ZenithSoC (
         .mem_rst_n_i ( ddr_reset_n ),
 
         /* Data */
-        .ddr2_dq_io ( ddr2_dq_io ),
-        .ddr2_dm_o  ( ddr2_dm_o  ),
+        .ddr2_dq_io ( ddr2_dq ),
+        .ddr2_dm_o  ( ddr2_dm ),
 
         /* Data strobe pair */
-        .ddr2_dqs_n_io ( ddr2_dqs_n_io ),
-        .ddr2_dqs_p_io ( ddr2_dqs_p_io ),
+        .ddr2_dqs_n_io ( ddr2_dqs_n ),
+        .ddr2_dqs_p_io ( ddr2_dqs_p ),
 
         /* Addreses */
-        .ddr2_addr_o ( ddr2_addr_o ),
-        .ddr2_ba_o   ( ddr2_ba_o   ),
+        .ddr2_addr_o ( ddr2_addr ),
+        .ddr2_ba_o   ( ddr2_ba   ),
 
         /* Enable signals */
-        .ddr2_ras_n_o ( ddr2_ras_n_o ),
-        .ddr2_cas_n_o ( ddr2_cas_n_o ),
-        .ddr2_we_n_o  ( ddr2_we_n_o  ),
-        .ddr2_cke_o   ( ddr2_cke_o   ),
+        .ddr2_ras_n_o ( ddr2_ras_n ),
+        .ddr2_cas_n_o ( ddr2_cas_n ),
+        .ddr2_we_n_o  ( ddr2_we_n  ),
+        .ddr2_cke_o   ( ddr2_cke   ),
 
         /* Clock pair */
-        .ddr2_ck_p_o ( ddr2_ck_p_o ),
-        .ddr2_ck_n_o ( ddr2_ck_n_o ),
+        .ddr2_ck_p_o ( ddr2_ck_p ),
+        .ddr2_ck_n_o ( ddr2_ck_n ),
 
         /* Chip select */
-        .ddr2_cs_n_o ( ddr2_cs_n_o ),
-        .ddr2_odt_o  ( ddr2_odt_o  ),
+        .ddr2_cs_n_o ( ddr2_cs_n ),
+        .ddr2_odt_o  ( ddr2_odt  ),
 
         /* Common address */
         .address_i ( ddr_address ), 
