@@ -12,7 +12,7 @@ extern "C" void prng() {
     timer.init(-1, Timer::ONE_SHOT);
 
     while (1) {
-        SerialOut::printf("Random number: 0x%x ", PRNG::random());
+        SerialOut::printf("Random number: 0x%xd ", PRNG::random());
         // timer.delay(1'000);
 
         /* Cancel current line */
