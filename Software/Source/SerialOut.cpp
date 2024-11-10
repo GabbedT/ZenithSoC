@@ -111,7 +111,7 @@ void SerialOut::vprintf(const char *format, va_list args) {
                     switch (format[i]) {
                         /* Write byte */
                         case 'b': {
-                            uint8_t value = va_arg(args, uint32_t);
+                            uint8_t value = static_cast<uint8_t>(va_arg(args, uint32_t));
 
                             writeH(value);
                             break;
@@ -119,7 +119,7 @@ void SerialOut::vprintf(const char *format, va_list args) {
 
                         /* Write halfword */
                         case 'h': {
-                            uint16_t value = va_arg(args, uint32_t);
+                            uint16_t value = static_cast<uint16_t>(va_arg(args, uint32_t));
 
                             writeH(value);
                             break;
@@ -154,7 +154,7 @@ void SerialOut::vprintf(const char *format, va_list args) {
                     switch (format[i]) {
                         /* Write byte */
                         case 'b': {
-                            uint8_t value = va_arg(args, uint32_t);
+                            uint8_t value = static_cast<uint8_t>(va_arg(args, uint32_t));
 
                             writeB(value);
                             break;
@@ -162,7 +162,7 @@ void SerialOut::vprintf(const char *format, va_list args) {
 
                         /* Write halfword */
                         case 'h': {
-                            uint16_t value = va_arg(args, uint32_t);
+                            uint16_t value = static_cast<uint8_t>(va_arg(args, uint32_t));
 
                             writeB(value);
                             break;

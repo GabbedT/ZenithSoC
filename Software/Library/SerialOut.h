@@ -229,8 +229,6 @@ public:
                     /* A - F */
                     str[i + j] = 'A' + nibble[j] - 10;
                 }
-
-                // write("Nibble: "); write(str[i + j]); write(" or "); writeB(nibble[j]); write('\n');
             }
 
             number >>= 8;
