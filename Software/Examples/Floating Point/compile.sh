@@ -1,5 +1,5 @@
 riscv32-unknown-elf-g++ -O1 -flto -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../../Source/SerialOut.cpp -o SerialOut.o
-riscv32-unknown-elf-g++ -O2 -flto -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 floating_point.cpp -o floating_point.o
+riscv32-unknown-elf-g++ -O2 -flto -fno-exceptions -mno-fdiv -ffp-contract=off -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 floating_point.cpp -o floating_point.o
 riscv32-unknown-elf-as -c -march=rv32im_zicsr_zfinx_zba_zbb -mabi=ilp32 setup.s -o setup.o
 
 riscv32-unknown-elf-g++ -flto -O2 -march=rv32im_zicsr_zfinx_zba_zbb -nostartfiles -T linker.ld -o output.elf setup.o floating_point.o SerialOut.o /opt/riscv/lib/gcc/riscv32-unknown-elf/14.2.0/libgcc.a /opt/riscv/riscv32-unknown-elf/lib/libc.a
