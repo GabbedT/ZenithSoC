@@ -169,7 +169,7 @@ package soc_parameters;
     localparam NC_MEMORY_NUMBER = 1;
 
     /* Non cachable memory MMIO address */
-    localparam NCMEM_BASE_ADDRESS = PRNG_BASE_ADDRESS + 2*13;
+    localparam NCMEM_BASE_ADDRESS = PRNG_BASE_ADDRESS + 2**13;
     localparam NCMEM_END_ADDRESS = NCMEM_BASE_ADDRESS + NC_MEMORY_SIZE;
 
 
