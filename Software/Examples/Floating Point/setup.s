@@ -15,14 +15,15 @@ boot_program:
     
     la t0, 0x00000048    # Load address of text section start in ROM
     la t1, 0x80000000    # Load address of text section start in RAM
-    la t2, 0x00000D00    # Load address of text section end in ROM
+    la t2, 0x00000B78    # Load address of text section end in ROM
 
+# Uncomment if RAM is not initialized by $readmemh() function
 copy_loop:
-    lw a0, 0(t0)              # Load a word from ROM
-    sw a0, 0(t1)              # Store it in RAM
-    addi t0, t0, 4            # Increment ROM pointer
-    addi t1, t1, 4            # Increment RAM pointer
-    blt t0, t2, copy_loop     # Loop until all text is copied
+   lw a0, 0(t0)              # Load a word from ROM
+   sw a0, 0(t1)              # Store it in RAM
+   addi t0, t0, 4            # Increment ROM pointer
+   addi t1, t1, 4            # Increment RAM pointer
+   blt t0, t2, copy_loop     # Loop until all text is copied
 
 
     # Jump to main function 
