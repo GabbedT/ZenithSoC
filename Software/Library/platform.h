@@ -22,6 +22,9 @@
 /* SPI slave number */
 #define SPI_SLAVES 1
 
+/* Size of non cachable memory */
+#define NC_MEMORY_SIZE 2048
+
 
 #define SET_BIT(old, index) old |= 1 << index 
 
