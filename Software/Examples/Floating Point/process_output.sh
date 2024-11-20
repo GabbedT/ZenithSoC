@@ -24,21 +24,42 @@ cd ../
 # Rename the files to make them numerical and sequential
 a=1
 for i in file_*; do
-    echo $i 
-  mv "$i" "ZenithSoC Data/$a.txt"
-  ((a++))
+    mv "$i" "ZenithSoC Data/$a.txt"
+    ((a++))
 done
-
-rm file_*
 
 cd "ZenithSoC Data"
 
+
 a=1
-for i in $(ls); do
-    echo "Analyzing $i ..." 
+
+for i in $(ls -v); do
+    echo -n "Analyzing $i ..." 
+
+    if [[ "$i" == "10.txt" ]]; then
+        truncate -s -1 $i
+
+        res=$(diff -u "$i" "../Golden Model Data/10_gm.txt")
+        ((a++))
+
+        if [ $res -z ]; then
+            echo "[OK]"
+        else 
+            echo "[ERROR]"
+        fi 
+
+        continue
+    fi
+
     python3 ../converter.py $i $i
 
-    diff -u "$i" "../Golden Model Data/${a}_gm.txt"
+    res=$(diff -u "$i" "../Golden Model Data/${a}_gm.txt")
     ((a++))
+
+    if [ $res -z ]; then
+        echo "[OK]"
+    else 
+        echo "[ERROR]"
+    fi 
 done
 

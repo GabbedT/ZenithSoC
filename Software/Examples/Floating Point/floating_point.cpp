@@ -7,7 +7,7 @@
 
 #define OPERANDS_NUMBER 200
 
-typedef enum {FADD, FSUB, FMUL, FMIN, FMAX, FLE, FLT, FEQ, FCLASS} riscv_float_operation_t;
+typedef enum {FADD, FSUB, FMUL, FMIN, FMAX, FLE, FLT, FEQ, FCLASS, FLOAT2INT, INT2FLOAT} riscv_float_operation_t;
 
 extern "C" void floating_point() {
     SerialOut::init();
@@ -15,6 +15,7 @@ extern "C" void floating_point() {
     riscv_float_operation_t operation = FADD;
 
     volatile float *nc_buffer = (float *) NC_MEMORY_BASE;
+    volatile uint32_t *nc_buffer_uint = (uint32_t *) NC_MEMORY_BASE;
 
     float cpuResult; 
 
@@ -24,7 +25,7 @@ extern "C" void floating_point() {
         uint32_t x;
     } converterCpu, converterOp1, converterOp2; 
 
-    for (operation = FADD; operation <= riscv_float_operation_t::FCLASS; operation = (riscv_float_operation_t) ((int) operation + 1)) {
+    for (operation = FADD; operation <= riscv_float_operation_t::INT2FLOAT; operation = (riscv_float_operation_t) ((int) operation + 1)) {
         for (int i = 0; i < OPERANDS_NUMBER; ++i) {
 
             switch (operation) {
@@ -60,26 +61,62 @@ extern "C" void floating_point() {
                     nc_buffer[i] = (operand_1[i] == operand_2[i]) ? 1.0F : 0.0F;
                 break;
 
-                case FCLASS: 
+                case FCLASS: {
                     int classif;
 
                     __asm__ volatile ("fclass.s %0, %1" : "=r" (classif) : "f" (operand_1[i])); 
 
-                    nc_buffer[i] = (float) classif;
-                break;
+                    nc_buffer[i] = classif;
+
+                    break;
+                }
+
+                case FLOAT2INT: {
+
+                    if ((i % 2) == 0) {
+                        uint32_t cvtInt;
+
+                        __asm__ ("fcvt.wu.s %0, %1" : "=r" (cvtInt) : "f" (operand_1[i]));
+
+                        nc_buffer_uint[i] = cvtInt;
+                    } else {
+                        int32_t cvtInt;
+
+                        __asm__ ("fcvt.w.s %0, %1" : "=r" (cvtInt) : "f" (operand_1[i]));
+
+                        nc_buffer_uint[i] = cvtInt;
+                    }
+
+                    break;
+                }
+
+                case INT2FLOAT: {
+                    /* Extract HEX rapresentation */
+                    union floatU {
+                        float flt;
+                        unsigned int hex;
+                    };
+
+                    union floatU tmp; tmp.flt = operand_1[i];
+                    
+                    if ((i % 2) == 0) {
+                        /* Interpret float rapresentation as hexadecimal */
+                        unsigned int hexValue = tmp.hex;
+
+                        __asm__ ("fcvt.s.wu %0, %1" : "=f" (nc_buffer[i]) : "r" (hexValue));
+                    } else {
+                        /* Interpret float rapresentation as hexadecimal */
+                        signed int hexValue = (signed int) tmp.hex;
+
+                        __asm__ ("fcvt.s.w %0, %1" : "=f" (nc_buffer[i]) : "r" (hexValue));
+                    }
+
+                    break;
+                }
                 
                 default:
                 break;
             }
         }
     }
-
-    // for (int i = 0; i < OPERANDS_NUMBER; ++i) {
-    //     converterCpu.f = nc_buffer[i];
-
-    //     SerialOut::writeH(converterCpu.x);
-    //     SerialOut::write('\n');
-    // }
-
-    // SerialOut::write("\n\n\n");
 }

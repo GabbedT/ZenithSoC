@@ -7,7 +7,7 @@
 
 
 /* Enable or disable tracing */
-// `define TRACE_CPU
+`define TRACE_CPU
 // `define TRACE_MEMORY
 `define TRACE_OUTPUT
 
@@ -15,7 +15,7 @@
 `define MEMORY_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/memory_trace.txt"
 `define OUTPUT_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/output_trace.txt"
 
-`define SIM_TIME 750000ns
+`define SIM_TIME 1000000ns
 
 /* While RUN_CONDITION is true, simulation will continue */
 `define RUN_CONDITION ($time() < `SIM_TIME) & !`CPU.exception
@@ -272,6 +272,20 @@ module soc_testbench;
                 while (!stopCondition) begin
                     branch_jump_number += `CPU.executed;
                     misprediction_number += `CPU.apogeo_frontend.mispredicted_o;
+
+                    if (dut.ApogeoRV.cpu_load_channel.request) begin
+                        load_buffer.push_back({dut.ApogeoRV.cpu_load_channel.address, dut.ApogeoRV.cpu_load_channel.address < `USER_MEMORY_REGION_START});
+                    end
+
+                    if (dut.ApogeoRV.cpu_store_channel.request) begin
+                        store_buffer.push_back({dut.ApogeoRV.cpu_store_channel.address, dut.ApogeoRV.cpu_store_channel.data, dut.ApogeoRV.cpu_store_channel.address < `USER_MEMORY_REGION_START});
+                    end
+
+                    if (dut.ApogeoRV.cpu_load_channel.invalidate) begin
+                        if (!fowardMatch_prev) begin
+                            load_buffer.pop_front();
+                        end
+                    end
 
                     if (`CPU.apogeo_backend.writeback_o) begin
                         if (`CPU.apogeo_backend.exception_vector == 18) begin
