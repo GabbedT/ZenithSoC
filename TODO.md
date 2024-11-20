@@ -10,6 +10,8 @@
   * Modify the path of the boot memory in ZenithSoC.sv
 
 * Verify FPU
-* Verify non cachable memory
 * Build I2C device
 * Integrate VGA
+
+Add README in examples
+Add more test cases in floating point
