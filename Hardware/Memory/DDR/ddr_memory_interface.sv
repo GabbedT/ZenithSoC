@@ -155,6 +155,27 @@ module ddr_memory_interface (
     );
 
 
+    logic read_sync, pull_sync;
+
+        synchronizer read_synchronizer (
+            /* Global signals */
+            .clk_i   ( ui_clk  ),
+            .rst_n_i ( rst_n_i ),
+
+            .signal_i ( read_i    ),
+            .sync_o   ( read_sync )
+        );
+
+        synchronizer pull_synchronizer (
+            /* Global signals */
+            .clk_i   ( ui_clk  ),
+            .rst_n_i ( rst_n_i ),
+
+            .signal_i ( pull_i    ),
+            .sync_o   ( pull_sync )
+        );
+
+
     logic [3:0] read_cmd_count, read_data_count; logic read_valid;
 
         always_ff @(posedge ui_clk `ifdef ASYNC or negedge ui_rst `endif) begin
@@ -162,15 +183,15 @@ module ddr_memory_interface (
                 read_cmd_count <= '0;
                 read_data_count <= '0;
             end else begin 
-                if (read_i) begin
+                if (read_sync) begin
                     read_cmd_count <= read_cmd_count + 1'b1;
-                end else if (pull_i) begin
+                end else if (pull_sync) begin
                     read_cmd_count <= read_cmd_count - 1'b1;
                 end
 
                 if (write_fifo) begin
                     read_data_count <= read_data_count + 1'b1;
-                end else if (pull_i) begin
+                end else if (pull_sync) begin
                     read_data_count <= read_data_count - 1'b1;
                 end
             end 
