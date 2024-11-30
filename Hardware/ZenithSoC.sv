@@ -649,7 +649,7 @@ module ZenithSoC (
         end
 
 
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+        always_ff @(posedge sys_clk `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin
                 write_done[_NC_MEM_] <= 1'b0;
             end else begin 
