@@ -1,6 +1,8 @@
 `ifndef ASYNCHRONOUS_BUFFER_SV
     `define ASYNCHRONOUS_BUFFER_SV 
 
+`define _VIVADO_
+
 module asynchronous_buffer #(
     /* Number of entries */
     parameter BUFFER_DEPTH = 1024,
@@ -26,6 +28,8 @@ module asynchronous_buffer #(
     input logic [DATA_WIDTH - 1:0] write_data_i,
     output logic [DATA_WIDTH - 1:0] read_data_o
 );
+
+    `ifndef _VIVADO_ /* IF VIVADO MACRO IS NOT DEFINED */
 
 //====================================================================================
 //      MEMORY LOGIC
@@ -113,10 +117,67 @@ module asynchronous_buffer #(
 //====================================================================================
 
     /* Full is generated on the write side, check the wraparound bit and the MSB, if it's equal to the read one and the pointer wrapped around */
-    // assign full_o = (gray_write_ptr[PTR_SIZE - 1:0] == g_read_ptr_sync[1][PTR_SIZE - 1:0]) & (gray_write_ptr[PTR_SIZE] != g_read_ptr_sync[1][PTR_SIZE]);
     assign full_o = gray_write_ptr == {~g_read_ptr_sync[1][PTR_SIZE:PTR_SIZE - 1], g_read_ptr_sync[1][PTR_SIZE - 2:0]};
 
     assign empty_o = gray_read_ptr == g_write_ptr_sync[1];
+
+    `else /* IF VIVADO MACRO IS DEFINED */
+
+//====================================================================================
+//      VIVADO FIFO
+//====================================================================================
+
+    xpm_fifo_async #(
+        .CASCADE_HEIGHT      ( 0            ),
+        .CDC_SYNC_STAGES     ( 2            ),
+        .DOUT_RESET_VALUE    ( "0"          ),
+        .ECC_MODE            ( "no_ecc"     ),
+        .EN_SIM_ASSERT_ERR   ( "warning"    ),
+        .FIFO_MEMORY_TYPE    ( "auto"       ),
+        .FIFO_READ_LATENCY   ( 1            ),
+        .FIFO_WRITE_DEPTH    ( BUFFER_DEPTH ),
+        .FULL_RESET_VALUE    ( 0            ),
+        .PROG_EMPTY_THRESH   ( 10           ),
+        .PROG_FULL_THRESH    ( 10           ),
+        .RD_DATA_COUNT_WIDTH ( 1            ),
+        .READ_DATA_WIDTH     ( DATA_WIDTH   ),
+        .READ_MODE           ( "std"        ),
+        .RELATED_CLOCKS      ( 0            ),
+        .SIM_ASSERT_CHK      ( 0            ),
+        .USE_ADV_FEATURES    ( "0707"       ),
+        .WAKEUP_TIME         ( 0            ),
+        .WRITE_DATA_WIDTH    ( DATA_WIDTH   ),
+        .WR_DATA_COUNT_WIDTH ( 1            )
+    ) vivado_async_fifo (
+        .almost_empty  (              ),
+        .almost_full   (              ),
+        .data_valid    (              ),
+        .dbiterr       (              ),
+        .dout          ( read_data_o  ),
+        .empty         ( empty_o      ),
+        .full          ( full_o       ),
+        .overflow      (              ),
+        .prog_empty    (              ),
+        .prog_full     (              ),
+        .rd_data_count (              ),
+        .rd_rst_busy   (              ),
+        .sbiterr       (              ),
+        .underflow     (              ),
+        .wr_ack        (              ),
+        .wr_data_count (              ),
+        .wr_rst_busy   (              ),
+        .din           ( write_data_i ),
+        .injectdbiterr (              ),
+        .injectsbiterr (              ),
+        .rd_clk        ( read_clk_i   ),
+        .rd_en         ( read_i       ),
+        .rst           ( write_rstn_i ),
+        .sleep         (              ),
+        .wr_clk        ( write_clk_i  ),
+        .wr_en         ( write_i      )
+    );
+
+    `endif /* VIVADO */
 
 endmodule : asynchronous_buffer
 

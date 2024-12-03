@@ -21,6 +21,8 @@ module flag_synchronizer #(
     output logic flag_B_o
 );
 
+    `ifndef _VIVADO_ /* IF VIVADO MACRO IS NOT DEFINED */
+
     logic flag;
 
         always_ff @(posedge clk_A_i or negedge rstn_A_i) begin
@@ -32,7 +34,7 @@ module flag_synchronizer #(
         end 
 
 
-    `ifdef _VIVADO_ (* ASYNC_REG = "TRUE" *) `endif logic [FLOP_NUMBER - 1:0] flag_sync;
+    logic [FLOP_NUMBER - 1:0] flag_sync;
 
         always_ff @(posedge clk_B_i or negedge rstn_B_i) begin
             if (!rstn_B_i) begin 
@@ -43,6 +45,25 @@ module flag_synchronizer #(
         end
 
     assign flag_B_o = flag_sync[FLOP_NUMBER - 1] ^ flag_sync[FLOP_NUMBER - 2];
+
+    `else /* IF VIVADO MACRO IS DEFINED */
+
+    xpm_cdc_pulse #(
+        .DEST_SYNC_FF   ( FLOP_NUMBER ),
+        .INIT_SYNC_FF   ( 0           ),
+        .REG_OUTPUT     ( 0           ),
+        .RST_USED       ( 1           ),
+        .SIM_ASSERT_CHK ( 0           )
+    ) vivado_pulse_synchronizer (
+        .dest_pulse ( flag_B_o ),
+        .dest_clk   ( clk_B_i  ),
+        .dest_rst   ( rstn_B_i ),
+        .src_clk    ( clk_A_i  ),
+        .src_pulse  ( flag_A_i ),
+        .src_rst    ( rstn_A_i )
+    );
+
+    `endif /* _VIVADO_ */
 
 endmodule : flag_synchronizer
 
