@@ -1,7 +1,7 @@
 `ifndef ASYNCHRONOUS_BUFFER_SV
     `define ASYNCHRONOUS_BUFFER_SV 
 
-`define _VIVADO_
+// `define _VIVADO_
 
 module asynchronous_buffer #(
     /* Number of entries */
@@ -51,9 +51,7 @@ module asynchronous_buffer #(
 
         /* Read clocked port */
         always_ff @(posedge read_clk_i) begin
-            if (read_i & !empty_o) begin
                 read_data_o <= buffer_memory[read_ptr[PTR_SIZE - 1:0]];
-            end
         end 
 
 
@@ -149,32 +147,32 @@ module asynchronous_buffer #(
         .WRITE_DATA_WIDTH    ( DATA_WIDTH   ),
         .WR_DATA_COUNT_WIDTH ( 1            )
     ) vivado_async_fifo (
-        .almost_empty  (              ),
-        .almost_full   (              ),
-        .data_valid    (              ),
-        .dbiterr       (              ),
-        .dout          ( read_data_o  ),
-        .empty         ( empty_o      ),
-        .full          ( full_o       ),
-        .overflow      (              ),
-        .prog_empty    (              ),
-        .prog_full     (              ),
-        .rd_data_count (              ),
-        .rd_rst_busy   (              ),
-        .sbiterr       (              ),
-        .underflow     (              ),
-        .wr_ack        (              ),
-        .wr_data_count (              ),
-        .wr_rst_busy   (              ),
-        .din           ( write_data_i ),
-        .injectdbiterr (              ),
-        .injectsbiterr (              ),
-        .rd_clk        ( read_clk_i   ),
-        .rd_en         ( read_i       ),
-        .rst           ( write_rstn_i ),
-        .sleep         (              ),
-        .wr_clk        ( write_clk_i  ),
-        .wr_en         ( write_i      )
+        .almost_empty  (               ),
+        .almost_full   (               ),
+        .data_valid    (               ),
+        .dbiterr       (               ),
+        .dout          ( read_data_o   ),
+        .empty         ( empty_o       ),
+        .full          ( full_o        ),
+        .overflow      (               ),
+        .prog_empty    (               ),
+        .prog_full     (               ),
+        .rd_data_count (               ),
+        .rd_rst_busy   (               ),
+        .sbiterr       (               ),
+        .underflow     (               ),
+        .wr_ack        (               ),
+        .wr_data_count (               ),
+        .wr_rst_busy   (               ),
+        .din           ( write_data_i  ),
+        .injectdbiterr (               ),
+        .injectsbiterr (               ),
+        .rd_clk        ( read_clk_i    ),
+        .rd_en         ( read_i        ),
+        .rst           ( !write_rstn_i ),
+        .sleep         (               ),
+        .wr_clk        ( write_clk_i   ),
+        .wr_en         ( write_i       )
     );
 
     `endif /* VIVADO */
