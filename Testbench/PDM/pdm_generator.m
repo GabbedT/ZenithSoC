@@ -60,14 +60,14 @@ oversampled_audio = resample(normalized_audio, fs, Fs);
 
 
 % Normalize sine wave to range [0, 1]
-normalized_wave = var_sine_wave;
+normalized_wave = oversampled_audio;
 
 % Delta-Sigma Modulation to generate PDM
 pdm = zeros(size(normalized_wave));
 accumulator = 0;
 
 for i = 1:length(normalized_wave)
-    accumulator = accumulator + normalized_wave(i) + 0.5;
+    accumulator = accumulator + normalized_wave(i);
     if accumulator > 0
         pdm(i) = 1;
     else

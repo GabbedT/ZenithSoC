@@ -10,63 +10,49 @@ module cic_filter_tb;
     parameter COMB_DELAY = 1;
 
     logic clk_i = 0;
+    logic clk_en_i = 1;
     logic rst_n_i = 0;
 
     logic reset_filter_i = 1;
-    logic [31:0] decimator_factor_i = 0;
+    logic [7:0] decimator_factor_i = 0;
     logic pdm_i = 0;
     logic valid_i = 0;
 
-    logic [1:0][NUMBER_OF_DUT - 1:0][15:0] filtered_pdm;
-    logic [1:0][NUMBER_OF_DUT - 1:0]       valid;
-
+    logic [15:0] gain_i;
     logic [15:0] pcm_o;
     logic valid_o, invalid_o;
 
-    generate 
-        for (genvar i = 0; i < NUMBER_OF_DUT; ++i) begin
-            cic_filter #(
-                .WIDTH        ( WIDTH          ),
-                .FILTER_ORDER ( FILTER_ORDER   ),
-                .COMB_DELAY   ( COMB_DELAY + i )
-            ) uut_delay (
-                .clk_i              ( clk_i              ),
-                .rst_n_i            ( rst_n_i            ),
-                .reset_filter_i     ( reset_filter_i     ),
-                .decimator_factor_i ( decimator_factor_i ),
-                .pdm_i              ( pdm_i              ),
-                .valid_i            ( valid_i            ),
-                .pcm_o              ( filtered_pdm[0][i] ),
-                .valid_o            ( valid[0][i]        )
-            );
-        end
-    endgenerate
-
-
-    post_processor #(
-        .WIDTH ( WIDTH )
-    ) post_processing (
-        .clk_i   ( clk_i   ),
-        .rst_n_i ( rst_n_i ),
-
-        /* Code from the CIC filter */
-        .code_i  ( filtered_pdm[0][0] ),
-        .valid_i ( valid[0][0]        ),
-
-        /* Decimation factor used to normalize the PCM signal */
-        .normalizer_i ( decimator_factor_i ),
-
-        /* Signed or unsigned PCM */
-        .signed_i ( 1'b0 ),
-
-        /* Pulse Code Modulation, either signed or unsigned */
-        .pcm_o   ( pcm_o   ),
-        .valid_o ( valid_o ),
-
-        /* Invalid normalizer */
-        .invalid_o ( invalid_o )
+    pdm2pcm_processing_pipeline #(
+        .CIC_FILTER_ORDER(2),
+        .CIC_COMB_DELAY(1)
+    ) dut (
+        .clk_i              ( clk_i              ),
+        .rst_n_i            ( rst_n_i            ),
+        .clk_en_i           ( clk_en_i           ),
+        .pdm_i              ( pdm_i              ),
+        .valid_i            ( valid_i            ),
+        .decimator_factor_i ( decimator_factor_i ),
+        .gain_i             ( gain_i             ),
+        .pcm_o              ( pcm_o              ),
+        .valid_o            ( valid_o            ),
+        .invalid_o          ( invalid_o          )
     );
 
+    logic [15:0] pcm_final, normalized_pcm, filter_pcm;
+
+        always_ff @(posedge clk_i) begin
+            if (valid_o) begin
+                pcm_final <= pcm_o;
+            end
+
+            if (dut.normalized_valid) begin
+                normalized_pcm <= dut.normalized_sample;
+            end
+
+            if (dut.valid_filter) begin
+                filter_pcm <= dut.filtered_sample;
+            end
+        end
 
     /* Clock generation: 100 MHz */
     always #5 clk_i <= !clk_i;
@@ -118,7 +104,10 @@ module cic_filter_tb;
         rst_n_i <= 0;
         reset_filter_i <= 1;
         pdm_i <= 0;
-        decimator_factor_i <= DECIMATION_FACTOR;  // Decimation factor for 48 kHz
+        decimator_factor_i <= DECIMATION_FACTOR; 
+        gain_i <= '0;
+        gain_i[15] <= 1;
+
 
         /* Apply reset */
         #100;  // Wait for 100 ns
