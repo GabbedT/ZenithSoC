@@ -14,4 +14,4 @@
 * Integrate VGA
 
 Add README in examples
-Add more test cases in floating point
+SPI add disable RX
