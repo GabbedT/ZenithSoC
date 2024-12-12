@@ -20,5 +20,11 @@ xxd -p -c 1 -g 1 program.bin > program.hex
 chmod +777 boot.hex
 chmod +777 program.hex
 
+rm output.hex
+
+cat boot.hex >> output.hex
+cat program.hex >> output.hex
+
+
 rm *.elf
 rm *.o

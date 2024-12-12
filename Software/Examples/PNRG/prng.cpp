@@ -13,10 +13,10 @@ extern "C" void prng() {
 
     while (1) {
         SerialOut::printf("Random number: 0x%xd ", PRNG::random());
-        // timer.delay(1'000);
+        timer.delay(1'000);
 
         /* Cancel current line */
-        // SerialOut::write("\x1b[2K"); 
-        // SerialOut::write("\x1b[1A");
+        SerialOut::write("\x1b[2K"); 
+        SerialOut::write("\x1b[1A");
     }
 }
