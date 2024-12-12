@@ -1,7 +1,7 @@
-`ifndef CIC_FILTER_SV
-    `define CIC_FILTER_SV
+`ifndef PDM2PCM_DECIMATOR_SV
+    `define PDM2PCM_DECIMATOR_SV
 
-module cic_filter #(
+module pdm2pcm_decimator #(
     /* Output width */
     parameter WIDTH = 16,
 
@@ -14,8 +14,8 @@ module cic_filter #(
     input logic clk_i,
     input logic rst_n_i,
     
-    input logic        reset_filter_i,
-    input logic [15:0] decimator_factor_i,
+    input logic reset_filter_i,
+    input logic [7:0] decimator_factor_i,
 
     /* PDM input */
     input logic pdm_i,
@@ -23,7 +23,7 @@ module cic_filter #(
 
     /* PCM output */
     output logic [WIDTH - 1:0] pcm_o,
-    output logic               valid_o
+    output logic valid_o
 );
 
     genvar i;
@@ -32,20 +32,7 @@ module cic_filter #(
 //      DECIMATOR COUNTER
 //==========================================================
 
-    logic [FILTER_ORDER - 1:0] valid;
-
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin
-                valid <= '0;
-            end else if (reset_filter_i) begin 
-                valid <= '0;
-            end else if (valid_i) begin
-                valid <= {valid[FILTER_ORDER - 2:0], valid_i};
-            end
-        end
-
-
-    logic [15:0] decimator; logic valid_sample;
+    logic [7:0] decimator; logic valid_sample;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin
@@ -210,6 +197,6 @@ module cic_filter #(
 
     assign pcm_o = comb_ff[FILTER_ORDER - 1];
 
-endmodule : cic_filter
+endmodule : pdm2pcm_decimator
 
 `endif 
