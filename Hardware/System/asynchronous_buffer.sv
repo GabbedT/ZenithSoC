@@ -1,7 +1,7 @@
 `ifndef ASYNCHRONOUS_BUFFER_SV
     `define ASYNCHRONOUS_BUFFER_SV 
 
-// `define _VIVADO_
+`define _VIVADO_
 
 module asynchronous_buffer #(
     /* Number of entries */
