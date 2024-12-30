@@ -17,8 +17,11 @@
 /* Ethernet base address */
 #define ETHERNET_BASE (SPI_BASE + DEVICE_INTERLEAVE)
 
-/* PRNG */
+/* PRNG base address */
 #define PRNG_BASE (ETHERNET_BASE + DEVICE_INTERLEAVE)
 
-/* Non cachable memory */
-#define NC_MEMORY_BASE (PRNG_BASE + DEVICE_INTERLEAVE)
+/* PDM to PCM base address */
+#define PDM2PCM_BASE (PRNG_BASE + DEVICE_INTERLEAVE)
+
+/* Non cachable memory base address */
+#define NC_MEMORY_BASE (PDM2PCM_BASE + DEVICE_INTERLEAVE)
