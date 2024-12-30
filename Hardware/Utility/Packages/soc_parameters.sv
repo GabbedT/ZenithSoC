@@ -154,9 +154,24 @@ package soc_parameters;
     /* Number of PRNGs */
     localparam PRNG_NUMBER = 1;
 
-    /* Ethernet MAC MMIO address */
+    /* PNRG MMIO address */
     localparam PRNG_BASE_ADDRESS = ETH_BASE_ADDRESS + 2**13;
     localparam PRNG_END_ADDRESS = PRNG_BASE_ADDRESS + 4;
+
+
+//====================================================================================
+//      PDM TO PCM CONVERTER
+//====================================================================================
+
+    /* Number of PRNGs */
+    localparam PDM2PCM_NUMBER = 1;
+
+    /* Buffer size */
+    localparam PDM2PCM_SAMPLE_BUFFER_SIZE = 2**11;
+
+    /* Ethernet MAC MMIO address */
+    localparam PDM2PCM_BASE_ADDRESS = PRNG_BASE_ADDRESS + 2**13;
+    localparam PDM2PCM_END_ADDRESS = PDM2PCM_BASE_ADDRESS + 4;
 
 
 //====================================================================================
@@ -169,7 +184,7 @@ package soc_parameters;
     localparam NC_MEMORY_NUMBER = 1;
 
     /* Non cachable memory MMIO address */
-    localparam NCMEM_BASE_ADDRESS = PRNG_BASE_ADDRESS + 2**13;
+    localparam NCMEM_BASE_ADDRESS = PDM2PCM_BASE_ADDRESS + 2**13;
     localparam NCMEM_END_ADDRESS = NCMEM_BASE_ADDRESS + NC_MEMORY_SIZE;
 
 
@@ -181,7 +196,7 @@ package soc_parameters;
     localparam BYTES_INTERLEAVE = 'd128;
 
     /* CPU interrupts */
-    localparam INTERRUPT_SOURCES = 6;
+    localparam INTERRUPT_SOURCES = 7;
 
     /* Devices connected to AXI network */
     localparam NETWORK_DEVICES = UART_DEVICE_NUMBER + 
@@ -191,6 +206,7 @@ package soc_parameters;
                                  ETH_DEVICE_NUMBER + 
                                  BOOT_MEMORY_NUMBER + 
                                  PRNG_NUMBER +
+                                 PDM2PCM_NUMBER +
                                  NC_MEMORY_NUMBER;
 
 
@@ -213,6 +229,8 @@ package soc_parameters;
 
         PRNG_BASE_ADDRESS,
 
+        PDM2PCM_BASE_ADDRESS,
+
         NCMEM_BASE_ADDRESS
     };
 
@@ -230,6 +248,8 @@ package soc_parameters;
         ETH_END_ADDRESS,
 
         PRNG_END_ADDRESS,
+
+        PDM2PCM_END_ADDRESS,
 
         NCMEM_END_ADDRESS
     };
