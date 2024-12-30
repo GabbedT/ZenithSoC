@@ -6,7 +6,7 @@ module cic_filter_tb;
     localparam DECIMATION_FACTOR = 64;
 
     parameter WIDTH = 16;
-    parameter FILTER_ORDER = 2;
+    parameter FILTER_ORDER = 5;
     parameter COMB_DELAY = 1;
 
     logic clk_i = 0;
@@ -19,11 +19,14 @@ module cic_filter_tb;
     logic valid_i = 0;
 
     logic [15:0] gain_i;
-    logic [15:0] pcm_o;
+    // logic [NUMBER_OF_DUT - 1:0][63:0] pcm_o;
+    // logic [NUMBER_OF_DUT - 1:0] valid_out;
+    logic [63:0] pcm_o;
+    logic valid_out;
     logic valid_o, invalid_o;
 
     pdm2pcm_processing_pipeline #(
-        .CIC_FILTER_ORDER(2),
+        .CIC_FILTER_ORDER(5),
         .CIC_COMB_DELAY(1)
     ) dut (
         .clk_i              ( clk_i              ),
@@ -37,6 +40,28 @@ module cic_filter_tb;
         .valid_o            ( valid_o            ),
         .invalid_o          ( invalid_o          )
     );
+
+
+    // genvar i;
+
+    // generate
+    //     for (i = 0; i < NUMBER_OF_DUT; ++i) begin
+    //         pdm2pcm_decimator #(
+    //             .WIDTH(32),          // Imposta la larghezza di output
+    //             .FILTER_ORDER(2 + i),    // Imposta l'ordine del filtro (numero di stadi integratori/comb)
+    //             .COMB_DELAY(1)       // Imposta il ritardo del comb
+    //         ) decimator_inst (
+    //             .clk_i(clk_i),                      // Segnale di clock
+    //             .rst_n_i(rst_n_i),                  // Segnale di reset attivo basso
+    //             .reset_filter_i( 0 ),    // Reset del filtro
+    //             .decimator_factor_i(decimator_factor_i), // Fattore di decimazione
+    //             .pdm_i(pdm_i),                   // Ingresso PDM
+    //             .valid_i(valid_i),               // Segnale di validità per il dato in ingresso
+    //             .pcm_o(pcm_o[i]),                  // Output PCM
+    //             .valid_o(valid_out[i])               // Segnale di validità per l'output PCM
+    //         );
+    //     end
+    // endgenerate 
 
     logic [15:0] pcm_final, normalized_pcm, filter_pcm;
 

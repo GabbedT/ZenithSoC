@@ -11,13 +11,13 @@ G = (R * 1)^N;
 
 
 %% Sine
-f_sine = 40000;
-duration = 0.1;
+f_sine = 140;
+duration = 1;
 amplitude = 0.5;
 
 % Generate sine wave
 t = (0:1/fs:duration-1/fs)';
-sine_wave = amplitude * sin(2 * pi * f_sine * t);
+sine_wave = amplitude * (sin(2 * pi * f_sine * t) + 2 * amplitude);
 
 %% Variable Sine
 % Parametri
@@ -60,7 +60,7 @@ oversampled_audio = resample(normalized_audio, fs, Fs);
 
 
 % Normalize sine wave to range [0, 1]
-normalized_wave = oversampled_audio;
+normalized_wave = sine_wave;
 
 % Delta-Sigma Modulation to generate PDM
 pdm = zeros(size(normalized_wave));
@@ -124,7 +124,7 @@ fclose(fileID);
 %% CIC FILTER %%
 
 % Create CIC Decimator
-cicFilter = dsp.CICDecimator(R, 1, N);  % Use double precision for simplicity
+cicFilter = dsp.CICDecimator(R, 1, 2);  % Use double precision for simplicity
 
 % Apply CIC filter to PDM signal
 filtered_signal = cicFilter(pdm);
@@ -144,7 +144,7 @@ grid on;
 
 
 % Create CIC Decimator
-cicFilter = dsp.CICDecimator(R, 2, N);  % Use double precision for simplicity
+cicFilter = dsp.CICDecimator(R, 1, 3);  % Use double precision for simplicity
 
 % Apply CIC filter to PDM signal
 filtered_signal = cicFilter(pdm);
@@ -162,7 +162,7 @@ ylabel('Amplitude');
 grid on;
 
 % Create CIC Decimator
-cicFilter = dsp.CICDecimator(R, 3, N);  % Use double precision for simplicity
+cicFilter = dsp.CICDecimator(R, 1, 4);  % Use double precision for simplicity
 
 % Apply CIC filter to PDM signal
 filtered_signal = cicFilter(pdm);
@@ -180,7 +180,7 @@ ylabel('Amplitude');
 grid on;
 
 % Create CIC Decimator
-cicFilter = dsp.CICDecimator(R, 4, N);  % Use double precision for simplicity
+cicFilter = dsp.CICDecimator(R, 1, 5);  % Use double precision for simplicity
 
 % Apply CIC filter to PDM signal
 filtered_signal = cicFilter(pdm);
@@ -199,7 +199,7 @@ grid on;
 
 
 % Create CIC Decimator
-cicFilter = dsp.CICDecimator(R, 5, N);  % Use double precision for simplicity
+cicFilter = dsp.CICDecimator(R, 1, 1);  % Use double precision for simplicity
 
 % Apply CIC filter to PDM signal
 filtered_signal = cicFilter(pdm);
