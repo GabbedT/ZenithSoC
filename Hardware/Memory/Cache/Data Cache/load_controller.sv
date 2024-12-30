@@ -79,7 +79,7 @@ module load_controller #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : counter
             if (!rst_n_i) begin
                 word_counter_CRT <= '0;
-            end else begin
+            end else if (!stall_i) begin
                 word_counter_CRT <= word_counter_NXT;
             end
         end : counter
@@ -225,13 +225,12 @@ module load_controller #(
                     end else if (word_counter_CRT[OFFSET] & word_counter_CRT[OFFSET - 1:0] == '0) begin
                         /* Send store request for the last data. Don't read
                          * any more words after writing back all the block */
-                        word_counter_NXT = word_counter_CRT + 1'b1;
                         store_channel.request = !invalidate_i & !invalidate_pending & !stall_i;
 
                         state_NXT = (invalidate_i | invalidate_pending) ? IDLE : ALLOCATION_REQ;
                         
                         load_channel.request = !stall_i; 
-                        load_channel.address = {cache_address.tag, cache_address.index, word_counter_NXT[OFFSET - 1:0], 2'b0};
+                        load_channel.address = {cache_address.tag, cache_address.index, word_counter_NXT[OFFSET - 1:1], 3'b0};
                         
                         /* Reset word counter */ 
                         word_counter_NXT = 'd1;
