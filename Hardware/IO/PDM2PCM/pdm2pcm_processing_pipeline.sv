@@ -25,7 +25,10 @@ module pdm2pcm_processing_pipeline #(
     input logic channel_i,
 
     /* Decimation factor to bring down sample rate */
-    input logic [7:0] decimator_factor_i,
+    input logic [6:0] decimator_factor_i,
+
+    /* Used to bring the PCM signal into the [1:0] range */
+    input logic [31:0] normalizer_i,
 
     /* Final gain */
     input logic [15:0] gain_i,
@@ -43,9 +46,9 @@ module pdm2pcm_processing_pipeline #(
 //      FILTERING STAGE
 //==========================================================
 
-    logic [15:0] filtered_sample; logic valid_filter;
+    logic [31:0] filtered_sample; logic valid_filter;
 
-    pdm2pcm_decimator #(16, CIC_FILTER_ORDER, CIC_COMB_DELAY) low_pass_filter (
+    pdm2pcm_decimator #(32, CIC_FILTER_ORDER, CIC_COMB_DELAY) low_pass_filter (
         .clk_i   ( clk_i   ),
         .rst_n_i ( rst_n_i ),
         
@@ -77,19 +80,19 @@ module pdm2pcm_processing_pipeline #(
 //      NORMALIZATION STAGE
 //==========================================================
 
-    logic [16:0] normalized_sample; logic normalized_valid, normalizer_idle;
+    logic [32:0] normalized_sample; logic normalized_valid, normalizer_idle;
 
     /* Perform fixed-point division to normalize the input sample into [1:0] range
-     * the result will be a Q_0.16 fixed point number */
+     * the result will be a Q_0.32 fixed point number */
     non_restoring_divider #( 
-        .DATA_WIDTH ( 32 )
+        .DATA_WIDTH ( 64 )
     ) normalizer (
         .clk_i        ( clk_i    ),
         .rst_n_i      ( rst_n_i  ),
         .clk_en_i     ( clk_en_i ),
 
-        .dividend_i   ( { filtered_sample, 16'b0 }     ),
-        .divisor_i    ( { 24'b0, decimator_factor_i }  ),
+        .dividend_i   ( {filtered_sample, 32'b0}       ),
+        .divisor_i    ( {32'b0, normalizer_i}          ), /* DECIMATION FACTOR ^ (FILTER_ORDER - 1) */
         .data_valid_i ( valid_filter & normalizer_idle ),
 
         .quotient_o       ( normalized_sample ),
@@ -115,21 +118,22 @@ module pdm2pcm_processing_pipeline #(
 //      PCM CONVERSION STAGE
 //==========================================================
 
-    logic [31:0] full_sample; logic [15:0] pcm_sample;
+    logic [63:0] full_sample; logic [15:0] pcm_sample;
 
         /* Map the normalized sample, represented in the [0:1] range,
-         * to the appropriate range for 16-bit PCM output */
+         * to the appropriate range for 32-bit PCM output */
         always_comb begin
-            /* Convert the normalized sample to the [0:65535] range without centering */
-            if (normalized_sample[16]) begin 
+            /* Convert the normalized sample to the [0:2^32 - 1] range without centering */
+            if (normalized_sample[32]) begin 
                 /* Max value saturate */
-                full_sample = 32'hFFFF0000;
+                full_sample = 64'hFFFFFFFF_00000000;
             end else begin
-                full_sample = normalized_sample << 16;
+                full_sample = normalized_sample << 32;
             end
         end
 
-    assign pcm_sample = full_sample[31:16];
+    /* Take the upper 32 bits to convert into 16 bit PCM (losing precision ) */
+    assign pcm_sample = full_sample[63:48];
 
 
 //==========================================================
@@ -180,6 +184,8 @@ module pdm2pcm_processing_pipeline #(
         assign channel_o = channel_gain_stg[1];
 
     `else 
+
+        // ADD MULTIPLIER DEFINITION
 
     `endif 
 
