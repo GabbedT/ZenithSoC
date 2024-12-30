@@ -5,8 +5,7 @@
 
 module pdm2pcm_registers #(
     /* Buffer sizes */
-    parameter LEFT_BUFFER_SIZE = 512,
-    parameter RIGHT_BUFFER_SIZE = 512
+    parameter BUFFER_SIZE = 512
 ) (
     /* Global signals */
     input logic clk_i,
@@ -49,8 +48,7 @@ module pdm2pcm_registers #(
 //====================================================================================
 
     /* Error checking */
-    assign write_error_o = ( (write_address_i == PDM2PCM_SAMPLE_BUFFER_L) 
-                           | (write_address_i == PDM2PCM_SAMPLE_BUFFER_R) 
+    assign write_error_o = ( (write_address_i == PDM2PCM_SAMPLE_BUFFER) 
                            | (write_address_i == PDM2PCM_STATUS)) & write_i;
 
     assign read_error_o = 1'b0;
@@ -72,8 +70,7 @@ module pdm2pcm_registers #(
                 control_register.channel <= 1'b0;
 
                 /* FIFOs disabled */
-                control_register.buffer_left_enable <= 1'b0;
-                control_register.buffer_right_enable <= 1'b0;
+                control_register.buffer_enable <= 1'b0;
 
                 /* Operation disabled on reset */
                 control_register.interrupt_enable <= 5'b0;
@@ -88,12 +85,8 @@ module pdm2pcm_registers #(
                         control_register.interrupt_enable[4:1] <= write_data_i[1][3:0];
                         control_register.channel <= write_data_i[1][4];
                         control_register.dual_channel <= write_data_i[1][5];
-                        control_register.buffer_right_enable <= write_data_i[1][6];
-                        control_register.buffer_left_enable <= write_data_i[1][7];
-                    end
-
-                    if (write_strobe_i[2]) begin
-                        control_register.interface_enable <= write_data_i[2][0];
+                        control_register.buffer_enable <= write_data_i[1][6];
+                        control_register.interface_enable <= write_data_i[1][7];
                     end
                 end
             end 
@@ -154,53 +147,26 @@ module pdm2pcm_registers #(
 //      LEFT BUFFER REGISTER
 //====================================================================================  
 
-    logic left_empty, left_full, write_left_buffer, read_left_buffer; logic [15:0] left_sample;
+    logic empty, full, write_buffer, read_buffer; logic [15:0] sample;
 
     /* Write when left sample is full */
-    assign write_left_buffer = valid_i & (channel_i == LEFT) & control_register.buffer_left_enable;
+    assign write_buffer = valid_i & control_register.buffer_enable;
 
-    assign read_left_buffer = read_i & (read_address_i == PDM2PCM_SAMPLE_BUFFER_L);
+    assign read_buffer = read_i & (read_address_i == PDM2PCM_SAMPLE_BUFFER);
 
     /* TX Buffer asyncronous FIFO instantiation */
-    synchronous_buffer #(LEFT_BUFFER_SIZE, 16) left_sample_buffer (
+    synchronous_buffer #(BUFFER_SIZE, 16) sample_buffer (
         .clk_i   ( clk_i   ),
         .rst_n_i ( rst_n_i ),
 
-        .write_i ( write_left_buffer & !left_full ),
-        .read_i  ( read_left_buffer & !left_empty ),
+        .write_i ( write_buffer & !full ),
+        .read_i  ( read_buffer & !empty ),
 
-        .empty_o ( left_empty ),
-        .full_o  ( left_full  ),
-
-        .write_data_i ( pcm_sample_i ),
-        .read_data_o  ( left_sample  )
-    );
-
-
-//====================================================================================
-//      RIGHT BUFFER REGISTER
-//====================================================================================  
-
-    logic right_empty, right_full, write_right_buffer, read_right_buffer; logic [15:0] right_sample;
-
-    /* Write when left sample is full */
-    assign write_right_buffer = valid_i & (channel_i == RIGHT) & control_register.buffer_right_enable;
-
-    assign read_right_buffer = read_i & (read_address_i == PDM2PCM_SAMPLE_BUFFER_R);
-
-    /* TX Buffer asyncronous FIFO instantiation */
-    synchronous_buffer #(RIGHT_BUFFER_SIZE, 16) right_sample_buffer (
-        .clk_i   ( clk_i   ),
-        .rst_n_i ( rst_n_i ),
-
-        .write_i ( write_right_buffer & !right_full ),
-        .read_i  ( read_right_buffer & !right_empty ),
-
-        .empty_o ( right_empty ),
-        .full_o  ( right_full  ),
+        .empty_o ( empty ),
+        .full_o  ( full  ),
 
         .write_data_i ( pcm_sample_i ),
-        .read_data_o  ( right_sample  )
+        .read_data_o  ( sample       )
     );
 
 
@@ -210,11 +176,8 @@ module pdm2pcm_registers #(
 
     pdm2pcm_status_t status_register;
 
-    assign status_register.buffer_left_empty = left_empty;
-    assign status_register.buffer_left_full = left_full;
-
-    assign status_register.buffer_right_empty = right_empty;
-    assign status_register.buffer_right_full = right_full;
+    assign status_register.buffer_empty = empty;
+    assign status_register.buffer_full = full;
 
 
 //====================================================================================
@@ -265,7 +228,7 @@ module pdm2pcm_registers #(
                     event_register <= write_data_i[0][5:0];
                 end
             end else begin
-                if (left_full) begin
+                if (full) begin
                     event_register[0] <= 1'b1;
                 end
 
@@ -279,23 +242,18 @@ module pdm2pcm_registers #(
                     event_register[2] <= 1'b1;
                 end
 
-                if (right_full) begin
+                if (valid_i & (channel_i == RIGHT) & (pcm_sample_i > threshold_register[0])) begin
                     /* Right channel sample surpassed threshold */
                     event_register[3] <= 1'b1;
                 end
 
-                if (valid_i & (channel_i == RIGHT) & (pcm_sample_i > threshold_register[0])) begin
-                    /* Right channel sample surpassed threshold */
+                if (valid_i & (channel_i == RIGHT) & (pcm_sample_i < threshold_register[0])) begin
+                    /* Right channel sample fell below threshold */
                     event_register[4] <= 1'b1;
                 end
 
-                if (valid_i & (channel_i == RIGHT) & (pcm_sample_i < threshold_register[0])) begin
-                    /* Right channel sample fell below threshold */
-                    event_register[5] <= 1'b1;
-                end
-
                 if (invalid_i) begin
-                    event_register[6] <= 1'b1;
+                    event_register[5] <= 1'b1;
                 end
             end
         end 
@@ -303,12 +261,12 @@ module pdm2pcm_registers #(
 
 
     /* Catch the positive edge of a bit set into the register, otherwise the interrupt bit will stay on */
-    logic [6:0] event_edge;
+    logic [5:0] event_edge;
 
     genvar i;
 
     generate 
-        for (i = 0; i < 7; ++i) begin
+        for (i = 0; i < 6; ++i) begin
             edge_detector #(1, 0) event_detector (
                 .clk_i   ( clk_i  ),
                 .rst_n_i ( rst_n_i ),
@@ -339,9 +297,7 @@ module pdm2pcm_registers #(
 
                 PDM2PCM_DECIMATION_FACTOR: read_data_o = decimation_register;
 
-                PDM2PCM_SAMPLE_BUFFER_L: read_data_o = left_sample;
-
-                PDM2PCM_SAMPLE_BUFFER_R: read_data_o = right_sample;
+                PDM2PCM_SAMPLE_BUFFER: read_data_o = sample;
 
                 PDM2PCM_THRESHOLD: read_data_o = threshold_register;
 
