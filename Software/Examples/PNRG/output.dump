@@ -10,10 +10,10 @@ Disassembly of section .boot:
    8:	3002a073          	.word	0x3002a073
    c:	fff00293          	.word	0xfff00293
   10:	3042a073          	.word	0x3042a073
-  14:	04800293          	.word	0x04800293
+  14:	05400293          	.word	0x05400293
   18:	80000337          	.word	0x80000337
   1c:	000013b7          	.word	0x000013b7
-  20:	d0038393          	.word	0xd0038393
+  20:	e3c38393          	.word	0xe3c38393
 
 00000024 <copy_loop>:
   24:	0002a503          	.word	0x0002a503
@@ -21,29 +21,32 @@ Disassembly of section .boot:
   2c:	00428293          	.word	0x00428293
   30:	00430313          	.word	0x00430313
   34:	fe72c8e3          	.word	0xfe72c8e3
-  38:	80001317          	.word	0x80001317
-  3c:	aec30313          	.word	0xaec30313
-  40:	000300e7          	.word	0x000300e7
-  44:	c0001073          	.word	0xc0001073
+  38:	000062b7          	.word	0x000062b7
+  3c:	00200313          	.word	0x00200313
+  40:	0062a023          	.word	0x0062a023
+  44:	80001317          	.word	0x80001317
+  48:	c1c30313          	.word	0xc1c30313
+  4c:	000300e7          	.word	0x000300e7
+  50:	c0001073          	.word	0xc0001073
 
 Disassembly of section .text:
 
 80000000 <_ZN9SerialOut4initEmbN4UART12parityMode_eENS0_10stopBits_eENS0_12dataLenght_eE>:
 80000000:	800017b7          	lui	a5,0x80001
 80000004:	00002837          	lui	a6,0x2
-80000008:	c307a623          	sw	a6,-980(a5) # 80000c2c <_ZN9SerialOut6statusE>
-8000000c:	c2c7a803          	lw	a6,-980(a5)
+80000008:	df07a623          	sw	a6,-532(a5) # 80000dec <_ZN9SerialOut6statusE>
+8000000c:	dec7a803          	lw	a6,-532(a5)
 80000010:	00480813          	addi	a6,a6,4 # 2004 <copy_loop+0x1fe0>
 80000014:	800018b7          	lui	a7,0x80001
-80000018:	c308a423          	sw	a6,-984(a7) # 80000c28 <_ZN9SerialOut8bufferTXE>
-8000001c:	c2c7a883          	lw	a7,-980(a5)
+80000018:	df08a423          	sw	a6,-536(a7) # 80000de8 <_ZN9SerialOut8bufferTXE>
+8000001c:	dec7a883          	lw	a7,-532(a5)
 80000020:	0015f593          	andi	a1,a1,1
 80000024:	00b59813          	slli	a6,a1,0xb
 80000028:	0008a583          	lw	a1,0(a7)
 8000002c:	48b59593          	bclri	a1,a1,0xb
 80000030:	0105e5b3          	or	a1,a1,a6
 80000034:	00b8a023          	sw	a1,0(a7)
-80000038:	c2c7a803          	lw	a6,-980(a5)
+80000038:	dec7a803          	lw	a6,-532(a5)
 8000003c:	00377713          	andi	a4,a4,3
 80000040:	00e71593          	slli	a1,a4,0xe
 80000044:	00082703          	lw	a4,0(a6)
@@ -51,14 +54,14 @@ Disassembly of section .text:
 8000004c:	48f71713          	bclri	a4,a4,0xf
 80000050:	00b76733          	or	a4,a4,a1
 80000054:	00e82023          	sw	a4,0(a6)
-80000058:	c2c7a583          	lw	a1,-980(a5)
+80000058:	dec7a583          	lw	a1,-532(a5)
 8000005c:	0016f693          	andi	a3,a3,1
 80000060:	00d69693          	slli	a3,a3,0xd
 80000064:	0005a703          	lw	a4,0(a1)
 80000068:	48d71713          	bclri	a4,a4,0xd
 8000006c:	00d76733          	or	a4,a4,a3
 80000070:	00e5a023          	sw	a4,0(a1)
-80000074:	c2c7a683          	lw	a3,-980(a5)
+80000074:	dec7a683          	lw	a3,-532(a5)
 80000078:	00167613          	andi	a2,a2,1
 8000007c:	00c61713          	slli	a4,a2,0xc
 80000080:	0006a603          	lw	a2,0(a3)
@@ -70,18 +73,18 @@ Disassembly of section .text:
 80000098:	10070713          	addi	a4,a4,256 # 5f5e100 <copy_loop+0x5f5e0dc>
 8000009c:	02a75733          	divu	a4,a4,a0
 800000a0:	fff70713          	addi	a4,a4,-1
-800000a4:	c2c7a603          	lw	a2,-980(a5)
+800000a4:	dec7a603          	lw	a2,-532(a5)
 800000a8:	01171713          	slli	a4,a4,0x11
 800000ac:	00062683          	lw	a3,0(a2)
 800000b0:	00f69693          	slli	a3,a3,0xf
 800000b4:	00f6d693          	srli	a3,a3,0xf
 800000b8:	00e6e733          	or	a4,a3,a4
 800000bc:	00e62023          	sw	a4,0(a2)
-800000c0:	c2c7a683          	lw	a3,-980(a5)
+800000c0:	dec7a683          	lw	a3,-532(a5)
 800000c4:	0006a703          	lw	a4,0(a3)
 800000c8:	dff77713          	andi	a4,a4,-513
 800000cc:	00e6a023          	sw	a4,0(a3)
-800000d0:	c2c7a703          	lw	a4,-980(a5)
+800000d0:	dec7a703          	lw	a4,-532(a5)
 800000d4:	00072783          	lw	a5,0(a4)
 800000d8:	4007e793          	ori	a5,a5,1024
 800000dc:	00f72023          	sw	a5,0(a4)
@@ -89,23 +92,23 @@ Disassembly of section .text:
 
 800000e4 <_ZN9SerialOut5writeEc>:
 800000e4:	80001737          	lui	a4,0x80001
-800000e8:	c2c72783          	lw	a5,-980(a4) # 80000c2c <_ZN9SerialOut6statusE>
+800000e8:	dec72783          	lw	a5,-532(a4) # 80000dec <_ZN9SerialOut6statusE>
 800000ec:	0007a783          	lw	a5,0(a5)
 800000f0:	4837d793          	bexti	a5,a5,0x3
 800000f4:	fe079ae3          	bnez	a5,800000e8 <_ZN9SerialOut5writeEc+0x4>
 800000f8:	800017b7          	lui	a5,0x80001
-800000fc:	c287a783          	lw	a5,-984(a5) # 80000c28 <_ZN9SerialOut8bufferTXE>
+800000fc:	de87a783          	lw	a5,-536(a5) # 80000de8 <_ZN9SerialOut8bufferTXE>
 80000100:	00a78023          	sb	a0,0(a5)
 80000104:	00008067          	ret
 
 80000108 <_ZN9SerialOut5writeEPKcm>:
 80000108:	02058c63          	beqz	a1,80000140 <_ZN9SerialOut5writeEPKcm+0x38>
 8000010c:	800017b7          	lui	a5,0x80001
-80000110:	c287a803          	lw	a6,-984(a5) # 80000c28 <_ZN9SerialOut8bufferTXE>
+80000110:	de87a803          	lw	a6,-536(a5) # 80000de8 <_ZN9SerialOut8bufferTXE>
 80000114:	00050693          	mv	a3,a0
 80000118:	00b50633          	add	a2,a0,a1
 8000011c:	80001737          	lui	a4,0x80001
-80000120:	c2c72783          	lw	a5,-980(a4) # 80000c2c <_ZN9SerialOut6statusE>
+80000120:	dec72783          	lw	a5,-532(a4) # 80000dec <_ZN9SerialOut6statusE>
 80000124:	0007a783          	lw	a5,0(a5)
 80000128:	4837d793          	bexti	a5,a5,0x3
 8000012c:	fe079ae3          	bnez	a5,80000120 <_ZN9SerialOut5writeEPKcm+0x18>
@@ -115,193 +118,205 @@ Disassembly of section .text:
 8000013c:	fec692e3          	bne	a3,a2,80000120 <_ZN9SerialOut5writeEPKcm+0x18>
 80000140:	00008067          	ret
 
-80000144 <_ZN4PRNG4initEy>:
-80000144:	0000c6b7          	lui	a3,0xc
-80000148:	00a6a023          	sw	a0,0(a3) # c000 <copy_loop+0xbfdc>
-8000014c:	00b6a223          	sw	a1,4(a3)
-80000150:	00008067          	ret
+80000144 <_ZN9SerialOut5writeEPKc>:
+80000144:	ff010113          	addi	sp,sp,-16
+80000148:	00112623          	sw	ra,12(sp)
+8000014c:	00054783          	lbu	a5,0(a0)
+80000150:	02078463          	beqz	a5,80000178 <_ZN9SerialOut5writeEPKc+0x34>
+80000154:	00000593          	li	a1,0
+80000158:	00158593          	addi	a1,a1,1
+8000015c:	00b507b3          	add	a5,a0,a1
+80000160:	0007c783          	lbu	a5,0(a5)
+80000164:	fe079ae3          	bnez	a5,80000158 <_ZN9SerialOut5writeEPKc+0x14>
+80000168:	fa1ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
+8000016c:	00c12083          	lw	ra,12(sp)
+80000170:	01010113          	addi	sp,sp,16
+80000174:	00008067          	ret
+80000178:	00000593          	li	a1,0
+8000017c:	fedff06f          	j	80000168 <_ZN9SerialOut5writeEPKc+0x24>
 
-80000154 <_ZN4PRNG6randomEv>:
-80000154:	0000c7b7          	lui	a5,0xc
-80000158:	0007a503          	lw	a0,0(a5) # c000 <copy_loop+0xbfdc>
-8000015c:	0047a583          	lw	a1,4(a5)
-80000160:	00008067          	ret
+80000180 <_ZN4PRNG4initEy>:
+80000180:	0000c6b7          	lui	a3,0xc
+80000184:	00a6a023          	sw	a0,0(a3) # c000 <copy_loop+0xbfdc>
+80000188:	00b6a223          	sw	a1,4(a3)
+8000018c:	00008067          	ret
 
-80000164 <_ZN5TimerC1Em>:
-80000164:	28b01793          	bseti	a5,zero,0xb
-80000168:	00f585b3          	add	a1,a1,a5
-8000016c:	00359593          	slli	a1,a1,0x3
-80000170:	00b52023          	sw	a1,0(a0)
-80000174:	00858793          	addi	a5,a1,8
-80000178:	00f52223          	sw	a5,4(a0)
-8000017c:	00b52423          	sw	a1,8(a0)
-80000180:	01058793          	addi	a5,a1,16
-80000184:	00f52623          	sw	a5,12(a0)
-80000188:	00c52703          	lw	a4,12(a0)
-8000018c:	00072783          	lw	a5,0(a4)
-80000190:	ffe7f793          	andi	a5,a5,-2
-80000194:	00f72023          	sw	a5,0(a4)
-80000198:	00c52703          	lw	a4,12(a0)
-8000019c:	00072783          	lw	a5,0(a4)
-800001a0:	ffb7f793          	andi	a5,a5,-5
-800001a4:	00f72023          	sw	a5,0(a4)
-800001a8:	00000793          	li	a5,0
-800001ac:	00000813          	li	a6,0
-800001b0:	00f5a423          	sw	a5,8(a1)
-800001b4:	0105a623          	sw	a6,12(a1)
-800001b8:	00852783          	lw	a5,8(a0)
-800001bc:	fff00613          	li	a2,-1
-800001c0:	fff00693          	li	a3,-1
-800001c4:	00c7a023          	sw	a2,0(a5)
-800001c8:	00d7a223          	sw	a3,4(a5)
-800001cc:	00c52703          	lw	a4,12(a0)
-800001d0:	00072783          	lw	a5,0(a4)
-800001d4:	ffd7f793          	andi	a5,a5,-3
-800001d8:	00f72023          	sw	a5,0(a4)
-800001dc:	00008067          	ret
+80000190 <_ZN4PRNG6randomEv>:
+80000190:	0000c7b7          	lui	a5,0xc
+80000194:	0007a503          	lw	a0,0(a5) # c000 <copy_loop+0xbfdc>
+80000198:	0047a583          	lw	a1,4(a5)
+8000019c:	00008067          	ret
 
-800001e0 <_ZN5Timer4initEyNS_11timerMode_eE>:
-800001e0:	00060893          	mv	a7,a2
-800001e4:	00c52603          	lw	a2,12(a0)
-800001e8:	00062703          	lw	a4,0(a2)
-800001ec:	ffb77713          	andi	a4,a4,-5
-800001f0:	00e62023          	sw	a4,0(a2)
-800001f4:	00852703          	lw	a4,8(a0)
-800001f8:	00b72023          	sw	a1,0(a4)
-800001fc:	01172223          	sw	a7,4(a4)
-80000200:	00c52603          	lw	a2,12(a0)
-80000204:	0016f693          	andi	a3,a3,1
-80000208:	00169693          	slli	a3,a3,0x1
-8000020c:	00062703          	lw	a4,0(a2)
-80000210:	ffd77713          	andi	a4,a4,-3
-80000214:	00d76733          	or	a4,a4,a3
-80000218:	00e62023          	sw	a4,0(a2)
-8000021c:	00452783          	lw	a5,4(a0)
-80000220:	00000693          	li	a3,0
-80000224:	00000713          	li	a4,0
-80000228:	00d7a023          	sw	a3,0(a5)
-8000022c:	00e7a223          	sw	a4,4(a5)
-80000230:	00008067          	ret
+800001a0 <_ZN5TimerC1Em>:
+800001a0:	28b01793          	bseti	a5,zero,0xb
+800001a4:	00f585b3          	add	a1,a1,a5
+800001a8:	00359593          	slli	a1,a1,0x3
+800001ac:	00b52023          	sw	a1,0(a0)
+800001b0:	00858793          	addi	a5,a1,8
+800001b4:	00f52223          	sw	a5,4(a0)
+800001b8:	00b52423          	sw	a1,8(a0)
+800001bc:	01058793          	addi	a5,a1,16
+800001c0:	00f52623          	sw	a5,12(a0)
+800001c4:	00c52703          	lw	a4,12(a0)
+800001c8:	00072783          	lw	a5,0(a4)
+800001cc:	ffe7f793          	andi	a5,a5,-2
+800001d0:	00f72023          	sw	a5,0(a4)
+800001d4:	00c52703          	lw	a4,12(a0)
+800001d8:	00072783          	lw	a5,0(a4)
+800001dc:	ffb7f793          	andi	a5,a5,-5
+800001e0:	00f72023          	sw	a5,0(a4)
+800001e4:	00000793          	li	a5,0
+800001e8:	00000813          	li	a6,0
+800001ec:	00f5a423          	sw	a5,8(a1)
+800001f0:	0105a623          	sw	a6,12(a1)
+800001f4:	00852783          	lw	a5,8(a0)
+800001f8:	fff00613          	li	a2,-1
+800001fc:	fff00693          	li	a3,-1
+80000200:	00c7a023          	sw	a2,0(a5)
+80000204:	00d7a223          	sw	a3,4(a5)
+80000208:	00c52703          	lw	a4,12(a0)
+8000020c:	00072783          	lw	a5,0(a4)
+80000210:	ffd7f793          	andi	a5,a5,-3
+80000214:	00f72023          	sw	a5,0(a4)
+80000218:	00008067          	ret
 
-80000234 <_ZN9SerialOut7vprintfEPKcPv>:
-80000234:	f9010113          	addi	sp,sp,-112
-80000238:	06112623          	sw	ra,108(sp)
-8000023c:	06812423          	sw	s0,104(sp)
-80000240:	00050413          	mv	s0,a0
-80000244:	00054503          	lbu	a0,0(a0)
-80000248:	080504e3          	beqz	a0,80000ad0 <_ZN9SerialOut7vprintfEPKcPv+0x89c>
-8000024c:	06912223          	sw	s1,100(sp)
-80000250:	07212023          	sw	s2,96(sp)
-80000254:	05312e23          	sw	s3,92(sp)
-80000258:	05412c23          	sw	s4,88(sp)
-8000025c:	05512a23          	sw	s5,84(sp)
-80000260:	05612823          	sw	s6,80(sp)
-80000264:	05712623          	sw	s7,76(sp)
-80000268:	00058b13          	mv	s6,a1
-8000026c:	00000a93          	li	s5,0
-80000270:	02500913          	li	s2,37
-80000274:	01600993          	li	s3,22
-80000278:	80001a37          	lui	s4,0x80001
-8000027c:	0090006f          	j	80000a84 <_ZN9SerialOut7vprintfEPKcPv+0x850>
-80000280:	004b0b93          	addi	s7,s6,4
-80000284:	000b2a83          	lw	s5,0(s6)
-80000288:	41fadb13          	srai	s6,s5,0x1f
-8000028c:	120ac463          	bltz	s5,800003b4 <_ZN9SerialOut7vprintfEPKcPv+0x180>
-80000290:	00000593          	li	a1,0
-80000294:	ccccd6b7          	lui	a3,0xccccd
-80000298:	ccd68693          	addi	a3,a3,-819 # cccccccd <_ZN9SerialOut6statusE+0x4cccc0a1>
-8000029c:	ccccd637          	lui	a2,0xccccd
-800002a0:	ccc60613          	addi	a2,a2,-820 # cccccccc <_ZN9SerialOut6statusE+0x4cccc0a0>
-800002a4:	00010513          	mv	a0,sp
-800002a8:	016a87b3          	add	a5,s5,s6
-800002ac:	0157b733          	sltu	a4,a5,s5
-800002b0:	00e787b3          	add	a5,a5,a4
-800002b4:	02d7b733          	mulhu	a4,a5,a3
-800002b8:	00275813          	srli	a6,a4,0x2
-800002bc:	ffc77713          	andi	a4,a4,-4
-800002c0:	01070733          	add	a4,a4,a6
-800002c4:	40e787b3          	sub	a5,a5,a4
-800002c8:	40fa87b3          	sub	a5,s5,a5
-800002cc:	02d787b3          	mul	a5,a5,a3
-800002d0:	0017d793          	srli	a5,a5,0x1
-800002d4:	20f7c7b3          	sh2add	a5,a5,a5
-800002d8:	00179793          	slli	a5,a5,0x1
-800002dc:	40fa87b3          	sub	a5,s5,a5
-800002e0:	03078793          	addi	a5,a5,48
-800002e4:	000a8313          	mv	t1,s5
-800002e8:	000b0893          	mv	a7,s6
-800002ec:	016a8733          	add	a4,s5,s6
-800002f0:	01573833          	sltu	a6,a4,s5
-800002f4:	01070733          	add	a4,a4,a6
-800002f8:	02d73833          	mulhu	a6,a4,a3
-800002fc:	00285e13          	srli	t3,a6,0x2
-80000300:	ffc87813          	andi	a6,a6,-4
-80000304:	01c80833          	add	a6,a6,t3
-80000308:	41070733          	sub	a4,a4,a6
-8000030c:	40ea8733          	sub	a4,s5,a4
-80000310:	00eab833          	sltu	a6,s5,a4
-80000314:	410b0833          	sub	a6,s6,a6
-80000318:	02d80833          	mul	a6,a6,a3
-8000031c:	02c70e33          	mul	t3,a4,a2
-80000320:	01c80833          	add	a6,a6,t3
-80000324:	02d70e33          	mul	t3,a4,a3
-80000328:	02d73733          	mulhu	a4,a4,a3
-8000032c:	00e80733          	add	a4,a6,a4
-80000330:	01f71a93          	slli	s5,a4,0x1f
-80000334:	001e5813          	srli	a6,t3,0x1
-80000338:	010aeab3          	or	s5,s5,a6
-8000033c:	00175b13          	srli	s6,a4,0x1
-80000340:	00058813          	mv	a6,a1
-80000344:	00158593          	addi	a1,a1,1
-80000348:	00b50733          	add	a4,a0,a1
-8000034c:	fef70fa3          	sb	a5,-1(a4)
-80000350:	f4089ce3          	bnez	a7,800002a8 <_ZN9SerialOut7vprintfEPKcPv+0x74>
-80000354:	00089663          	bnez	a7,80000360 <_ZN9SerialOut7vprintfEPKcPv+0x12c>
-80000358:	00900793          	li	a5,9
-8000035c:	f467e6e3          	bltu	a5,t1,800002a8 <_ZN9SerialOut7vprintfEPKcPv+0x74>
-80000360:	0015d893          	srli	a7,a1,0x1
-80000364:	00100793          	li	a5,1
-80000368:	02b7f863          	bgeu	a5,a1,80000398 <_ZN9SerialOut7vprintfEPKcPv+0x164>
-8000036c:	010107b3          	add	a5,sp,a6
-80000370:	00010713          	mv	a4,sp
-80000374:	00078513          	mv	a0,a5
-80000378:	0007c683          	lbu	a3,0(a5)
-8000037c:	00074603          	lbu	a2,0(a4)
-80000380:	00c78023          	sb	a2,0(a5)
-80000384:	00d70023          	sb	a3,0(a4)
-80000388:	fff78793          	addi	a5,a5,-1
-8000038c:	00170713          	addi	a4,a4,1
-80000390:	40f506b3          	sub	a3,a0,a5
-80000394:	ff16e2e3          	bltu	a3,a7,80000378 <_ZN9SerialOut7vprintfEPKcPv+0x144>
-80000398:	00010513          	mv	a0,sp
-8000039c:	d6dff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
-800003a0:	00000513          	li	a0,0
-800003a4:	d41ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-800003a8:	000b8b13          	mv	s6,s7
-800003ac:	00048a93          	mv	s5,s1
-800003b0:	6c40006f          	j	80000a74 <_ZN9SerialOut7vprintfEPKcPv+0x840>
-800003b4:	015037b3          	snez	a5,s5
-800003b8:	41600b33          	neg	s6,s6
-800003bc:	40fb0b33          	sub	s6,s6,a5
-800003c0:	41500ab3          	neg	s5,s5
-800003c4:	02d00513          	li	a0,45
-800003c8:	d1dff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-800003cc:	ec5ff06f          	j	80000290 <_ZN9SerialOut7vprintfEPKcPv+0x5c>
-800003d0:	007b0793          	addi	a5,s6,7
-800003d4:	ff87f793          	andi	a5,a5,-8
-800003d8:	00878b13          	addi	s6,a5,8
-800003dc:	0007a703          	lw	a4,0(a5)
-800003e0:	0047a783          	lw	a5,4(a5)
-800003e4:	00070a93          	mv	s5,a4
-800003e8:	00078b93          	mv	s7,a5
-800003ec:	1207c263          	bltz	a5,80000510 <_ZN9SerialOut7vprintfEPKcPv+0x2dc>
+8000021c <_ZN5Timer4initEyNS_11timerMode_eE>:
+8000021c:	00060893          	mv	a7,a2
+80000220:	00c52603          	lw	a2,12(a0)
+80000224:	00062703          	lw	a4,0(a2)
+80000228:	ffb77713          	andi	a4,a4,-5
+8000022c:	00e62023          	sw	a4,0(a2)
+80000230:	00852703          	lw	a4,8(a0)
+80000234:	00b72023          	sw	a1,0(a4)
+80000238:	01172223          	sw	a7,4(a4)
+8000023c:	00c52603          	lw	a2,12(a0)
+80000240:	0016f693          	andi	a3,a3,1
+80000244:	00169693          	slli	a3,a3,0x1
+80000248:	00062703          	lw	a4,0(a2)
+8000024c:	ffd77713          	andi	a4,a4,-3
+80000250:	00d76733          	or	a4,a4,a3
+80000254:	00e62023          	sw	a4,0(a2)
+80000258:	00452783          	lw	a5,4(a0)
+8000025c:	00000693          	li	a3,0
+80000260:	00000713          	li	a4,0
+80000264:	00d7a023          	sw	a3,0(a5)
+80000268:	00e7a223          	sw	a4,4(a5)
+8000026c:	00008067          	ret
+
+80000270 <_ZN5Timer5delayEy>:
+80000270:	00c52703          	lw	a4,12(a0)
+80000274:	00072783          	lw	a5,0(a4)
+80000278:	ffe7f793          	andi	a5,a5,-2
+8000027c:	00f72023          	sw	a5,0(a4)
+80000280:	00452783          	lw	a5,4(a0)
+80000284:	00000693          	li	a3,0
+80000288:	00000713          	li	a4,0
+8000028c:	00d7a023          	sw	a3,0(a5)
+80000290:	00e7a223          	sw	a4,4(a5)
+80000294:	000186b7          	lui	a3,0x18
+80000298:	6a068693          	addi	a3,a3,1696 # 186a0 <copy_loop+0x1867c>
+8000029c:	02d60633          	mul	a2,a2,a3
+800002a0:	02d5b7b3          	mulhu	a5,a1,a3
+800002a4:	02d58733          	mul	a4,a1,a3
+800002a8:	00f607b3          	add	a5,a2,a5
+800002ac:	00852683          	lw	a3,8(a0)
+800002b0:	00e6a023          	sw	a4,0(a3)
+800002b4:	00f6a223          	sw	a5,4(a3)
+800002b8:	00c52703          	lw	a4,12(a0)
+800002bc:	00072783          	lw	a5,0(a4)
+800002c0:	0017e793          	ori	a5,a5,1
+800002c4:	00f72023          	sw	a5,0(a4)
+800002c8:	00c52703          	lw	a4,12(a0)
+800002cc:	00072783          	lw	a5,0(a4)
+800002d0:	ff77f793          	andi	a5,a5,-9
+800002d4:	00f72023          	sw	a5,0(a4)
+800002d8:	00c52783          	lw	a5,12(a0)
+800002dc:	0007a783          	lw	a5,0(a5)
+800002e0:	4837d793          	bexti	a5,a5,0x3
+800002e4:	fe078ae3          	beqz	a5,800002d8 <_ZN5Timer5delayEy+0x68>
+800002e8:	00008067          	ret
+
+800002ec <_ZN4GPIOC1Em>:
+800002ec:	000067b7          	lui	a5,0x6
+800002f0:	00f585b3          	add	a1,a1,a5
+800002f4:	00b52023          	sw	a1,0(a0)
+800002f8:	00b52223          	sw	a1,4(a0)
+800002fc:	00458793          	addi	a5,a1,4
+80000300:	00f52423          	sw	a5,8(a0)
+80000304:	00858793          	addi	a5,a1,8
+80000308:	00f52623          	sw	a5,12(a0)
+8000030c:	00c58793          	addi	a5,a1,12
+80000310:	00f52823          	sw	a5,16(a0)
+80000314:	00058423          	sb	zero,8(a1)
+80000318:	00058223          	sb	zero,4(a1)
+8000031c:	00058023          	sb	zero,0(a1)
+80000320:	00100793          	li	a5,1
+80000324:	00f58623          	sb	a5,12(a1)
+80000328:	00008067          	ret
+
+8000032c <_ZN4GPIO4initEhhhh>:
+8000032c:	00c52803          	lw	a6,12(a0)
+80000330:	00080023          	sb	zero,0(a6)
+80000334:	00852803          	lw	a6,8(a0)
+80000338:	00c80023          	sb	a2,0(a6)
+8000033c:	00452603          	lw	a2,4(a0)
+80000340:	00b60023          	sb	a1,0(a2)
+80000344:	00c52603          	lw	a2,12(a0)
+80000348:	00d60023          	sb	a3,0(a2)
+8000034c:	01052783          	lw	a5,16(a0)
+80000350:	00e78023          	sb	a4,0(a5) # 6000 <copy_loop+0x5fdc>
+80000354:	00008067          	ret
+
+80000358 <_ZN4GPIO11setPinValueEmb>:
+80000358:	00452703          	lw	a4,4(a0)
+8000035c:	00074783          	lbu	a5,0(a4)
+80000360:	48b797b3          	bclr	a5,a5,a1
+80000364:	00b61633          	sll	a2,a2,a1
+80000368:	00c7e7b3          	or	a5,a5,a2
+8000036c:	0ff7f793          	zext.b	a5,a5
+80000370:	00f70023          	sb	a5,0(a4)
+80000374:	00008067          	ret
+
+80000378 <_ZN4GPIO11getPinValueEm>:
+80000378:	00452783          	lw	a5,4(a0)
+8000037c:	0007c503          	lbu	a0,0(a5)
+80000380:	28b017b3          	bset	a5,zero,a1
+80000384:	00f57533          	and	a0,a0,a5
+80000388:	40b55533          	sra	a0,a0,a1
+8000038c:	00a03533          	snez	a0,a0
+80000390:	00008067          	ret
+
+80000394 <_ZN9SerialOut7vprintfEPKcPv>:
+80000394:	f9010113          	addi	sp,sp,-112
+80000398:	06112623          	sw	ra,108(sp)
+8000039c:	06812423          	sw	s0,104(sp)
+800003a0:	00050413          	mv	s0,a0
+800003a4:	00054503          	lbu	a0,0(a0)
+800003a8:	060502e3          	beqz	a0,80000c0c <_ZN9SerialOut7vprintfEPKcPv+0x878>
+800003ac:	06912223          	sw	s1,100(sp)
+800003b0:	07212023          	sw	s2,96(sp)
+800003b4:	05312e23          	sw	s3,92(sp)
+800003b8:	05412c23          	sw	s4,88(sp)
+800003bc:	05512a23          	sw	s5,84(sp)
+800003c0:	05612823          	sw	s6,80(sp)
+800003c4:	05712623          	sw	s7,76(sp)
+800003c8:	00058b13          	mv	s6,a1
+800003cc:	00000a93          	li	s5,0
+800003d0:	02500913          	li	s2,37
+800003d4:	01600993          	li	s3,22
+800003d8:	80001a37          	lui	s4,0x80001
+800003dc:	7e40006f          	j	80000bc0 <_ZN9SerialOut7vprintfEPKcPv+0x82c>
+800003e0:	004b0b93          	addi	s7,s6,4
+800003e4:	000b2a83          	lw	s5,0(s6)
+800003e8:	41fadb13          	srai	s6,s5,0x1f
+800003ec:	120ac463          	bltz	s5,80000514 <_ZN9SerialOut7vprintfEPKcPv+0x180>
 800003f0:	00000593          	li	a1,0
 800003f4:	ccccd6b7          	lui	a3,0xccccd
-800003f8:	ccd68693          	addi	a3,a3,-819 # cccccccd <_ZN9SerialOut6statusE+0x4cccc0a1>
+800003f8:	ccd68693          	addi	a3,a3,-819 # cccccccd <_ZN9SerialOut6statusE+0x4cccbee1>
 800003fc:	ccccd637          	lui	a2,0xccccd
-80000400:	ccc60613          	addi	a2,a2,-820 # cccccccc <_ZN9SerialOut6statusE+0x4cccc0a0>
+80000400:	ccc60613          	addi	a2,a2,-820 # cccccccc <_ZN9SerialOut6statusE+0x4cccbee0>
 80000404:	00010513          	mv	a0,sp
-80000408:	017a87b3          	add	a5,s5,s7
+80000408:	016a87b3          	add	a5,s5,s6
 8000040c:	0157b733          	sltu	a4,a5,s5
 80000410:	00e787b3          	add	a5,a5,a4
 80000414:	02d7b733          	mulhu	a4,a5,a3
@@ -317,8 +332,8 @@ Disassembly of section .text:
 8000043c:	40fa87b3          	sub	a5,s5,a5
 80000440:	03078793          	addi	a5,a5,48
 80000444:	000a8313          	mv	t1,s5
-80000448:	000b8893          	mv	a7,s7
-8000044c:	017a8733          	add	a4,s5,s7
+80000448:	000b0893          	mv	a7,s6
+8000044c:	016a8733          	add	a4,s5,s6
 80000450:	01573833          	sltu	a6,a4,s5
 80000454:	01070733          	add	a4,a4,a6
 80000458:	02d73833          	mulhu	a6,a4,a3
@@ -328,7 +343,7 @@ Disassembly of section .text:
 80000468:	41070733          	sub	a4,a4,a6
 8000046c:	40ea8733          	sub	a4,s5,a4
 80000470:	00eab833          	sltu	a6,s5,a4
-80000474:	410b8833          	sub	a6,s7,a6
+80000474:	410b0833          	sub	a6,s6,a6
 80000478:	02d80833          	mul	a6,a6,a3
 8000047c:	02c70e33          	mul	t3,a4,a2
 80000480:	01c80833          	add	a6,a6,t3
@@ -338,18 +353,18 @@ Disassembly of section .text:
 80000490:	01f71a93          	slli	s5,a4,0x1f
 80000494:	001e5813          	srli	a6,t3,0x1
 80000498:	010aeab3          	or	s5,s5,a6
-8000049c:	00175b93          	srli	s7,a4,0x1
+8000049c:	00175b13          	srli	s6,a4,0x1
 800004a0:	00058813          	mv	a6,a1
 800004a4:	00158593          	addi	a1,a1,1
 800004a8:	00b50733          	add	a4,a0,a1
 800004ac:	fef70fa3          	sb	a5,-1(a4)
-800004b0:	f4089ce3          	bnez	a7,80000408 <_ZN9SerialOut7vprintfEPKcPv+0x1d4>
-800004b4:	00089663          	bnez	a7,800004c0 <_ZN9SerialOut7vprintfEPKcPv+0x28c>
+800004b0:	f4089ce3          	bnez	a7,80000408 <_ZN9SerialOut7vprintfEPKcPv+0x74>
+800004b4:	00089663          	bnez	a7,800004c0 <_ZN9SerialOut7vprintfEPKcPv+0x12c>
 800004b8:	00900793          	li	a5,9
-800004bc:	f467e6e3          	bltu	a5,t1,80000408 <_ZN9SerialOut7vprintfEPKcPv+0x1d4>
+800004bc:	f467e6e3          	bltu	a5,t1,80000408 <_ZN9SerialOut7vprintfEPKcPv+0x74>
 800004c0:	0015d893          	srli	a7,a1,0x1
 800004c4:	00100793          	li	a5,1
-800004c8:	02b7f863          	bgeu	a5,a1,800004f8 <_ZN9SerialOut7vprintfEPKcPv+0x2c4>
+800004c8:	02b7f863          	bgeu	a5,a1,800004f8 <_ZN9SerialOut7vprintfEPKcPv+0x164>
 800004cc:	010107b3          	add	a5,sp,a6
 800004d0:	00010713          	mv	a4,sp
 800004d4:	00078513          	mv	a0,a5
@@ -360,432 +375,540 @@ Disassembly of section .text:
 800004e8:	fff78793          	addi	a5,a5,-1
 800004ec:	00170713          	addi	a4,a4,1
 800004f0:	40f506b3          	sub	a3,a0,a5
-800004f4:	ff16e2e3          	bltu	a3,a7,800004d8 <_ZN9SerialOut7vprintfEPKcPv+0x2a4>
+800004f4:	ff16e2e3          	bltu	a3,a7,800004d8 <_ZN9SerialOut7vprintfEPKcPv+0x144>
 800004f8:	00010513          	mv	a0,sp
 800004fc:	c0dff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
 80000500:	00000513          	li	a0,0
 80000504:	be1ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-80000508:	00048a93          	mv	s5,s1
-8000050c:	5680006f          	j	80000a74 <_ZN9SerialOut7vprintfEPKcPv+0x840>
-80000510:	00e03bb3          	snez	s7,a4
-80000514:	40f007b3          	neg	a5,a5
-80000518:	40e00ab3          	neg	s5,a4
-8000051c:	41778bb3          	sub	s7,a5,s7
-80000520:	02d00513          	li	a0,45
-80000524:	bc1ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-80000528:	ec9ff06f          	j	800003f0 <_ZN9SerialOut7vprintfEPKcPv+0x1bc>
-8000052c:	004b0a93          	addi	s5,s6,4
-80000530:	000b2683          	lw	a3,0(s6)
-80000534:	00000893          	li	a7,0
-80000538:	00000593          	li	a1,0
-8000053c:	ccccd637          	lui	a2,0xccccd
-80000540:	ccd60613          	addi	a2,a2,-819 # cccccccd <_ZN9SerialOut6statusE+0x4cccc0a1>
-80000544:	ccccd537          	lui	a0,0xccccd
-80000548:	ccc50513          	addi	a0,a0,-820 # cccccccc <_ZN9SerialOut6statusE+0x4cccc0a0>
-8000054c:	00010813          	mv	a6,sp
-80000550:	011687b3          	add	a5,a3,a7
-80000554:	00d7b733          	sltu	a4,a5,a3
-80000558:	00e787b3          	add	a5,a5,a4
-8000055c:	02c7b733          	mulhu	a4,a5,a2
-80000560:	00275313          	srli	t1,a4,0x2
-80000564:	ffc77713          	andi	a4,a4,-4
-80000568:	00670733          	add	a4,a4,t1
-8000056c:	40e787b3          	sub	a5,a5,a4
-80000570:	40f687b3          	sub	a5,a3,a5
-80000574:	02c787b3          	mul	a5,a5,a2
-80000578:	0017d793          	srli	a5,a5,0x1
-8000057c:	20f7c7b3          	sh2add	a5,a5,a5
-80000580:	00179793          	slli	a5,a5,0x1
-80000584:	40f687b3          	sub	a5,a3,a5
-80000588:	03078793          	addi	a5,a5,48
-8000058c:	00068e93          	mv	t4,a3
-80000590:	00088e13          	mv	t3,a7
-80000594:	01168733          	add	a4,a3,a7
-80000598:	00d73333          	sltu	t1,a4,a3
-8000059c:	00670733          	add	a4,a4,t1
-800005a0:	02c73333          	mulhu	t1,a4,a2
-800005a4:	00235f13          	srli	t5,t1,0x2
-800005a8:	ffc37313          	andi	t1,t1,-4
-800005ac:	01e30333          	add	t1,t1,t5
-800005b0:	40670733          	sub	a4,a4,t1
-800005b4:	40e68733          	sub	a4,a3,a4
-800005b8:	00e6b6b3          	sltu	a3,a3,a4
-800005bc:	40d886b3          	sub	a3,a7,a3
-800005c0:	02c686b3          	mul	a3,a3,a2
-800005c4:	02a708b3          	mul	a7,a4,a0
-800005c8:	011686b3          	add	a3,a3,a7
-800005cc:	02c708b3          	mul	a7,a4,a2
-800005d0:	02c73733          	mulhu	a4,a4,a2
-800005d4:	00e68733          	add	a4,a3,a4
-800005d8:	01f71693          	slli	a3,a4,0x1f
-800005dc:	0018d893          	srli	a7,a7,0x1
-800005e0:	0116e6b3          	or	a3,a3,a7
-800005e4:	00175893          	srli	a7,a4,0x1
-800005e8:	00058313          	mv	t1,a1
-800005ec:	00158593          	addi	a1,a1,1
-800005f0:	00b80733          	add	a4,a6,a1
-800005f4:	fef70fa3          	sb	a5,-1(a4)
-800005f8:	f40e1ce3          	bnez	t3,80000550 <_ZN9SerialOut7vprintfEPKcPv+0x31c>
-800005fc:	000e1663          	bnez	t3,80000608 <_ZN9SerialOut7vprintfEPKcPv+0x3d4>
-80000600:	00900793          	li	a5,9
-80000604:	f5d7e6e3          	bltu	a5,t4,80000550 <_ZN9SerialOut7vprintfEPKcPv+0x31c>
-80000608:	0015d813          	srli	a6,a1,0x1
-8000060c:	00100793          	li	a5,1
-80000610:	02b7f863          	bgeu	a5,a1,80000640 <_ZN9SerialOut7vprintfEPKcPv+0x40c>
-80000614:	006107b3          	add	a5,sp,t1
-80000618:	00010713          	mv	a4,sp
-8000061c:	00078513          	mv	a0,a5
-80000620:	0007c683          	lbu	a3,0(a5)
-80000624:	00074603          	lbu	a2,0(a4)
-80000628:	00c78023          	sb	a2,0(a5)
-8000062c:	00d70023          	sb	a3,0(a4)
-80000630:	fff78793          	addi	a5,a5,-1
-80000634:	00170713          	addi	a4,a4,1
-80000638:	40f506b3          	sub	a3,a0,a5
-8000063c:	ff06e2e3          	bltu	a3,a6,80000620 <_ZN9SerialOut7vprintfEPKcPv+0x3ec>
-80000640:	00010513          	mv	a0,sp
-80000644:	ac5ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
-80000648:	00000513          	li	a0,0
-8000064c:	a99ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-80000650:	000a8b13          	mv	s6,s5
-80000654:	00048a93          	mv	s5,s1
-80000658:	41c0006f          	j	80000a74 <_ZN9SerialOut7vprintfEPKcPv+0x840>
-8000065c:	002a8a93          	addi	s5,s5,2
-80000660:	015407b3          	add	a5,s0,s5
-80000664:	0007c783          	lbu	a5,0(a5)
-80000668:	06400713          	li	a4,100
-8000066c:	10e78a63          	beq	a5,a4,80000780 <_ZN9SerialOut7vprintfEPKcPv+0x54c>
-80000670:	06800713          	li	a4,104
-80000674:	06e78063          	beq	a5,a4,800006d4 <_ZN9SerialOut7vprintfEPKcPv+0x4a0>
-80000678:	06200713          	li	a4,98
-8000067c:	1ae79e63          	bne	a5,a4,80000838 <_ZN9SerialOut7vprintfEPKcPv+0x604>
-80000680:	004b0493          	addi	s1,s6,4
-80000684:	000b4783          	lbu	a5,0(s6)
-80000688:	0047d713          	srli	a4,a5,0x4
-8000068c:	00f7f793          	andi	a5,a5,15
-80000690:	00900613          	li	a2,9
-80000694:	03078693          	addi	a3,a5,48
-80000698:	00f67463          	bgeu	a2,a5,800006a0 <_ZN9SerialOut7vprintfEPKcPv+0x46c>
-8000069c:	03778693          	addi	a3,a5,55
-800006a0:	00900613          	li	a2,9
-800006a4:	03770793          	addi	a5,a4,55
-800006a8:	00e66463          	bltu	a2,a4,800006b0 <_ZN9SerialOut7vprintfEPKcPv+0x47c>
-800006ac:	03070793          	addi	a5,a4,48
-800006b0:	00d100a3          	sb	a3,1(sp)
-800006b4:	00f10023          	sb	a5,0(sp)
-800006b8:	00200593          	li	a1,2
-800006bc:	00010513          	mv	a0,sp
-800006c0:	a49ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
-800006c4:	00000513          	li	a0,0
-800006c8:	a1dff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-800006cc:	00048b13          	mv	s6,s1
-800006d0:	3a40006f          	j	80000a74 <_ZN9SerialOut7vprintfEPKcPv+0x840>
-800006d4:	004b0493          	addi	s1,s6,4
-800006d8:	000b2703          	lw	a4,0(s6)
-800006dc:	01071793          	slli	a5,a4,0x10
-800006e0:	0107d793          	srli	a5,a5,0x10
-800006e4:	0047d693          	srli	a3,a5,0x4
-800006e8:	00f6f693          	andi	a3,a3,15
-800006ec:	00f77713          	andi	a4,a4,15
-800006f0:	00900593          	li	a1,9
-800006f4:	03070613          	addi	a2,a4,48
-800006f8:	00e5f463          	bgeu	a1,a4,80000700 <_ZN9SerialOut7vprintfEPKcPv+0x4cc>
-800006fc:	03770613          	addi	a2,a4,55
-80000700:	00c10023          	sb	a2,0(sp)
-80000704:	00900613          	li	a2,9
-80000708:	03768713          	addi	a4,a3,55
-8000070c:	00d66463          	bltu	a2,a3,80000714 <_ZN9SerialOut7vprintfEPKcPv+0x4e0>
-80000710:	03068713          	addi	a4,a3,48
-80000714:	00e100a3          	sb	a4,1(sp)
-80000718:	00c7d713          	srli	a4,a5,0xc
-8000071c:	0087d793          	srli	a5,a5,0x8
-80000720:	00f7f793          	andi	a5,a5,15
-80000724:	00900613          	li	a2,9
-80000728:	03078693          	addi	a3,a5,48
-8000072c:	00f67463          	bgeu	a2,a5,80000734 <_ZN9SerialOut7vprintfEPKcPv+0x500>
-80000730:	03778693          	addi	a3,a5,55
-80000734:	00d10123          	sb	a3,2(sp)
-80000738:	00900693          	li	a3,9
-8000073c:	03770793          	addi	a5,a4,55
-80000740:	00e6e463          	bltu	a3,a4,80000748 <_ZN9SerialOut7vprintfEPKcPv+0x514>
-80000744:	03070793          	addi	a5,a4,48
-80000748:	00014703          	lbu	a4,0(sp)
-8000074c:	00e101a3          	sb	a4,3(sp)
-80000750:	00f10023          	sb	a5,0(sp)
-80000754:	00214783          	lbu	a5,2(sp)
-80000758:	00114703          	lbu	a4,1(sp)
-8000075c:	00e10123          	sb	a4,2(sp)
-80000760:	00f100a3          	sb	a5,1(sp)
-80000764:	00400593          	li	a1,4
-80000768:	00010513          	mv	a0,sp
-8000076c:	99dff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
-80000770:	00000513          	li	a0,0
-80000774:	971ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-80000778:	00048b13          	mv	s6,s1
-8000077c:	2f80006f          	j	80000a74 <_ZN9SerialOut7vprintfEPKcPv+0x840>
-80000780:	007b0793          	addi	a5,s6,7
-80000784:	ff87f793          	andi	a5,a5,-8
-80000788:	00878b13          	addi	s6,a5,8
-8000078c:	0007a703          	lw	a4,0(a5)
-80000790:	0047a503          	lw	a0,4(a5)
-80000794:	00010593          	mv	a1,sp
-80000798:	01010893          	addi	a7,sp,16
-8000079c:	00010693          	mv	a3,sp
-800007a0:	00900813          	li	a6,9
-800007a4:	0300006f          	j	800007d4 <_ZN9SerialOut7vprintfEPKcPv+0x5a0>
-800007a8:	03060613          	addi	a2,a2,48
-800007ac:	00c68023          	sb	a2,0(a3)
-800007b0:	03c0006f          	j	800007ec <_ZN9SerialOut7vprintfEPKcPv+0x5b8>
-800007b4:	03778793          	addi	a5,a5,55
-800007b8:	00f680a3          	sb	a5,1(a3)
-800007bc:	01851793          	slli	a5,a0,0x18
-800007c0:	00875713          	srli	a4,a4,0x8
-800007c4:	00e7e733          	or	a4,a5,a4
-800007c8:	00855513          	srli	a0,a0,0x8
-800007cc:	00268693          	addi	a3,a3,2
-800007d0:	03168663          	beq	a3,a7,800007fc <_ZN9SerialOut7vprintfEPKcPv+0x5c8>
-800007d4:	00475793          	srli	a5,a4,0x4
-800007d8:	00f7f793          	andi	a5,a5,15
-800007dc:	00f77613          	andi	a2,a4,15
-800007e0:	fcc874e3          	bgeu	a6,a2,800007a8 <_ZN9SerialOut7vprintfEPKcPv+0x574>
-800007e4:	03760613          	addi	a2,a2,55
-800007e8:	00c68023          	sb	a2,0(a3)
-800007ec:	fcf864e3          	bltu	a6,a5,800007b4 <_ZN9SerialOut7vprintfEPKcPv+0x580>
-800007f0:	03078793          	addi	a5,a5,48
-800007f4:	00f680a3          	sb	a5,1(a3)
-800007f8:	fc5ff06f          	j	800007bc <_ZN9SerialOut7vprintfEPKcPv+0x588>
-800007fc:	00858613          	addi	a2,a1,8
-80000800:	00058793          	mv	a5,a1
-80000804:	00f5c703          	lbu	a4,15(a1)
-80000808:	0007c683          	lbu	a3,0(a5)
-8000080c:	00d587a3          	sb	a3,15(a1)
-80000810:	00e78023          	sb	a4,0(a5)
-80000814:	fff58593          	addi	a1,a1,-1
-80000818:	00178793          	addi	a5,a5,1
-8000081c:	fec794e3          	bne	a5,a2,80000804 <_ZN9SerialOut7vprintfEPKcPv+0x5d0>
-80000820:	01000593          	li	a1,16
-80000824:	00010513          	mv	a0,sp
-80000828:	8e1ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
-8000082c:	00000513          	li	a0,0
-80000830:	8b5ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-80000834:	2400006f          	j	80000a74 <_ZN9SerialOut7vprintfEPKcPv+0x840>
-80000838:	004b0a93          	addi	s5,s6,4
-8000083c:	000b2583          	lw	a1,0(s6)
-80000840:	00010693          	mv	a3,sp
-80000844:	00810813          	addi	a6,sp,8
-80000848:	00010713          	mv	a4,sp
-8000084c:	00900513          	li	a0,9
-80000850:	0240006f          	j	80000874 <_ZN9SerialOut7vprintfEPKcPv+0x640>
-80000854:	03060613          	addi	a2,a2,48
-80000858:	00c70023          	sb	a2,0(a4)
-8000085c:	0300006f          	j	8000088c <_ZN9SerialOut7vprintfEPKcPv+0x658>
-80000860:	03778793          	addi	a5,a5,55
-80000864:	00f700a3          	sb	a5,1(a4)
-80000868:	0085d593          	srli	a1,a1,0x8
-8000086c:	00270713          	addi	a4,a4,2
-80000870:	02e80663          	beq	a6,a4,8000089c <_ZN9SerialOut7vprintfEPKcPv+0x668>
-80000874:	0045d793          	srli	a5,a1,0x4
-80000878:	00f7f793          	andi	a5,a5,15
-8000087c:	00f5f613          	andi	a2,a1,15
-80000880:	fcc57ae3          	bgeu	a0,a2,80000854 <_ZN9SerialOut7vprintfEPKcPv+0x620>
-80000884:	03760613          	addi	a2,a2,55
-80000888:	00c70023          	sb	a2,0(a4)
-8000088c:	fcf56ae3          	bltu	a0,a5,80000860 <_ZN9SerialOut7vprintfEPKcPv+0x62c>
-80000890:	03078793          	addi	a5,a5,48
-80000894:	00f700a3          	sb	a5,1(a4)
-80000898:	fd1ff06f          	j	80000868 <_ZN9SerialOut7vprintfEPKcPv+0x634>
-8000089c:	00468593          	addi	a1,a3,4
-800008a0:	00068793          	mv	a5,a3
-800008a4:	0076c703          	lbu	a4,7(a3)
-800008a8:	0007c603          	lbu	a2,0(a5)
-800008ac:	00c683a3          	sb	a2,7(a3)
-800008b0:	00e78023          	sb	a4,0(a5)
-800008b4:	fff68693          	addi	a3,a3,-1
-800008b8:	00178793          	addi	a5,a5,1
-800008bc:	feb794e3          	bne	a5,a1,800008a4 <_ZN9SerialOut7vprintfEPKcPv+0x670>
-800008c0:	00800593          	li	a1,8
-800008c4:	00010513          	mv	a0,sp
-800008c8:	841ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
-800008cc:	00000513          	li	a0,0
-800008d0:	815ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-800008d4:	000a8b13          	mv	s6,s5
-800008d8:	00048a93          	mv	s5,s1
-800008dc:	1980006f          	j	80000a74 <_ZN9SerialOut7vprintfEPKcPv+0x840>
-800008e0:	002a8a93          	addi	s5,s5,2
-800008e4:	015407b3          	add	a5,s0,s5
-800008e8:	0007c783          	lbu	a5,0(a5)
-800008ec:	06400713          	li	a4,100
-800008f0:	0ae78063          	beq	a5,a4,80000990 <_ZN9SerialOut7vprintfEPKcPv+0x75c>
-800008f4:	06800713          	li	a4,104
-800008f8:	04e78863          	beq	a5,a4,80000948 <_ZN9SerialOut7vprintfEPKcPv+0x714>
-800008fc:	06200713          	li	a4,98
-80000900:	0ee79663          	bne	a5,a4,800009ec <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
-80000904:	004b0493          	addi	s1,s6,4
-80000908:	000b4683          	lbu	a3,0(s6)
-8000090c:	00010793          	mv	a5,sp
-80000910:	ff810613          	addi	a2,sp,-8
-80000914:	0016f713          	andi	a4,a3,1
-80000918:	03070713          	addi	a4,a4,48
-8000091c:	00e783a3          	sb	a4,7(a5)
-80000920:	0016d693          	srli	a3,a3,0x1
-80000924:	fff78793          	addi	a5,a5,-1
-80000928:	fec796e3          	bne	a5,a2,80000914 <_ZN9SerialOut7vprintfEPKcPv+0x6e0>
-8000092c:	00800593          	li	a1,8
-80000930:	00010513          	mv	a0,sp
-80000934:	fd4ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
-80000938:	00000513          	li	a0,0
-8000093c:	fa8ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-80000940:	00048b13          	mv	s6,s1
-80000944:	1300006f          	j	80000a74 <_ZN9SerialOut7vprintfEPKcPv+0x840>
-80000948:	004b0493          	addi	s1,s6,4
-8000094c:	000b5683          	lhu	a3,0(s6)
-80000950:	00f10793          	addi	a5,sp,15
-80000954:	00010613          	mv	a2,sp
-80000958:	0016f713          	andi	a4,a3,1
-8000095c:	03070713          	addi	a4,a4,48
-80000960:	00e78023          	sb	a4,0(a5)
-80000964:	0016d693          	srli	a3,a3,0x1
-80000968:	00078713          	mv	a4,a5
-8000096c:	fff78793          	addi	a5,a5,-1
-80000970:	fee614e3          	bne	a2,a4,80000958 <_ZN9SerialOut7vprintfEPKcPv+0x724>
-80000974:	01000593          	li	a1,16
-80000978:	00010513          	mv	a0,sp
-8000097c:	f8cff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
-80000980:	00000513          	li	a0,0
-80000984:	f60ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-80000988:	00048b13          	mv	s6,s1
-8000098c:	0e80006f          	j	80000a74 <_ZN9SerialOut7vprintfEPKcPv+0x840>
-80000990:	007b0713          	addi	a4,s6,7
-80000994:	ff877713          	andi	a4,a4,-8
-80000998:	00870b13          	addi	s6,a4,8
-8000099c:	00072783          	lw	a5,0(a4)
-800009a0:	00472603          	lw	a2,4(a4)
-800009a4:	03f10713          	addi	a4,sp,63
-800009a8:	00010593          	mv	a1,sp
-800009ac:	0017f693          	andi	a3,a5,1
-800009b0:	03068693          	addi	a3,a3,48
-800009b4:	00d70023          	sb	a3,0(a4)
-800009b8:	01f61693          	slli	a3,a2,0x1f
-800009bc:	0017d793          	srli	a5,a5,0x1
-800009c0:	00f6e7b3          	or	a5,a3,a5
-800009c4:	00165613          	srli	a2,a2,0x1
-800009c8:	00070693          	mv	a3,a4
-800009cc:	fff70713          	addi	a4,a4,-1
-800009d0:	fcd59ee3          	bne	a1,a3,800009ac <_ZN9SerialOut7vprintfEPKcPv+0x778>
-800009d4:	04000593          	li	a1,64
-800009d8:	00010513          	mv	a0,sp
-800009dc:	f2cff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
-800009e0:	00000513          	li	a0,0
-800009e4:	f00ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-800009e8:	08c0006f          	j	80000a74 <_ZN9SerialOut7vprintfEPKcPv+0x840>
-800009ec:	004b0a93          	addi	s5,s6,4
-800009f0:	000b2683          	lw	a3,0(s6)
-800009f4:	01f10793          	addi	a5,sp,31
-800009f8:	00010613          	mv	a2,sp
-800009fc:	0016f713          	andi	a4,a3,1
-80000a00:	03070713          	addi	a4,a4,48
-80000a04:	00e78023          	sb	a4,0(a5)
-80000a08:	0016d693          	srli	a3,a3,0x1
-80000a0c:	00078713          	mv	a4,a5
-80000a10:	fff78793          	addi	a5,a5,-1
-80000a14:	fec714e3          	bne	a4,a2,800009fc <_ZN9SerialOut7vprintfEPKcPv+0x7c8>
-80000a18:	02000593          	li	a1,32
-80000a1c:	00010513          	mv	a0,sp
-80000a20:	ee8ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
-80000a24:	00000513          	li	a0,0
-80000a28:	ebcff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-80000a2c:	000a8b13          	mv	s6,s5
-80000a30:	00048a93          	mv	s5,s1
-80000a34:	0400006f          	j	80000a74 <_ZN9SerialOut7vprintfEPKcPv+0x840>
-80000a38:	800017b7          	lui	a5,0x80001
-80000a3c:	b9878693          	addi	a3,a5,-1128 # 80000b98 <prng+0x74>
-80000a40:	b9878793          	addi	a5,a5,-1128
-80000a44:	00078593          	mv	a1,a5
-80000a48:	00178793          	addi	a5,a5,1
-80000a4c:	0007c703          	lbu	a4,0(a5)
-80000a50:	fe071ae3          	bnez	a4,80000a44 <_ZN9SerialOut7vprintfEPKcPv+0x810>
-80000a54:	40d585b3          	sub	a1,a1,a3
-80000a58:	00158593          	addi	a1,a1,1
-80000a5c:	80001537          	lui	a0,0x80001
-80000a60:	b9850513          	addi	a0,a0,-1128 # 80000b98 <prng+0x74>
-80000a64:	ea4ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
-80000a68:	00048a93          	mv	s5,s1
-80000a6c:	0080006f          	j	80000a74 <_ZN9SerialOut7vprintfEPKcPv+0x840>
-80000a70:	e74ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-80000a74:	001a8a93          	addi	s5,s5,1
-80000a78:	015407b3          	add	a5,s0,s5
-80000a7c:	0007c503          	lbu	a0,0(a5)
-80000a80:	02050a63          	beqz	a0,80000ab4 <_ZN9SerialOut7vprintfEPKcPv+0x880>
-80000a84:	ff2516e3          	bne	a0,s2,80000a70 <_ZN9SerialOut7vprintfEPKcPv+0x83c>
-80000a88:	001a8493          	addi	s1,s5,1
-80000a8c:	009407b3          	add	a5,s0,s1
-80000a90:	0007c783          	lbu	a5,0(a5)
-80000a94:	f9e78793          	addi	a5,a5,-98
-80000a98:	0ff7f713          	zext.b	a4,a5
-80000a9c:	f8e9eee3          	bltu	s3,a4,80000a38 <_ZN9SerialOut7vprintfEPKcPv+0x804>
-80000aa0:	00070793          	mv	a5,a4
-80000aa4:	bc4a0713          	addi	a4,s4,-1084 # 80000bc4 <prng+0xa0>
-80000aa8:	20e7c7b3          	sh2add	a5,a5,a4
-80000aac:	0007a783          	lw	a5,0(a5)
-80000ab0:	00078067          	jr	a5
-80000ab4:	06412483          	lw	s1,100(sp)
-80000ab8:	06012903          	lw	s2,96(sp)
-80000abc:	05c12983          	lw	s3,92(sp)
-80000ac0:	05812a03          	lw	s4,88(sp)
-80000ac4:	05412a83          	lw	s5,84(sp)
-80000ac8:	05012b03          	lw	s6,80(sp)
-80000acc:	04c12b83          	lw	s7,76(sp)
-80000ad0:	06c12083          	lw	ra,108(sp)
-80000ad4:	06812403          	lw	s0,104(sp)
-80000ad8:	07010113          	addi	sp,sp,112
-80000adc:	00008067          	ret
+80000508:	000b8b13          	mv	s6,s7
+8000050c:	00048a93          	mv	s5,s1
+80000510:	6a00006f          	j	80000bb0 <_ZN9SerialOut7vprintfEPKcPv+0x81c>
+80000514:	015037b3          	snez	a5,s5
+80000518:	41600b33          	neg	s6,s6
+8000051c:	40fb0b33          	sub	s6,s6,a5
+80000520:	41500ab3          	neg	s5,s5
+80000524:	02d00513          	li	a0,45
+80000528:	bbdff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+8000052c:	ec5ff06f          	j	800003f0 <_ZN9SerialOut7vprintfEPKcPv+0x5c>
+80000530:	007b0793          	addi	a5,s6,7
+80000534:	ff87f793          	andi	a5,a5,-8
+80000538:	00878b13          	addi	s6,a5,8
+8000053c:	0007a703          	lw	a4,0(a5)
+80000540:	0047a783          	lw	a5,4(a5)
+80000544:	00070a93          	mv	s5,a4
+80000548:	00078b93          	mv	s7,a5
+8000054c:	1207c263          	bltz	a5,80000670 <_ZN9SerialOut7vprintfEPKcPv+0x2dc>
+80000550:	00000593          	li	a1,0
+80000554:	ccccd6b7          	lui	a3,0xccccd
+80000558:	ccd68693          	addi	a3,a3,-819 # cccccccd <_ZN9SerialOut6statusE+0x4cccbee1>
+8000055c:	ccccd637          	lui	a2,0xccccd
+80000560:	ccc60613          	addi	a2,a2,-820 # cccccccc <_ZN9SerialOut6statusE+0x4cccbee0>
+80000564:	00010513          	mv	a0,sp
+80000568:	017a87b3          	add	a5,s5,s7
+8000056c:	0157b733          	sltu	a4,a5,s5
+80000570:	00e787b3          	add	a5,a5,a4
+80000574:	02d7b733          	mulhu	a4,a5,a3
+80000578:	00275813          	srli	a6,a4,0x2
+8000057c:	ffc77713          	andi	a4,a4,-4
+80000580:	01070733          	add	a4,a4,a6
+80000584:	40e787b3          	sub	a5,a5,a4
+80000588:	40fa87b3          	sub	a5,s5,a5
+8000058c:	02d787b3          	mul	a5,a5,a3
+80000590:	0017d793          	srli	a5,a5,0x1
+80000594:	20f7c7b3          	sh2add	a5,a5,a5
+80000598:	00179793          	slli	a5,a5,0x1
+8000059c:	40fa87b3          	sub	a5,s5,a5
+800005a0:	03078793          	addi	a5,a5,48
+800005a4:	000a8313          	mv	t1,s5
+800005a8:	000b8893          	mv	a7,s7
+800005ac:	017a8733          	add	a4,s5,s7
+800005b0:	01573833          	sltu	a6,a4,s5
+800005b4:	01070733          	add	a4,a4,a6
+800005b8:	02d73833          	mulhu	a6,a4,a3
+800005bc:	00285e13          	srli	t3,a6,0x2
+800005c0:	ffc87813          	andi	a6,a6,-4
+800005c4:	01c80833          	add	a6,a6,t3
+800005c8:	41070733          	sub	a4,a4,a6
+800005cc:	40ea8733          	sub	a4,s5,a4
+800005d0:	00eab833          	sltu	a6,s5,a4
+800005d4:	410b8833          	sub	a6,s7,a6
+800005d8:	02d80833          	mul	a6,a6,a3
+800005dc:	02c70e33          	mul	t3,a4,a2
+800005e0:	01c80833          	add	a6,a6,t3
+800005e4:	02d70e33          	mul	t3,a4,a3
+800005e8:	02d73733          	mulhu	a4,a4,a3
+800005ec:	00e80733          	add	a4,a6,a4
+800005f0:	01f71a93          	slli	s5,a4,0x1f
+800005f4:	001e5813          	srli	a6,t3,0x1
+800005f8:	010aeab3          	or	s5,s5,a6
+800005fc:	00175b93          	srli	s7,a4,0x1
+80000600:	00058813          	mv	a6,a1
+80000604:	00158593          	addi	a1,a1,1
+80000608:	00b50733          	add	a4,a0,a1
+8000060c:	fef70fa3          	sb	a5,-1(a4)
+80000610:	f4089ce3          	bnez	a7,80000568 <_ZN9SerialOut7vprintfEPKcPv+0x1d4>
+80000614:	00089663          	bnez	a7,80000620 <_ZN9SerialOut7vprintfEPKcPv+0x28c>
+80000618:	00900793          	li	a5,9
+8000061c:	f467e6e3          	bltu	a5,t1,80000568 <_ZN9SerialOut7vprintfEPKcPv+0x1d4>
+80000620:	0015d893          	srli	a7,a1,0x1
+80000624:	00100793          	li	a5,1
+80000628:	02b7f863          	bgeu	a5,a1,80000658 <_ZN9SerialOut7vprintfEPKcPv+0x2c4>
+8000062c:	010107b3          	add	a5,sp,a6
+80000630:	00010713          	mv	a4,sp
+80000634:	00078513          	mv	a0,a5
+80000638:	0007c683          	lbu	a3,0(a5)
+8000063c:	00074603          	lbu	a2,0(a4)
+80000640:	00c78023          	sb	a2,0(a5)
+80000644:	00d70023          	sb	a3,0(a4)
+80000648:	fff78793          	addi	a5,a5,-1
+8000064c:	00170713          	addi	a4,a4,1
+80000650:	40f506b3          	sub	a3,a0,a5
+80000654:	ff16e2e3          	bltu	a3,a7,80000638 <_ZN9SerialOut7vprintfEPKcPv+0x2a4>
+80000658:	00010513          	mv	a0,sp
+8000065c:	aadff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
+80000660:	00000513          	li	a0,0
+80000664:	a81ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+80000668:	00048a93          	mv	s5,s1
+8000066c:	5440006f          	j	80000bb0 <_ZN9SerialOut7vprintfEPKcPv+0x81c>
+80000670:	00e03bb3          	snez	s7,a4
+80000674:	40f007b3          	neg	a5,a5
+80000678:	40e00ab3          	neg	s5,a4
+8000067c:	41778bb3          	sub	s7,a5,s7
+80000680:	02d00513          	li	a0,45
+80000684:	a61ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+80000688:	ec9ff06f          	j	80000550 <_ZN9SerialOut7vprintfEPKcPv+0x1bc>
+8000068c:	004b0a93          	addi	s5,s6,4
+80000690:	000b2683          	lw	a3,0(s6)
+80000694:	00000893          	li	a7,0
+80000698:	00000593          	li	a1,0
+8000069c:	ccccd637          	lui	a2,0xccccd
+800006a0:	ccd60613          	addi	a2,a2,-819 # cccccccd <_ZN9SerialOut6statusE+0x4cccbee1>
+800006a4:	ccccd537          	lui	a0,0xccccd
+800006a8:	ccc50513          	addi	a0,a0,-820 # cccccccc <_ZN9SerialOut6statusE+0x4cccbee0>
+800006ac:	00010813          	mv	a6,sp
+800006b0:	011687b3          	add	a5,a3,a7
+800006b4:	00d7b733          	sltu	a4,a5,a3
+800006b8:	00e787b3          	add	a5,a5,a4
+800006bc:	02c7b733          	mulhu	a4,a5,a2
+800006c0:	00275313          	srli	t1,a4,0x2
+800006c4:	ffc77713          	andi	a4,a4,-4
+800006c8:	00670733          	add	a4,a4,t1
+800006cc:	40e787b3          	sub	a5,a5,a4
+800006d0:	40f687b3          	sub	a5,a3,a5
+800006d4:	02c787b3          	mul	a5,a5,a2
+800006d8:	0017d793          	srli	a5,a5,0x1
+800006dc:	20f7c7b3          	sh2add	a5,a5,a5
+800006e0:	00179793          	slli	a5,a5,0x1
+800006e4:	40f687b3          	sub	a5,a3,a5
+800006e8:	03078793          	addi	a5,a5,48
+800006ec:	00068e93          	mv	t4,a3
+800006f0:	00088e13          	mv	t3,a7
+800006f4:	01168733          	add	a4,a3,a7
+800006f8:	00d73333          	sltu	t1,a4,a3
+800006fc:	00670733          	add	a4,a4,t1
+80000700:	02c73333          	mulhu	t1,a4,a2
+80000704:	00235f13          	srli	t5,t1,0x2
+80000708:	ffc37313          	andi	t1,t1,-4
+8000070c:	01e30333          	add	t1,t1,t5
+80000710:	40670733          	sub	a4,a4,t1
+80000714:	40e68733          	sub	a4,a3,a4
+80000718:	00e6b6b3          	sltu	a3,a3,a4
+8000071c:	40d886b3          	sub	a3,a7,a3
+80000720:	02c686b3          	mul	a3,a3,a2
+80000724:	02a708b3          	mul	a7,a4,a0
+80000728:	011686b3          	add	a3,a3,a7
+8000072c:	02c708b3          	mul	a7,a4,a2
+80000730:	02c73733          	mulhu	a4,a4,a2
+80000734:	00e68733          	add	a4,a3,a4
+80000738:	01f71693          	slli	a3,a4,0x1f
+8000073c:	0018d893          	srli	a7,a7,0x1
+80000740:	0116e6b3          	or	a3,a3,a7
+80000744:	00175893          	srli	a7,a4,0x1
+80000748:	00058313          	mv	t1,a1
+8000074c:	00158593          	addi	a1,a1,1
+80000750:	00b80733          	add	a4,a6,a1
+80000754:	fef70fa3          	sb	a5,-1(a4)
+80000758:	f40e1ce3          	bnez	t3,800006b0 <_ZN9SerialOut7vprintfEPKcPv+0x31c>
+8000075c:	000e1663          	bnez	t3,80000768 <_ZN9SerialOut7vprintfEPKcPv+0x3d4>
+80000760:	00900793          	li	a5,9
+80000764:	f5d7e6e3          	bltu	a5,t4,800006b0 <_ZN9SerialOut7vprintfEPKcPv+0x31c>
+80000768:	0015d813          	srli	a6,a1,0x1
+8000076c:	00100793          	li	a5,1
+80000770:	02b7f863          	bgeu	a5,a1,800007a0 <_ZN9SerialOut7vprintfEPKcPv+0x40c>
+80000774:	006107b3          	add	a5,sp,t1
+80000778:	00010713          	mv	a4,sp
+8000077c:	00078513          	mv	a0,a5
+80000780:	0007c683          	lbu	a3,0(a5)
+80000784:	00074603          	lbu	a2,0(a4)
+80000788:	00c78023          	sb	a2,0(a5)
+8000078c:	00d70023          	sb	a3,0(a4)
+80000790:	fff78793          	addi	a5,a5,-1
+80000794:	00170713          	addi	a4,a4,1
+80000798:	40f506b3          	sub	a3,a0,a5
+8000079c:	ff06e2e3          	bltu	a3,a6,80000780 <_ZN9SerialOut7vprintfEPKcPv+0x3ec>
+800007a0:	00010513          	mv	a0,sp
+800007a4:	965ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
+800007a8:	00000513          	li	a0,0
+800007ac:	939ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+800007b0:	000a8b13          	mv	s6,s5
+800007b4:	00048a93          	mv	s5,s1
+800007b8:	3f80006f          	j	80000bb0 <_ZN9SerialOut7vprintfEPKcPv+0x81c>
+800007bc:	002a8a93          	addi	s5,s5,2
+800007c0:	015407b3          	add	a5,s0,s5
+800007c4:	0007c783          	lbu	a5,0(a5)
+800007c8:	06400713          	li	a4,100
+800007cc:	10e78a63          	beq	a5,a4,800008e0 <_ZN9SerialOut7vprintfEPKcPv+0x54c>
+800007d0:	06800713          	li	a4,104
+800007d4:	06e78063          	beq	a5,a4,80000834 <_ZN9SerialOut7vprintfEPKcPv+0x4a0>
+800007d8:	06200713          	li	a4,98
+800007dc:	1ae79e63          	bne	a5,a4,80000998 <_ZN9SerialOut7vprintfEPKcPv+0x604>
+800007e0:	004b0493          	addi	s1,s6,4
+800007e4:	000b4783          	lbu	a5,0(s6)
+800007e8:	0047d713          	srli	a4,a5,0x4
+800007ec:	00f7f793          	andi	a5,a5,15
+800007f0:	00900613          	li	a2,9
+800007f4:	03078693          	addi	a3,a5,48
+800007f8:	00f67463          	bgeu	a2,a5,80000800 <_ZN9SerialOut7vprintfEPKcPv+0x46c>
+800007fc:	03778693          	addi	a3,a5,55
+80000800:	00900613          	li	a2,9
+80000804:	03770793          	addi	a5,a4,55
+80000808:	00e66463          	bltu	a2,a4,80000810 <_ZN9SerialOut7vprintfEPKcPv+0x47c>
+8000080c:	03070793          	addi	a5,a4,48
+80000810:	00d100a3          	sb	a3,1(sp)
+80000814:	00f10023          	sb	a5,0(sp)
+80000818:	00200593          	li	a1,2
+8000081c:	00010513          	mv	a0,sp
+80000820:	8e9ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
+80000824:	00000513          	li	a0,0
+80000828:	8bdff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+8000082c:	00048b13          	mv	s6,s1
+80000830:	3800006f          	j	80000bb0 <_ZN9SerialOut7vprintfEPKcPv+0x81c>
+80000834:	004b0493          	addi	s1,s6,4
+80000838:	000b2703          	lw	a4,0(s6)
+8000083c:	01071793          	slli	a5,a4,0x10
+80000840:	0107d793          	srli	a5,a5,0x10
+80000844:	0047d693          	srli	a3,a5,0x4
+80000848:	00f6f693          	andi	a3,a3,15
+8000084c:	00f77713          	andi	a4,a4,15
+80000850:	00900593          	li	a1,9
+80000854:	03070613          	addi	a2,a4,48
+80000858:	00e5f463          	bgeu	a1,a4,80000860 <_ZN9SerialOut7vprintfEPKcPv+0x4cc>
+8000085c:	03770613          	addi	a2,a4,55
+80000860:	00c10023          	sb	a2,0(sp)
+80000864:	00900613          	li	a2,9
+80000868:	03768713          	addi	a4,a3,55
+8000086c:	00d66463          	bltu	a2,a3,80000874 <_ZN9SerialOut7vprintfEPKcPv+0x4e0>
+80000870:	03068713          	addi	a4,a3,48
+80000874:	00e100a3          	sb	a4,1(sp)
+80000878:	00c7d713          	srli	a4,a5,0xc
+8000087c:	0087d793          	srli	a5,a5,0x8
+80000880:	00f7f793          	andi	a5,a5,15
+80000884:	00900613          	li	a2,9
+80000888:	03078693          	addi	a3,a5,48
+8000088c:	00f67463          	bgeu	a2,a5,80000894 <_ZN9SerialOut7vprintfEPKcPv+0x500>
+80000890:	03778693          	addi	a3,a5,55
+80000894:	00d10123          	sb	a3,2(sp)
+80000898:	00900693          	li	a3,9
+8000089c:	03770793          	addi	a5,a4,55
+800008a0:	00e6e463          	bltu	a3,a4,800008a8 <_ZN9SerialOut7vprintfEPKcPv+0x514>
+800008a4:	03070793          	addi	a5,a4,48
+800008a8:	00014703          	lbu	a4,0(sp)
+800008ac:	00e101a3          	sb	a4,3(sp)
+800008b0:	00f10023          	sb	a5,0(sp)
+800008b4:	00214783          	lbu	a5,2(sp)
+800008b8:	00114703          	lbu	a4,1(sp)
+800008bc:	00e10123          	sb	a4,2(sp)
+800008c0:	00f100a3          	sb	a5,1(sp)
+800008c4:	00400593          	li	a1,4
+800008c8:	00010513          	mv	a0,sp
+800008cc:	83dff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
+800008d0:	00000513          	li	a0,0
+800008d4:	811ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+800008d8:	00048b13          	mv	s6,s1
+800008dc:	2d40006f          	j	80000bb0 <_ZN9SerialOut7vprintfEPKcPv+0x81c>
+800008e0:	007b0793          	addi	a5,s6,7
+800008e4:	ff87f793          	andi	a5,a5,-8
+800008e8:	00878b13          	addi	s6,a5,8
+800008ec:	0007a703          	lw	a4,0(a5)
+800008f0:	0047a503          	lw	a0,4(a5)
+800008f4:	00010593          	mv	a1,sp
+800008f8:	01010893          	addi	a7,sp,16
+800008fc:	00010693          	mv	a3,sp
+80000900:	00900813          	li	a6,9
+80000904:	0300006f          	j	80000934 <_ZN9SerialOut7vprintfEPKcPv+0x5a0>
+80000908:	03060613          	addi	a2,a2,48
+8000090c:	00c68023          	sb	a2,0(a3)
+80000910:	03c0006f          	j	8000094c <_ZN9SerialOut7vprintfEPKcPv+0x5b8>
+80000914:	03778793          	addi	a5,a5,55
+80000918:	00f680a3          	sb	a5,1(a3)
+8000091c:	01851793          	slli	a5,a0,0x18
+80000920:	00875713          	srli	a4,a4,0x8
+80000924:	00e7e733          	or	a4,a5,a4
+80000928:	00855513          	srli	a0,a0,0x8
+8000092c:	00268693          	addi	a3,a3,2
+80000930:	03168663          	beq	a3,a7,8000095c <_ZN9SerialOut7vprintfEPKcPv+0x5c8>
+80000934:	00475793          	srli	a5,a4,0x4
+80000938:	00f7f793          	andi	a5,a5,15
+8000093c:	00f77613          	andi	a2,a4,15
+80000940:	fcc874e3          	bgeu	a6,a2,80000908 <_ZN9SerialOut7vprintfEPKcPv+0x574>
+80000944:	03760613          	addi	a2,a2,55
+80000948:	00c68023          	sb	a2,0(a3)
+8000094c:	fcf864e3          	bltu	a6,a5,80000914 <_ZN9SerialOut7vprintfEPKcPv+0x580>
+80000950:	03078793          	addi	a5,a5,48
+80000954:	00f680a3          	sb	a5,1(a3)
+80000958:	fc5ff06f          	j	8000091c <_ZN9SerialOut7vprintfEPKcPv+0x588>
+8000095c:	00858613          	addi	a2,a1,8
+80000960:	00058793          	mv	a5,a1
+80000964:	00f5c703          	lbu	a4,15(a1)
+80000968:	0007c683          	lbu	a3,0(a5)
+8000096c:	00d587a3          	sb	a3,15(a1)
+80000970:	00e78023          	sb	a4,0(a5)
+80000974:	fff58593          	addi	a1,a1,-1
+80000978:	00178793          	addi	a5,a5,1
+8000097c:	fec794e3          	bne	a5,a2,80000964 <_ZN9SerialOut7vprintfEPKcPv+0x5d0>
+80000980:	01000593          	li	a1,16
+80000984:	00010513          	mv	a0,sp
+80000988:	f80ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
+8000098c:	00000513          	li	a0,0
+80000990:	f54ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+80000994:	21c0006f          	j	80000bb0 <_ZN9SerialOut7vprintfEPKcPv+0x81c>
+80000998:	004b0a93          	addi	s5,s6,4
+8000099c:	000b2583          	lw	a1,0(s6)
+800009a0:	00010693          	mv	a3,sp
+800009a4:	00810813          	addi	a6,sp,8
+800009a8:	00010713          	mv	a4,sp
+800009ac:	00900513          	li	a0,9
+800009b0:	0240006f          	j	800009d4 <_ZN9SerialOut7vprintfEPKcPv+0x640>
+800009b4:	03060613          	addi	a2,a2,48
+800009b8:	00c70023          	sb	a2,0(a4)
+800009bc:	0300006f          	j	800009ec <_ZN9SerialOut7vprintfEPKcPv+0x658>
+800009c0:	03778793          	addi	a5,a5,55
+800009c4:	00f700a3          	sb	a5,1(a4)
+800009c8:	0085d593          	srli	a1,a1,0x8
+800009cc:	00270713          	addi	a4,a4,2
+800009d0:	02e80663          	beq	a6,a4,800009fc <_ZN9SerialOut7vprintfEPKcPv+0x668>
+800009d4:	0045d793          	srli	a5,a1,0x4
+800009d8:	00f7f793          	andi	a5,a5,15
+800009dc:	00f5f613          	andi	a2,a1,15
+800009e0:	fcc57ae3          	bgeu	a0,a2,800009b4 <_ZN9SerialOut7vprintfEPKcPv+0x620>
+800009e4:	03760613          	addi	a2,a2,55
+800009e8:	00c70023          	sb	a2,0(a4)
+800009ec:	fcf56ae3          	bltu	a0,a5,800009c0 <_ZN9SerialOut7vprintfEPKcPv+0x62c>
+800009f0:	03078793          	addi	a5,a5,48
+800009f4:	00f700a3          	sb	a5,1(a4)
+800009f8:	fd1ff06f          	j	800009c8 <_ZN9SerialOut7vprintfEPKcPv+0x634>
+800009fc:	00468593          	addi	a1,a3,4
+80000a00:	00068793          	mv	a5,a3
+80000a04:	0076c703          	lbu	a4,7(a3)
+80000a08:	0007c603          	lbu	a2,0(a5)
+80000a0c:	00c683a3          	sb	a2,7(a3)
+80000a10:	00e78023          	sb	a4,0(a5)
+80000a14:	fff68693          	addi	a3,a3,-1
+80000a18:	00178793          	addi	a5,a5,1
+80000a1c:	fef594e3          	bne	a1,a5,80000a04 <_ZN9SerialOut7vprintfEPKcPv+0x670>
+80000a20:	00800593          	li	a1,8
+80000a24:	00010513          	mv	a0,sp
+80000a28:	ee0ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
+80000a2c:	00000513          	li	a0,0
+80000a30:	eb4ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+80000a34:	000a8b13          	mv	s6,s5
+80000a38:	00048a93          	mv	s5,s1
+80000a3c:	1740006f          	j	80000bb0 <_ZN9SerialOut7vprintfEPKcPv+0x81c>
+80000a40:	002a8a93          	addi	s5,s5,2
+80000a44:	015407b3          	add	a5,s0,s5
+80000a48:	0007c783          	lbu	a5,0(a5)
+80000a4c:	06400713          	li	a4,100
+80000a50:	0ae78063          	beq	a5,a4,80000af0 <_ZN9SerialOut7vprintfEPKcPv+0x75c>
+80000a54:	06800713          	li	a4,104
+80000a58:	04e78863          	beq	a5,a4,80000aa8 <_ZN9SerialOut7vprintfEPKcPv+0x714>
+80000a5c:	06200713          	li	a4,98
+80000a60:	0ee79663          	bne	a5,a4,80000b4c <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
+80000a64:	004b0493          	addi	s1,s6,4
+80000a68:	000b4683          	lbu	a3,0(s6)
+80000a6c:	00010793          	mv	a5,sp
+80000a70:	ff810613          	addi	a2,sp,-8
+80000a74:	0016f713          	andi	a4,a3,1
+80000a78:	03070713          	addi	a4,a4,48
+80000a7c:	00e783a3          	sb	a4,7(a5)
+80000a80:	0016d693          	srli	a3,a3,0x1
+80000a84:	fff78793          	addi	a5,a5,-1
+80000a88:	fec796e3          	bne	a5,a2,80000a74 <_ZN9SerialOut7vprintfEPKcPv+0x6e0>
+80000a8c:	00800593          	li	a1,8
+80000a90:	00010513          	mv	a0,sp
+80000a94:	e74ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
+80000a98:	00000513          	li	a0,0
+80000a9c:	e48ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+80000aa0:	00048b13          	mv	s6,s1
+80000aa4:	10c0006f          	j	80000bb0 <_ZN9SerialOut7vprintfEPKcPv+0x81c>
+80000aa8:	004b0493          	addi	s1,s6,4
+80000aac:	000b4683          	lbu	a3,0(s6)
+80000ab0:	00f10793          	addi	a5,sp,15
+80000ab4:	00010613          	mv	a2,sp
+80000ab8:	0016f713          	andi	a4,a3,1
+80000abc:	03070713          	addi	a4,a4,48
+80000ac0:	00e78023          	sb	a4,0(a5)
+80000ac4:	0016d693          	srli	a3,a3,0x1
+80000ac8:	00078713          	mv	a4,a5
+80000acc:	fff78793          	addi	a5,a5,-1
+80000ad0:	fee614e3          	bne	a2,a4,80000ab8 <_ZN9SerialOut7vprintfEPKcPv+0x724>
+80000ad4:	01000593          	li	a1,16
+80000ad8:	00010513          	mv	a0,sp
+80000adc:	e2cff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
+80000ae0:	00000513          	li	a0,0
+80000ae4:	e00ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+80000ae8:	00048b13          	mv	s6,s1
+80000aec:	0c40006f          	j	80000bb0 <_ZN9SerialOut7vprintfEPKcPv+0x81c>
+80000af0:	007b0713          	addi	a4,s6,7
+80000af4:	ff877713          	andi	a4,a4,-8
+80000af8:	00870b13          	addi	s6,a4,8
+80000afc:	00072783          	lw	a5,0(a4)
+80000b00:	00472603          	lw	a2,4(a4)
+80000b04:	03f10713          	addi	a4,sp,63
+80000b08:	00010593          	mv	a1,sp
+80000b0c:	0017f693          	andi	a3,a5,1
+80000b10:	03068693          	addi	a3,a3,48
+80000b14:	00d70023          	sb	a3,0(a4)
+80000b18:	01f61693          	slli	a3,a2,0x1f
+80000b1c:	0017d793          	srli	a5,a5,0x1
+80000b20:	00f6e7b3          	or	a5,a3,a5
+80000b24:	00165613          	srli	a2,a2,0x1
+80000b28:	00070693          	mv	a3,a4
+80000b2c:	fff70713          	addi	a4,a4,-1
+80000b30:	fcd59ee3          	bne	a1,a3,80000b0c <_ZN9SerialOut7vprintfEPKcPv+0x778>
+80000b34:	04000593          	li	a1,64
+80000b38:	00010513          	mv	a0,sp
+80000b3c:	dccff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
+80000b40:	00000513          	li	a0,0
+80000b44:	da0ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+80000b48:	0680006f          	j	80000bb0 <_ZN9SerialOut7vprintfEPKcPv+0x81c>
+80000b4c:	004b0a93          	addi	s5,s6,4
+80000b50:	000b2683          	lw	a3,0(s6)
+80000b54:	01f10793          	addi	a5,sp,31
+80000b58:	00010613          	mv	a2,sp
+80000b5c:	0016f713          	andi	a4,a3,1
+80000b60:	03070713          	addi	a4,a4,48
+80000b64:	00e78023          	sb	a4,0(a5)
+80000b68:	0016d693          	srli	a3,a3,0x1
+80000b6c:	00078713          	mv	a4,a5
+80000b70:	fff78793          	addi	a5,a5,-1
+80000b74:	fee614e3          	bne	a2,a4,80000b5c <_ZN9SerialOut7vprintfEPKcPv+0x7c8>
+80000b78:	02000593          	li	a1,32
+80000b7c:	00010513          	mv	a0,sp
+80000b80:	d88ff0ef          	jal	80000108 <_ZN9SerialOut5writeEPKcm>
+80000b84:	00000513          	li	a0,0
+80000b88:	d5cff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+80000b8c:	000a8b13          	mv	s6,s5
+80000b90:	00048a93          	mv	s5,s1
+80000b94:	01c0006f          	j	80000bb0 <_ZN9SerialOut7vprintfEPKcPv+0x81c>
+80000b98:	80001537          	lui	a0,0x80001
+80000b9c:	d4850513          	addi	a0,a0,-696 # 80000d48 <prng+0xe8>
+80000ba0:	da4ff0ef          	jal	80000144 <_ZN9SerialOut5writeEPKc>
+80000ba4:	00048a93          	mv	s5,s1
+80000ba8:	0080006f          	j	80000bb0 <_ZN9SerialOut7vprintfEPKcPv+0x81c>
+80000bac:	d38ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+80000bb0:	001a8a93          	addi	s5,s5,1
+80000bb4:	015407b3          	add	a5,s0,s5
+80000bb8:	0007c503          	lbu	a0,0(a5)
+80000bbc:	02050a63          	beqz	a0,80000bf0 <_ZN9SerialOut7vprintfEPKcPv+0x85c>
+80000bc0:	ff2516e3          	bne	a0,s2,80000bac <_ZN9SerialOut7vprintfEPKcPv+0x818>
+80000bc4:	001a8493          	addi	s1,s5,1
+80000bc8:	009407b3          	add	a5,s0,s1
+80000bcc:	0007c783          	lbu	a5,0(a5)
+80000bd0:	f9e78793          	addi	a5,a5,-98
+80000bd4:	0ff7f713          	zext.b	a4,a5
+80000bd8:	fce9e0e3          	bltu	s3,a4,80000b98 <_ZN9SerialOut7vprintfEPKcPv+0x804>
+80000bdc:	00070793          	mv	a5,a4
+80000be0:	d84a0713          	addi	a4,s4,-636 # 80000d84 <prng+0x124>
+80000be4:	20e7c7b3          	sh2add	a5,a5,a4
+80000be8:	0007a783          	lw	a5,0(a5)
+80000bec:	00078067          	jr	a5
+80000bf0:	06412483          	lw	s1,100(sp)
+80000bf4:	06012903          	lw	s2,96(sp)
+80000bf8:	05c12983          	lw	s3,92(sp)
+80000bfc:	05812a03          	lw	s4,88(sp)
+80000c00:	05412a83          	lw	s5,84(sp)
+80000c04:	05012b03          	lw	s6,80(sp)
+80000c08:	04c12b83          	lw	s7,76(sp)
+80000c0c:	06c12083          	lw	ra,108(sp)
+80000c10:	06812403          	lw	s0,104(sp)
+80000c14:	07010113          	addi	sp,sp,112
+80000c18:	00008067          	ret
 
-80000ae0 <_ZN9SerialOut6printfEPKcz>:
-80000ae0:	fc010113          	addi	sp,sp,-64
-80000ae4:	00112e23          	sw	ra,28(sp)
-80000ae8:	02b12223          	sw	a1,36(sp)
-80000aec:	02c12423          	sw	a2,40(sp)
-80000af0:	02d12623          	sw	a3,44(sp)
-80000af4:	02e12823          	sw	a4,48(sp)
-80000af8:	02f12a23          	sw	a5,52(sp)
-80000afc:	03012c23          	sw	a6,56(sp)
-80000b00:	03112e23          	sw	a7,60(sp)
-80000b04:	02410593          	addi	a1,sp,36
-80000b08:	00b12623          	sw	a1,12(sp)
-80000b0c:	f28ff0ef          	jal	80000234 <_ZN9SerialOut7vprintfEPKcPv>
-80000b10:	00000513          	li	a0,0
-80000b14:	dd0ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
-80000b18:	01c12083          	lw	ra,28(sp)
-80000b1c:	04010113          	addi	sp,sp,64
-80000b20:	00008067          	ret
+80000c1c <_ZN9SerialOut6printfEPKcz>:
+80000c1c:	fc010113          	addi	sp,sp,-64
+80000c20:	00112e23          	sw	ra,28(sp)
+80000c24:	02b12223          	sw	a1,36(sp)
+80000c28:	02c12423          	sw	a2,40(sp)
+80000c2c:	02d12623          	sw	a3,44(sp)
+80000c30:	02e12823          	sw	a4,48(sp)
+80000c34:	02f12a23          	sw	a5,52(sp)
+80000c38:	03012c23          	sw	a6,56(sp)
+80000c3c:	03112e23          	sw	a7,60(sp)
+80000c40:	02410593          	addi	a1,sp,36
+80000c44:	00b12623          	sw	a1,12(sp)
+80000c48:	f4cff0ef          	jal	80000394 <_ZN9SerialOut7vprintfEPKcPv>
+80000c4c:	00000513          	li	a0,0
+80000c50:	c94ff0ef          	jal	800000e4 <_ZN9SerialOut5writeEc>
+80000c54:	01c12083          	lw	ra,28(sp)
+80000c58:	04010113          	addi	sp,sp,64
+80000c5c:	00008067          	ret
 
-80000b24 <prng>:
-80000b24:	0001c537          	lui	a0,0x1c
-80000b28:	fe010113          	addi	sp,sp,-32
-80000b2c:	00300713          	li	a4,3
-80000b30:	00000693          	li	a3,0
-80000b34:	00000613          	li	a2,0
-80000b38:	20050513          	addi	a0,a0,512 # 1c200 <copy_loop+0x1c1dc>
-80000b3c:	00100593          	li	a1,1
-80000b40:	00112e23          	sw	ra,28(sp)
-80000b44:	00812c23          	sw	s0,24(sp)
-80000b48:	cb8ff0ef          	jal	80000000 <_ZN9SerialOut4initEmbN4UART12parityMode_eENS0_10stopBits_eENS0_12dataLenght_eE>
-80000b4c:	800017b7          	lui	a5,0x80001
-80000b50:	c207a503          	lw	a0,-992(a5) # 80000c20 <prng+0xfc>
-80000b54:	c247a583          	lw	a1,-988(a5)
-80000b58:	80001437          	lui	s0,0x80001
-80000b5c:	de8ff0ef          	jal	80000144 <_ZN4PRNG4initEy>
-80000b60:	00010513          	mv	a0,sp
-80000b64:	00000593          	li	a1,0
-80000b68:	dfcff0ef          	jal	80000164 <_ZN5TimerC1Em>
-80000b6c:	00010513          	mv	a0,sp
-80000b70:	00100693          	li	a3,1
-80000b74:	fff00593          	li	a1,-1
-80000b78:	fff00613          	li	a2,-1
-80000b7c:	e64ff0ef          	jal	800001e0 <_ZN5Timer4initEyNS_11timerMode_eE>
-80000b80:	dd4ff0ef          	jal	80000154 <_ZN4PRNG6randomEv>
-80000b84:	00050613          	mv	a2,a0
-80000b88:	00058693          	mv	a3,a1
-80000b8c:	bac40513          	addi	a0,s0,-1108 # 80000bac <prng+0x88>
-80000b90:	f51ff0ef          	jal	80000ae0 <_ZN9SerialOut6printfEPKcz>
-80000b94:	fedff06f          	j	80000b80 <prng+0x5c>
+80000c60 <prng>:
+80000c60:	0001c537          	lui	a0,0x1c
+80000c64:	fc010113          	addi	sp,sp,-64
+80000c68:	00300713          	li	a4,3
+80000c6c:	00000693          	li	a3,0
+80000c70:	00000613          	li	a2,0
+80000c74:	20050513          	addi	a0,a0,512 # 1c200 <copy_loop+0x1c1dc>
+80000c78:	00100593          	li	a1,1
+80000c7c:	02112e23          	sw	ra,60(sp)
+80000c80:	02812c23          	sw	s0,56(sp)
+80000c84:	02912a23          	sw	s1,52(sp)
+80000c88:	03212823          	sw	s2,48(sp)
+80000c8c:	b74ff0ef          	jal	80000000 <_ZN9SerialOut4initEmbN4UART12parityMode_eENS0_10stopBits_eENS0_12dataLenght_eE>
+80000c90:	800017b7          	lui	a5,0x80001
+80000c94:	de07a503          	lw	a0,-544(a5) # 80000de0 <prng+0x180>
+80000c98:	de47a583          	lw	a1,-540(a5)
+80000c9c:	80001937          	lui	s2,0x80001
+80000ca0:	800014b7          	lui	s1,0x80001
+80000ca4:	cdcff0ef          	jal	80000180 <_ZN4PRNG4initEy>
+80000ca8:	01c10513          	addi	a0,sp,28
+80000cac:	00000593          	li	a1,0
+80000cb0:	e3cff0ef          	jal	800002ec <_ZN4GPIOC1Em>
+80000cb4:	00000713          	li	a4,0
+80000cb8:	00000693          	li	a3,0
+80000cbc:	00000613          	li	a2,0
+80000cc0:	00000593          	li	a1,0
+80000cc4:	01c10513          	addi	a0,sp,28
+80000cc8:	e64ff0ef          	jal	8000032c <_ZN4GPIO4initEhhhh>
+80000ccc:	00c10513          	addi	a0,sp,12
+80000cd0:	00000593          	li	a1,0
+80000cd4:	cccff0ef          	jal	800001a0 <_ZN5TimerC1Em>
+80000cd8:	00c10513          	addi	a0,sp,12
+80000cdc:	00100693          	li	a3,1
+80000ce0:	fff00593          	li	a1,-1
+80000ce4:	fff00613          	li	a2,-1
+80000ce8:	d34ff0ef          	jal	8000021c <_ZN5Timer4initEyNS_11timerMode_eE>
+80000cec:	80001437          	lui	s0,0x80001
+80000cf0:	ca0ff0ef          	jal	80000190 <_ZN4PRNG6randomEv>
+80000cf4:	00058693          	mv	a3,a1
+80000cf8:	00050613          	mv	a2,a0
+80000cfc:	d5c90513          	addi	a0,s2,-676 # 80000d5c <prng+0xfc>
+80000d00:	f1dff0ef          	jal	80000c1c <_ZN9SerialOut6printfEPKcz>
+80000d04:	01c10513          	addi	a0,sp,28
+80000d08:	00000593          	li	a1,0
+80000d0c:	e6cff0ef          	jal	80000378 <_ZN4GPIO11getPinValueEm>
+80000d10:	00154613          	xori	a2,a0,1
+80000d14:	0ff67613          	zext.b	a2,a2
+80000d18:	01c10513          	addi	a0,sp,28
+80000d1c:	00000593          	li	a1,0
+80000d20:	e38ff0ef          	jal	80000358 <_ZN4GPIO11setPinValueEmb>
+80000d24:	3e800593          	li	a1,1000
+80000d28:	00000613          	li	a2,0
+80000d2c:	00c10513          	addi	a0,sp,12
+80000d30:	d40ff0ef          	jal	80000270 <_ZN5Timer5delayEy>
+80000d34:	d7448513          	addi	a0,s1,-652 # 80000d74 <prng+0x114>
+80000d38:	c0cff0ef          	jal	80000144 <_ZN9SerialOut5writeEPKc>
+80000d3c:	d7c40513          	addi	a0,s0,-644 # 80000d7c <prng+0x11c>
+80000d40:	c04ff0ef          	jal	80000144 <_ZN9SerialOut5writeEPKc>
+80000d44:	fadff06f          	j	80000cf0 <prng+0x90>
