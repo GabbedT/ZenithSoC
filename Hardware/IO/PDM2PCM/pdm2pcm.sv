@@ -7,8 +7,7 @@
 
 module pdm2pcm #(
     /* Buffer sizes */
-    parameter LEFT_BUFFER_SIZE = 512,
-    parameter RIGHT_BUFFER_SIZE = 512
+    parameter BUFFER_SIZE = 512
 ) (
     /* Global signals */
     input logic clk_i,
@@ -25,12 +24,14 @@ module pdm2pcm #(
     input logic [2:0] write_address_i,
     input logic [3:0][7:0] write_data_i,
     input logic [3:0] write_strobe_i,
+    output logic write_done_o,
     output logic write_error_o,
 
     /* Read interface */
     input logic read_i,
     input logic [2:0] read_address_i,
     output logic [31:0] read_data_o,
+    output logic read_done_o,
     output logic read_error_o
 );
 
@@ -48,8 +49,7 @@ module pdm2pcm #(
     logic dual_channel, channel_selection;
 
     pdm2pcm_registers #(
-        .LEFT_BUFFER_SIZE  ( LEFT_BUFFER_SIZE  ),
-        .RIGHT_BUFFER_SIZE ( RIGHT_BUFFER_SIZE )
+        .BUFFER_SIZE  ( BUFFER_SIZE  )
     ) register_interface (
         .clk_i         ( clk_i        ),
         .rst_n_i       ( rst_n_i      ),
@@ -84,6 +84,27 @@ module pdm2pcm #(
         .read_data_o    ( read_data_o    ),
         .read_error_o   ( read_error_o   )
     );
+
+
+    assign write_done_o = write_i;
+
+
+    logic is_delayed;
+
+    assign is_delayed = (pdm2pcm_registers_t'(read_address_i) == PDM2PCM_SAMPLE_BUFFER);
+
+
+    logic read_done_delay; 
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                read_done_delay <= 1'b0; 
+            end else begin 
+                read_done_delay <= is_delayed & read_i;
+            end 
+        end 
+
+    assign read_done_o = is_delayed ? read_done_delay : read_i;
 
 
 //====================================================================================
