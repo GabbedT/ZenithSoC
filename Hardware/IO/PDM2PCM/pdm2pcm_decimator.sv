@@ -3,10 +3,10 @@
 
 module pdm2pcm_decimator #(
     /* Output width */
-    parameter WIDTH = 16,
+    parameter WIDTH = 32,
 
     /* Int - Comb stages */
-    parameter FILTER_ORDER = 2,
+    parameter FILTER_ORDER = 5,
 
     /* M delay */
     parameter COMB_DELAY = 1
@@ -15,7 +15,7 @@ module pdm2pcm_decimator #(
     input logic rst_n_i,
     
     input logic reset_filter_i,
-    input logic [7:0] decimator_factor_i,
+    input logic [6:0] decimator_factor_i,
 
     /* PDM input */
     input logic pdm_i,
@@ -32,7 +32,7 @@ module pdm2pcm_decimator #(
 //      DECIMATOR COUNTER
 //==========================================================
 
-    logic [7:0] decimator; logic valid_sample;
+    logic [6:0] decimator; logic valid_sample;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin
