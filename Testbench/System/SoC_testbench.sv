@@ -15,7 +15,7 @@
 `define MEMORY_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/memory_trace.txt"
 `define OUTPUT_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/output_trace.txt"
 
-`define SIM_TIME 1000000ns
+`define SIM_TIME 300000ns
 
 /* While RUN_CONDITION is true, simulation will continue */
 `define RUN_CONDITION ($time() < `SIM_TIME) & !`CPU.exception
@@ -59,6 +59,11 @@ module soc_testbench;
     logic       rmii_txen_o;
     logic       rmii_refclk_o;
     logic       rmii_rstn_o;
+    
+    /* PDM Interface */
+    logic pdm_data_i = 0;
+    logic pdm_clk_o;
+    logic pdm_lrsel_o;
 
     /* SMI interface */
     logic smi_mdc_o;
