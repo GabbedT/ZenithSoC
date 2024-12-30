@@ -7,23 +7,20 @@ package pdm2pcm_pkg;
     localparam RIGHT = 1;
     
     /* Event type during conversion operation */
-    typedef enum logic [6:0] {
-        PDM2PCM_LEFT_BUFFER_FULL     = 7'b0000001,
-        PDM2PCM_LEFT_THRESHOLD_HIGH  = 7'b0000010,
-        PDM2PCM_LEFT_THRESHOLD_LOW   = 7'b0000100,
-        PDM2PCM_RIGHT_BUFFER_FULL    = 7'b0001000,
-        PDM2PCM_RIGHT_THRESHOLD_HIGH = 7'b0010000,
-        PDM2PCM_RIGHT_THRESHOLD_LOW  = 7'b0100000,
-        PDM2PCM_ERROR                = 7'b1000000
+    typedef enum logic [5:0] {
+        PDM2PCM_BUFFER_FULL          = 6'b000001,
+        PDM2PCM_LEFT_THRESHOLD_HIGH  = 6'b000010,
+        PDM2PCM_LEFT_THRESHOLD_LOW   = 6'b000100,
+        PDM2PCM_RIGHT_THRESHOLD_HIGH = 6'b001000,
+        PDM2PCM_RIGHT_THRESHOLD_LOW  = 6'b010000,
+        PDM2PCM_ERROR                = 6'b100000
     } pdm2pcm_event_t;
 
     /* Status structure */
     typedef struct packed {
         /* FIFO Status */
-        logic buffer_left_empty;
-        logic buffer_left_full;
-        logic buffer_right_empty;
-        logic buffer_right_full;
+        logic buffer_empty;
+        logic buffer_full;
     } pdm2pcm_status_t;
 
     /* SPI Register offsets */
@@ -41,8 +38,7 @@ package pdm2pcm_pkg;
         PDM2PCM_DECIMATION_FACTOR,
 
         /* FIFO that holds the samples */
-        PDM2PCM_SAMPLE_BUFFER_L,
-        PDM2PCM_SAMPLE_BUFFER_R,
+        PDM2PCM_SAMPLE_BUFFER,
 
         /* FIFO that holds the samples */
         PDM2PCM_THRESHOLD,
@@ -57,8 +53,7 @@ package pdm2pcm_pkg;
         logic interface_enable;
 
         /* Enable writing into the sample buffer */
-        logic buffer_left_enable;
-        logic buffer_right_enable;
+        logic buffer_enable;
 
         /* Single or dual channel selection */
         logic dual_channel;
