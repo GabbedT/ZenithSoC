@@ -41,6 +41,15 @@ module store_controller (
 //      FSM LOGIC
 //====================================================================================
 
+    store_buffer_entry_t buffer_entry; 
+
+        always_ff @(posedge clk_i) begin
+            if (request_i) begin
+                buffer_entry <= buffer_entry_i;
+            end
+        end
+
+
     typedef enum logic [1:0] {IDLE, OUTCOME, WRITE_THROUGH, WAIT} fsm_states_t;
 
     fsm_states_t state_CRT, state_NXT;
@@ -117,15 +126,15 @@ module store_controller (
                     end
 
                     /* Select data to write */
-                    case (buffer_entry_i.store_width)
-                        BYTE: cache_byte_o = 1'b1 << buffer_entry_i.address[1:0]; 
+                    case (buffer_entry.store_width)
+                        BYTE: cache_byte_o = 1'b1 << buffer_entry.address[1:0]; 
 
-                        HALF_WORD: cache_byte_o = 2'b11 << {buffer_entry_i.address[1], 1'b0};
+                        HALF_WORD: cache_byte_o = 2'b11 << {buffer_entry.address[1], 1'b0};
 
                         WORD: cache_byte_o = '1;
                     endcase 
 
-                    cache_data_o = buffer_entry_i.data;
+                    cache_data_o = buffer_entry.data;
                 end
 
                 /* The FSM waits for memory to complete the *
@@ -152,11 +161,11 @@ module store_controller (
             endcase 
         end
 
-    assign store_channel.address = buffer_entry_i.address;
-    assign store_channel.width = buffer_entry_i.store_width;
+    assign store_channel.address = buffer_entry.address;
+    assign store_channel.width = buffer_entry.store_width;
     assign store_channel.data = cache_data_o;
 
-    assign cache_address_o = buffer_entry_i.address; 
+    assign cache_address_o = (state_CRT == IDLE) ? buffer_entry_i.address : buffer_entry.address; 
 
 endmodule : store_controller
 
