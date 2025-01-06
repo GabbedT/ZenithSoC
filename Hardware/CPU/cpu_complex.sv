@@ -64,8 +64,24 @@ module cpu_complex #(
 );
 
 //====================================================================================
-//      DATA CACHE
+//      PROCESSOR
 //====================================================================================
+
+    logic interrupt_ff, timer_interrupt_ff, nmsk_interrupt_ff; logic [7:0] vector_ff;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                interrupt_ff <= 1'b0;
+                timer_interrupt_ff <= 1'b0;
+                nmsk_interrupt_ff <= 1'b0;
+                vector_ff <= 8'b0;
+            end else begin
+                interrupt_ff <= gen_interrupt_i;
+                timer_interrupt_ff <= timer_interrupt_i;
+                nmsk_interrupt_ff <= nmsk_interrupt_i;
+                vector_ff <= interrupt_vector_i;
+            end
+        end
 
     /* CPU channels */
     fetch_interface cpu_fetch_channel(); 
@@ -79,10 +95,10 @@ module cpu_complex #(
 
         .fetch_channel ( cpu_fetch_channel ), 
 
-        .interrupt_i        ( gen_interrupt_i    ), 
-        .non_maskable_int_i ( nmsk_interrupt_i   ),
-        .timer_interrupt_i  ( timer_interrupt_i  ), 
-        .interrupt_vector_i ( interrupt_vector_i ),
+        .interrupt_i        ( interrupt_ff       ), 
+        .non_maskable_int_i ( nmsk_interrupt_ff  ),
+        .timer_interrupt_i  ( timer_interrupt_ff ), 
+        .interrupt_vector_i ( vector_ff          ),
         .interrupt_ackn_o   ( interrupt_ackn_o   ),
 
         .load_channel  ( cpu_load_channel  ), 
