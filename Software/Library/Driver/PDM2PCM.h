@@ -9,7 +9,8 @@ class PDM2PCM {
 
 public: 
 
-    enum error_e { ILLEGAL_CLOCK, 
+    enum error_e { NO_ERROR,
+                   ILLEGAL_CLOCK, 
                    ILLEGAL_GAIN, 
                    ILLEGAL_DIVISOR, 
                    ILLEGAL_DECIMATION_RATE,
@@ -22,7 +23,7 @@ public:
         unsigned int clockDivisor : 7;
 
         /* Enable or disable certain interrupt event */
-        unsigned int interruptEnable : 5;
+        unsigned int interruptEnable : 6;
         
         /* Channel configuration */
         unsigned int channel : 1;
@@ -36,8 +37,8 @@ public:
     };
 
     struct statusRegister_s {
-        unsigned int bufferEmpty : 1;
         unsigned int bufferFull : 1;
+        unsigned int bufferEmpty : 1;
 
         /* Pad to 8 bits */
         unsigned int padding : 6;
@@ -76,6 +77,9 @@ private:
     /* Decimation register */
     volatile uint8_t* const decimationRate;
 
+    /* Normalization value */
+    volatile uint32_t* const normalizer;
+
     /* Sample buffer */
     volatile uint16_t* const sampleBuffer;
 
@@ -113,11 +117,15 @@ public:
 
     PDM2PCM& enableBuffer(bool enable);
 
-    PDM2PCM& setClockDivisor(uint8_t value, error_e* error);
+    PDM2PCM& setFrequency(uint32_t value, error_e* error);
 
-    inline bool isFull();
+    inline bool isFull() {
+        return PDM2PCM::status->bufferFull;
+    };
 
-    inline bool isEmpty();
+    inline bool isEmpty() {
+        return PDM2PCM::status->bufferEmpty;
+    };
 
 
 /*****************************************************************/

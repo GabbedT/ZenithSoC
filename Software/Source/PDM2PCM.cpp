@@ -15,14 +15,15 @@ PDM2PCM::PDM2PCM() :
     control        ( (struct controlRegister_s *) (baseAddress + 1) ),
     gain           ( (uint16_t *) (baseAddress + 2)                 ),
     decimationRate ( (uint8_t *) (baseAddress + 3)                  ),
-    sampleBuffer   ( (uint16_t *) (baseAddress + 4)                 ),
-    threshold      ( (uint16_t *) (baseAddress + 5)                 ),
-    event          ( (uint8_t *) (baseAddress + 6)                  ) {
+    normalizer     ( (uint32_t *) (baseAddress + 4)                  ),
+    sampleBuffer   ( (uint16_t *) (baseAddress + 5)                 ),
+    threshold      ( (uint16_t *) (baseAddress + 6)                 ),
+    event          ( (uint8_t *) (baseAddress + 7)                  ) {
     
     control->interruptEnable = 0;
 };
 
-PDM2PCM::~PDM2PCM() {}
+PDM2PCM::~PDM2PCM() {};
 
 /*****************************************************************/
 /*                         CONFIGURATION                         */
@@ -39,7 +40,7 @@ PDM2PCM& PDM2PCM::init(channel_e channel, bool dualChannel, uint32_t frequency, 
     }
 
     /* Find the clock divisor value */
-    setClockDivisor(SYSTEM_FREQUENCY / frequency, nullptr);
+    setFrequency(frequency, nullptr);
 
     /* Find the decimation rate */
     uint32_t decimationRate = frequency / sampleRate;
@@ -52,8 +53,19 @@ PDM2PCM& PDM2PCM::init(channel_e channel, bool dualChannel, uint32_t frequency, 
 
     setDecimationRate(decimationRate);
 
+    PDM2PCM::control->interfaceEnable = true;
+
+    uint32_t normalizerFactor = 1;
+
+    /* CIC filter will output a maximum sample value of DECIMATION_RATE ^ (FILTER_ORDER - 1) */
+    for (int i = 0; i < 4; ++i) {
+        normalizerFactor *= decimationRate;
+    }
+
+    *PDM2PCM::normalizer = normalizerFactor;
+
     return *this;
-}
+};
 
 PDM2PCM& PDM2PCM::setGain(uint16_t gain, error_e* error) {
     if (gain > 0x8000) {
@@ -65,79 +77,72 @@ PDM2PCM& PDM2PCM::setGain(uint16_t gain, error_e* error) {
     *PDM2PCM::gain = gain;
 
     return *this;
-}
+};
 
 PDM2PCM& PDM2PCM::setDecimationRate(uint8_t decimationRate) {
     *PDM2PCM::decimationRate = decimationRate;
 
     return *this;
-}
+};
 
 PDM2PCM& PDM2PCM::setThreshold(uint16_t threshold) {
     *PDM2PCM::threshold = threshold;
 
     return *this;
-}
+};
 
 PDM2PCM& PDM2PCM::setChannel(channel_e channel) {
     PDM2PCM::control->channel = channel;
 
     return *this;
-}
+};
 
 PDM2PCM& PDM2PCM::setDualChannel(bool dualChannel) {
     PDM2PCM::control->dualChannel = dualChannel;
 
     return *this;
-}
+};
 
 PDM2PCM& PDM2PCM::enableInterface(bool enable) {
     PDM2PCM::control->interfaceEnable = enable;
 
     return *this;
-}
+};
 
 PDM2PCM& PDM2PCM::enableBuffer(bool enable) {
     PDM2PCM::control->bufferEnable = enable;
 
     return *this;
-}
+};
 
-PDM2PCM& PDM2PCM::setClockDivisor(uint8_t value, error_e* error) {
-    uint32_t interfaceFrequency = SYSTEM_FREQUENCY / value;
-
+PDM2PCM& PDM2PCM::setFrequency(uint32_t frequency, error_e* error) {
     /* Check value validity */
-    if (interfaceFrequency > 3'000'000 || interfaceFrequency < 1'000'000) {
+    if (frequency > 3'000'000 || frequency < 1'000'000) {
         *error = ILLEGAL_CLOCK;
 
         return *this;
     }
 
-    PDM2PCM::control->clockDivisor = value;
+    PDM2PCM::control->clockDivisor = SYSTEM_FREQUENCY / (frequency * 2);
 
     return *this;
-}
-
-bool PDM2PCM::isFull() {
-    return PDM2PCM::status->bufferFull;
-}
-
-bool PDM2PCM::isEmpty() {
-    return PDM2PCM::status->bufferEmpty;
-}
+};
 
 /*****************************************************************/
 /*                         SAMPLES READ                          */
 /*****************************************************************/
 
+
 PDM2PCM& PDM2PCM::startRecording() {
-    PDM2PCM::control->interfaceEnable = true;
     PDM2PCM::control->bufferEnable = true;
+
+    return *this;
 };
 
 PDM2PCM& PDM2PCM::stopRecording() {
-    PDM2PCM::control->interfaceEnable = false;
     PDM2PCM::control->bufferEnable = false;
+
+    return *this;
 };
 
 uint16_t PDM2PCM::readSample() {

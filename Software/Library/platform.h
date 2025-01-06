@@ -25,8 +25,4 @@
 /* Size of non cachable memory */
 #define NC_MEMORY_SIZE 2048
 
-
-#define SET_BIT(old, index) old |= 1 << index 
-
-#define CLEAR_BIT(old, index) old |= ~(1 << index) 
-
+#define DDR2_MEMORY_SIZE (1 << 27)

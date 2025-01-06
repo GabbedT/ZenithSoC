@@ -1,5 +1,5 @@
-#ifndef SERIAL_OUT_H
-#define SERIAL_OUT_H
+#ifndef SERIAL_IO_H
+#define SERIAL_IO_H
 
 #include <inttypes.h>
 #include <stdarg.h>
@@ -11,7 +11,7 @@
 #include "platform.h"
 
 
-class SerialOut {
+class Serial_IO {
 
 public: 
 
@@ -23,6 +23,7 @@ private:
     /* Pointers to UART registers */
     static volatile struct UART::uartCtrlStatus_s* volatile status;
     static volatile uint8_t* bufferTX;
+    static volatile uint8_t* bufferRX;
 
 
 public: 
@@ -32,18 +33,22 @@ public:
      * 
      * @param baudRate Baud rate for UART.
      * 
-     * @return The SerialOut object itself to chain the function call.
+     * @return The Serial_IO object itself to chain the function call.
      */ 
     static void init(uint32_t baudRate = 115200, bool parityEnable = true, UART::parityMode_e parityMode = UART::EVEN, 
                      UART::stopBits_e stopBits = UART::STOP1, UART::dataLenght_e dataBits = UART::BIT8);
 
+
+/****************************************************************/
+/*                      OUTPUT METHODS                          */
+/****************************************************************/
 
     /**
      * @brief Display a single character. Write one time to the UART buffer.
      * 
      * @param character Ascii character.
      * 
-     * @return The SerialOut object itself to chain the function call.
+     * @return The Serial_IO object itself to chain the function call.
      */
     static void write(char character); 
 
@@ -54,7 +59,7 @@ public:
      * 
      * @param str String containing 1 null character.
      * 
-     * @return The SerialOut object itself to chain the function call.
+     * @return The Serial_IO object itself to chain the function call.
      */
     static void write(const char* str); 
 
@@ -65,7 +70,7 @@ public:
      * @param str String to write.
      * @param size The size of the string.
      * 
-     * @return The SerialOut object itself to chain the function call.
+     * @return The Serial_IO object itself to chain the function call.
      */
     static void write(const char* str, uint32_t size);
 
@@ -76,7 +81,7 @@ public:
      * @param num Number (8, 16, 32, 64, 128 bits) to display.
      * @param base Number base system.
      * 
-     * @return The SerialOut object itself to chain the function call.
+     * @return The Serial_IO object itself to chain the function call.
      */
     template<typename Type> static void write(Type number, base_e base) {
         switch (base) {
@@ -109,7 +114,7 @@ public:
      * @param num Number to display.
      * @param digits Digits after the dot.
      * 
-     * @return The SerialOut object itself to chain the function call.
+     * @return The Serial_IO object itself to chain the function call.
      */
     static void write(float num, uint32_t digits);
 
@@ -120,7 +125,7 @@ public:
      * @param format The string with the format characters.
      * @param args Argument list
      * 
-     * @return The SerialOut object itself to chain the function call.
+     * @return The Serial_IO object itself to chain the function call.
      */
     static void vprintf(const char *format, va_list args);
 
@@ -131,7 +136,7 @@ public:
      * @param format The string with the format characters.
      * @param args Argument list
      * 
-     * @return The SerialOut object itself to chain the function call.
+     * @return The Serial_IO object itself to chain the function call.
      */
     static void printf(const char *format, ...);
 
@@ -143,7 +148,7 @@ public:
      * @param format The string with the format characters.
      * @param ... The data to print corresponding to the format character.
      * 
-     * @return The SerialOut object itself to chain the function call.
+     * @return The Serial_IO object itself to chain the function call.
      */
     static void println(const char *format, ...);
 
@@ -155,9 +160,7 @@ public:
      * 
      * @param number Number to print.
      * 
-     * @warning Be aware of 
-     * 
-     * @return The SerialOut object itself to chain the function call.
+     * @return The Serial_IO object itself to chain the function call.
      */
     template<typename Type> static void writeD(Type number, bool isSigned) {
         char buffer[40];
@@ -209,7 +212,7 @@ public:
      * 
      * @param number Number to print.
      * 
-     * @return The SerialOut object itself to chain the function call.
+     * @return The Serial_IO object itself to chain the function call.
      */
     template<typename Type> static void writeH(Type number) {
         uint8_t nibble[2];
@@ -254,7 +257,7 @@ public:
      * 
      * @param number Number to print.
      * 
-     * @return The SerialOut object itself to chain the function call.
+     * @return The Serial_IO object itself to chain the function call.
      */
     template<typename Type> static void writeB(Type number) {
         char str[sizeof(Type) * 8];
@@ -269,6 +272,38 @@ public:
         write(str, sizeof(Type) * 8);
         write('\0');
     };
+
+
+/****************************************************************/
+/*                       INPUT METHODS                          */
+/****************************************************************/
+
+    /**
+     * @brief Read a string from serial input
+     * 
+     * @param str Pointer to string buffer
+     * @param size Size of the buffer
+     * 
+     * @return The end string index to the buffer
+     */
+    static uint32_t readString(char *str, uint32_t size);
+
+    /**
+     * @brief Read a string from serial input and convert it into an integer
+     * 
+     * @param base Base of the input string
+     * @param error Pointer to a boolean that saves the status of the conversion
+     * 
+     * @return The converted integer
+     */
+    static uint32_t readNumber(base_e base, bool *error);
+
+    /**
+     * @brief Read a char from RX buffer
+     * 
+     * @return The char read
+     */
+    static char readChar();
 };
 
 #endif 

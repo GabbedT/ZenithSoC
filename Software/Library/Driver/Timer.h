@@ -154,6 +154,14 @@ public:
      */
     Timer& restart();
 
+    /**
+     * @brief Return the status of the timer.
+     * 
+     * @return Halted bit of the status register.
+     */
+    inline bool isHalted() {
+        return configuration->halted;
+    };
 
     /**
      * @brief Get the time elapsed in milliseconds.
