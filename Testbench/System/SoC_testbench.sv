@@ -5,7 +5,7 @@
 
 `define CPU dut.ApogeoRV.system_cpu
 
-
+// SEE THE FIRST TRANSACTION IN DDR INTERFACE
 /* Enable or disable tracing */
 `define TRACE_CPU
 // `define TRACE_MEMORY
@@ -14,8 +14,9 @@
 `define CPU_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/cpu_trace.txt"
 `define MEMORY_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/memory_trace.txt"
 `define OUTPUT_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/output_trace.txt"
+`define PDM_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/PDM/pdm.txt"
 
-`define SIM_TIME 300000ns
+`define SIM_TIME 500000ns
 
 /* While RUN_CONDITION is true, simulation will continue */
 `define RUN_CONDITION ($time() < `SIM_TIME) & !`CPU.exception
@@ -34,7 +35,7 @@ module soc_testbench;
     always #5ns clk_i <= !clk_i;
 
 
-    logic rst_n_i = 0;
+    logic rst_n_i;
 
     /* GPIO pins */
     wire [GPIO_DEVICE_NUMBER - 1:0][7:0] pin_io;
@@ -149,8 +150,16 @@ module soc_testbench;
     store_packet_t store_tmp_pkt;
 
 
+    logic pdm_clk_prev, pdm_valid;
 
-    int cpuFile, memoryFile, outputFile, misprediction_number, branch_jump_number;
+        always_ff @(posedge clk_i) begin
+            pdm_clk_prev <= pdm_clk_o;
+        end
+
+    assign pdm_valid = !pdm_clk_prev & pdm_clk_o; 
+
+
+    int cpuFile, memoryFile, outputFile, misprediction_number, branch_jump_number, pdm_file;
 
 
     logic stopCondition;
@@ -161,7 +170,9 @@ module soc_testbench;
             fowardMatch_prev <= fowardMatch;
         end 
 
+
     initial begin
+        pdm_file = $fopen(`PDM_FILE, "r"); $display("%d", pdm_file);
         cpuFile = $fopen(`CPU_TRACE_FILE, "w"); $display("%d", cpuFile);
         memoryFile = $fopen(`MEMORY_TRACE_FILE, "w"); $display("%d", memoryFile);
         outputFile = $fopen(`OUTPUT_TRACE_FILE, "w"); $display("%d", outputFile);
@@ -177,6 +188,37 @@ module soc_testbench;
         wait(dut.locked);
 
         fork
+
+            begin
+                repeat(33900) @(posedge clk_i);
+                rst_n_i <= 1'b0;
+                repeat(40) @(posedge clk_i);
+                rst_n_i <= 1'b1;
+
+                while (!stopCondition) begin
+                    @(posedge clk_i);
+                end
+            end
+
+            begin : pdm_interface
+                /* Feed PDM input from file */
+                while (!$feof(pdm_file)) begin
+                    if (pdm_valid) begin
+                        automatic integer read_bit = $fgetc(pdm_file);
+
+                        if (read_bit == "0") begin
+                            pdm_data_i = 0;
+                        end else if (read_bit == "1") begin
+                            pdm_data_i = 1;
+                        end else begin
+                            continue;
+                        end 
+                    end
+
+                    @(posedge clk_i);
+                end
+            end : pdm_interface
+
 
             `ifdef TRACE_MEMORY
 
