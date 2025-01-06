@@ -1,4 +1,4 @@
-#include "../../Library/SerialOut.h"
+#include "../../Library/Serial_IO.h"
 #include "../../Library/Driver/Timer.h"
 #include "../../Library/Driver/GPIO.h"
 #include "../../Library/Driver/PRNG.h"
@@ -6,7 +6,7 @@
 #include <inttypes.h>
 
 extern "C" void prng() {
-    SerialOut::init();
+    Serial_IO::init();
     PRNG::init();
     GPIO led;
 
@@ -16,13 +16,13 @@ extern "C" void prng() {
     timer.init(-1, Timer::ONE_SHOT);
 
     while (1) {
-        SerialOut::printf("Random number: 0x%xd ", PRNG::random());
+        Serial_IO::printf("Random number: 0x%xd ", PRNG::random());
 
         led.setPinValue(0, !led.getPinValue(0));
         timer.delay(1'000);
 
         /* Cancel current line */
-        SerialOut::write("\x1b[2K"); 
-        SerialOut::write("\x1b[1A");
+        Serial_IO::write("\x1b[2K"); 
+        Serial_IO::write("\x1b[1A");
     }
 }

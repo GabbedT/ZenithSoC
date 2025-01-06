@@ -1,4 +1,4 @@
-#include "../../Library/SerialOut.h"
+#include "../../Library/Serial_IO.h"
 #include "../../Library/mmio.h"
 #include "../../Library/platform.h"
 
@@ -10,7 +10,7 @@
 typedef enum {FADD, FSUB, FMUL, FMIN, FMAX, FLE, FLT, FEQ, FCLASS, FLOAT2INT, INT2FLOAT} riscv_float_operation_t;
 
 extern "C" void floating_point() {
-    SerialOut::init();
+    Serial_IO::init();
 
     riscv_float_operation_t operation = FADD;
 

@@ -9,7 +9,7 @@
 #include "../../Library/Driver/GPIO.h"
 #include "../../Library/Driver/Timer.h"
 #include "../../Library/Driver/Ethernet.h"
-#include "../../Library/SerialOut.h"
+#include "../../Library/Serial_IO.h"
 
 #include <inttypes.h>
 
@@ -47,9 +47,9 @@ extern "C" void ethernet() {
     /* GPIO used to switch modes later */
     gpio.init(0x00, 0xF0, 0x00, 0x00);
 
-    SerialOut::init();
+    Serial_IO::init();
 
-    SerialOut::printf("===================== TEST START =====================\n\n Reading PHY LAN8720A registers...\n");
+    Serial_IO::printf("===================== TEST START =====================\n\n Reading PHY LAN8720A registers...\n");
 
     ethernet.init(Ethernet::MBPS100, Ethernet::FULL_DUPLEX, false, Ethernet::IEEE_8023);
 
@@ -97,7 +97,7 @@ extern "C" void ethernet() {
     #endif
 
 
-    SerialOut::printf("\n\n\n===================== IEEE 802.3 100Mbps Test =====================");
+    Serial_IO::printf("\n\n\n===================== IEEE 802.3 100Mbps Test =====================");
 
     getRegister(Ethernet::_BasicControl_, "\n[0] BASIC CONTROL REGISTER: ", ethernet);
     getRegister(Ethernet::_BasicStatus_, "\n[1] BASIC STATUS REGISTER: ", ethernet);
@@ -105,9 +105,9 @@ extern "C" void ethernet() {
     #ifndef _TEST_
 
     timer.delay(1000);
-    SerialOut::println("\n\n[LINK STATUS] Linking...\n");
+    Serial_IO::println("\n\n[LINK STATUS] Linking...\n");
     ethernet.waitLink();
-    SerialOut::println("[LINK STATUS] Enstablished!\n\n");
+    Serial_IO::println("[LINK STATUS] Enstablished!\n\n");
     timer.delay(1000);
 
     #endif
@@ -115,7 +115,7 @@ extern "C" void ethernet() {
     packetLoop(gpio, ethernet, macDestination, 1600, false);
 
 
-    SerialOut::printf("\n\n\n===================== IEEE 802.3 10Mbps Test =====================");
+    Serial_IO::printf("\n\n\n===================== IEEE 802.3 10Mbps Test =====================");
 
     ethernet.init(Ethernet::MBPS10, Ethernet::FULL_DUPLEX, false, Ethernet::IEEE_8023);
 
@@ -125,9 +125,9 @@ extern "C" void ethernet() {
     #ifndef _TEST_
     
     timer.delay(1000);
-    SerialOut::println("\n\n[LINK STATUS] Linking...\n");
+    Serial_IO::println("\n\n[LINK STATUS] Linking...\n");
     ethernet.waitLink();
-    SerialOut::println("[LINK STATUS] Enstablished!\n\n");
+    Serial_IO::println("[LINK STATUS] Enstablished!\n\n");
     timer.delay(1000);
 
     #endif
@@ -135,7 +135,7 @@ extern "C" void ethernet() {
     packetLoop(gpio, ethernet, macDestination, 1600, false);
 
 
-    SerialOut::printf("\n\n\n===================== Ethernet II 100Mbps Test =====================");
+    Serial_IO::printf("\n\n\n===================== Ethernet II 100Mbps Test =====================");
     
     ethernet.init(Ethernet::MBPS100, Ethernet::FULL_DUPLEX, false, Ethernet::ETHERNET_II);
 
@@ -145,9 +145,9 @@ extern "C" void ethernet() {
     #ifndef _TEST_
 
     timer.delay(1000);
-    SerialOut::println("\n\n[LINK STATUS] Linking...\n");
+    Serial_IO::println("\n\n[LINK STATUS] Linking...\n");
     ethernet.waitLink();
-    SerialOut::println("[LINK STATUS] Enstablished!\n\n");
+    Serial_IO::println("[LINK STATUS] Enstablished!\n\n");
     timer.delay(1000);
 
     #endif
@@ -155,7 +155,7 @@ extern "C" void ethernet() {
     packetLoop(gpio, ethernet, macDestination, 1600, true);
 
 
-    SerialOut::printf("\n\n\n===================== Ethernet II 10Mbps Test =====================");
+    Serial_IO::printf("\n\n\n===================== Ethernet II 10Mbps Test =====================");
 
     ethernet.init(Ethernet::MBPS10, Ethernet::FULL_DUPLEX, false, Ethernet::ETHERNET_II);
 
@@ -165,9 +165,9 @@ extern "C" void ethernet() {
     #ifndef _TEST_
     
     timer.delay(1000);
-    SerialOut::println("\n\n[LINK STATUS] Linking...\n");
+    Serial_IO::println("\n\n[LINK STATUS] Linking...\n");
     ethernet.waitLink();
-    SerialOut::println("[LINK STATUS] Enstablished!\n\n");
+    Serial_IO::println("[LINK STATUS] Enstablished!\n\n");
     timer.delay(1000);
 
     #endif
@@ -182,8 +182,8 @@ extern "C" void ethernet() {
 void getRegister(uint8_t addr, const char *name, Ethernet& ethernet) {
     uint16_t reg = ethernet.readPHYRegister(addr);
 
-    SerialOut::printf(name);
-    SerialOut::writeB(reg);
+    Serial_IO::printf(name);
+    Serial_IO::writeB(reg);
 }
 
 
@@ -196,7 +196,7 @@ void packetLoop(GPIO& gpio, Ethernet& ethernet, struct Ethernet::macAddr_s macDe
         newRcv = ethernet.isReceiving();
 
         if (!oldRcv & newRcv) {
-            SerialOut::println("[Packet] Is arriving\n");
+            Serial_IO::println("[Packet] Is arriving\n");
             
             if (eth_II) {
                 ethernet.sendFrame(TX_payload, sizeof(TX_payload), macDestination, txEtherType, &error);
@@ -205,12 +205,12 @@ void packetLoop(GPIO& gpio, Ethernet& ethernet, struct Ethernet::macAddr_s macDe
             }
 
             if (error != Ethernet::NO_ERROR) {
-                SerialOut::println("ERROR DURING TX!\n\n");
+                Serial_IO::println("ERROR DURING TX!\n\n");
 
                 continue;
             }
         } else if (oldRcv & !newRcv) {
-            SerialOut::println("[Packet] Done!\n");
+            Serial_IO::println("[Packet] Done!\n");
 
             volatile union Ethernet::macDescriptor_s rxDescriptor = ethernet.getRxDescriptor();
 
@@ -221,43 +221,43 @@ void packetLoop(GPIO& gpio, Ethernet& ethernet, struct Ethernet::macAddr_s macDe
             }
 
             if (error != Ethernet::NO_ERROR) {
-                SerialOut::println("ERROR DURING RX!\n");
+                Serial_IO::println("ERROR DURING RX!\n");
 
                 continue;
             }
 
 
-            SerialOut::printf("[RX] Ethernet Frame: \nMAC Source: ");
+            Serial_IO::printf("[RX] Ethernet Frame: \nMAC Source: ");
 
             for (int i = 0; i < 6; ++i) {
-                SerialOut::writeH(rxDescriptor.fields.address[5 - i]);
+                Serial_IO::writeH(rxDescriptor.fields.address[5 - i]);
 
                 if (i != 5) {
-                    SerialOut::printf("-");
+                    Serial_IO::printf("-");
                 }
             }
 
-            SerialOut::printf("\nLength: ");
-            SerialOut::writeH((uint16_t) rxDescriptor.fields.length);
+            Serial_IO::printf("\nLength: ");
+            Serial_IO::writeH((uint16_t) rxDescriptor.fields.length);
 
             if (eth_II) {
-                SerialOut::printf("\nEtherType: ");
-                SerialOut::writeH(rxEtherType);
+                Serial_IO::printf("\nEtherType: ");
+                Serial_IO::writeH(rxEtherType);
             }
 
-            SerialOut::printf("\nPayload: ");
+            Serial_IO::printf("\nPayload: ");
     
             for (int i = 0; i < rxDescriptor.fields.length; ++i) {
-                SerialOut::writeH(RX_payload[i]);
+                Serial_IO::writeH(RX_payload[i]);
             }
 
-            SerialOut::printf("\nCRC: ");
+            Serial_IO::printf("\nCRC: ");
     
             for (int i = rxDescriptor.fields.length; i < rxDescriptor.fields.length + 4; ++i) {
-                SerialOut::writeH(RX_payload[i]);
+                Serial_IO::writeH(RX_payload[i]);
             }
 
-            SerialOut::printf("\n\n");
+            Serial_IO::printf("\n\n");
         }
 
         oldRcv = newRcv;

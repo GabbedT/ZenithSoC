@@ -1,7 +1,7 @@
-#ifndef SERIAL_OUT_CPP
-#define SERIAL_OUT_CPP
+#ifndef SERIAL_IO_CPP
+#define SERIAL_IO_CPP
 
-#include "../Library/SerialOut.h"
+#include "../Library/Serial_IO.h"
 
 #include <inttypes.h>
 
@@ -10,17 +10,19 @@
 /*                             DATA                             */
 /****************************************************************/
 
-volatile struct UART::uartCtrlStatus_s* volatile SerialOut::status;
-volatile uint8_t* SerialOut::bufferTX;
+volatile struct UART::uartCtrlStatus_s* volatile Serial_IO::status;
+volatile uint8_t* Serial_IO::bufferTX;
+volatile uint8_t* Serial_IO::bufferRX;
 
 
 /****************************************************************/
 /*                         INITIALIZER                          */
 /****************************************************************/
 
-void SerialOut::init(uint32_t baudRate, bool parityEnable, UART::parityMode_e parityMode, UART::stopBits_e stopBits, UART::dataLenght_e dataBits) {
+void Serial_IO::init(uint32_t baudRate, bool parityEnable, UART::parityMode_e parityMode, UART::stopBits_e stopBits, UART::dataLenght_e dataBits) {
     status = (volatile UART::uartCtrlStatus_s *) (UART_BASE + (DEBUG_UART * 4));
     bufferTX = (uint8_t *) (status + 1);
+    bufferRX = (uint8_t *) (status + 2);
         
     status->parityEnable = parityEnable;
     status->dataBits = dataBits;
@@ -31,7 +33,7 @@ void SerialOut::init(uint32_t baudRate, bool parityEnable, UART::parityMode_e pa
     status->clockDivider = (SYSTEM_FREQUENCY / (baudRate * 16)) - 1;
 
     /* Disable data reception and enable transmission */
-    status->enableRX = false;
+    status->enableRX = true;
     status->enableTX = true;
 };
 
@@ -40,7 +42,7 @@ void SerialOut::init(uint32_t baudRate, bool parityEnable, UART::parityMode_e pa
 /*                        SIMPLE WRITE                          */
 /****************************************************************/
 
-void SerialOut::write(char character) {
+void Serial_IO::write(char character) {
     /* Wait until the TX buffer become not full */
     while (status->fullTX) {  }
 
@@ -49,7 +51,7 @@ void SerialOut::write(char character) {
 }; 
 
 
-void SerialOut::write(const char* str) {
+void Serial_IO::write(const char* str) {
     uint32_t size; 
 
     /* Compute string size */
@@ -59,7 +61,7 @@ void SerialOut::write(const char* str) {
 };
 
 
-void SerialOut::write(const char* str, uint32_t size) {
+void Serial_IO::write(const char* str, uint32_t size) {
     for (int i = 0; i < size; ++i) {
         /* Wait until the TX buffer not full */
         while (status->fullTX) {  }
@@ -74,7 +76,7 @@ void SerialOut::write(const char* str, uint32_t size) {
 /*                      FORMATTED WRITE                         */
 /****************************************************************/
 
-void SerialOut::vprintf(const char *format, va_list args) {
+void Serial_IO::vprintf(const char *format, va_list args) {
     for (int i = 0; format[i] != '\0'; ++i) {
         if (format[i] == '%') {
             ++i;
@@ -203,7 +205,7 @@ void SerialOut::vprintf(const char *format, va_list args) {
 };
 
 
-void SerialOut::println(const char *format, ...) {
+void Serial_IO::println(const char *format, ...) {
     va_list args;
     va_start(args, format);
 
@@ -216,7 +218,7 @@ void SerialOut::println(const char *format, ...) {
 };
 
 
-void SerialOut::printf(const char *format, ...) {
+void Serial_IO::printf(const char *format, ...) {
     va_list args;
     va_start(args, format);
 
@@ -226,5 +228,120 @@ void SerialOut::printf(const char *format, ...) {
 
     write('\0');
 };
+
+
+/****************************************************************/
+/*                       INPUT METHODS                          */
+/****************************************************************/
+
+uint32_t Serial_IO::readString(char *str, uint32_t size) {
+    uint32_t count = 0;
+
+    /* Size - 1 to accomodate the last character "\0" */
+    while (count < size - 1) {
+        /* Wait until RX buffer is not empty */
+        while (status->emptyRX);
+
+        /* Read RX buffer */
+        char received = (char)(*bufferRX);
+        
+        if (received == '\n' || received == '\0') {
+            /* Exit if the user press ENTER */
+            break;
+        } else {
+            /* Save the character received */
+            str[count++] = received;
+        }
+    }
+
+    /* End Of String terminator */
+    str[count] = '\0';
+
+    return count;
+};
+
+
+uint32_t Serial_IO::readNumber(Serial_IO::base_e base, bool *error) {
+    /* Create a buffer with the maximum number of digit plus the terminator */
+    char digit[33]; 
+
+    uint32_t index = readString(digit, 33);
+    uint32_t number = 0;
+
+    /* Take account for the sign in the decimal case */
+    bool isNegative = false;
+
+    /* Iterate on the read string */
+    for (uint32_t i = 0; i < index; ++i) {
+        switch (base) {
+            case DEC: {
+                if (digit[i] == '-') {
+                    isNegative = true;
+
+                    /* Next iteration */
+                    continue;
+                }
+                
+                if (digit[i] >= '0' && digit[i] <= '9') {
+                    /* Each iteration it shifts the most significant digit on the left, then
+                     * it adds the new character as the least significand digit */
+                    number = number * 10 + (digit[i] - '0');
+                } else {
+                    /* Error: illegal character */
+                    *error = true;
+                }
+
+                break;
+            }
+
+            case BIN: {
+                if (digit[i] == '0' || digit[i] == '1') {
+                    /* Simply pack the binary number */
+                    number = (number << 1) | (digit[i] - '0');
+                } else {
+                    /* Error: illegal character */
+                    *error = true;
+                }
+
+                break;
+            }
+
+            case HEX: {
+                uint32_t converter; 
+
+                /* Simply pack the binary number */
+                if (digit[i] >= '0' && digit[i] <= '9') {
+                    converter = '0';
+                } else if (digit[i] >= 'A' && digit[i] <= 'F') {
+                    converter = 'A' + 10;
+                } else if (digit[i] >= 'a' && digit[i] <= 'f') {
+                    converter = 'a' + 10;
+                } else {
+                    /* Error: illegal character */
+                    *error = true;
+                }
+
+                number = (number << 4) | (digit[i] - number);
+
+                break;
+            }
+
+            default:
+            break;
+        }
+    }
+
+    return isNegative ? -number : number;
+};
+
+
+char Serial_IO::readChar() {
+    /* Wait until RX buffer is not empty */
+    while (status->emptyRX);
+
+    /* Read RX buffer */
+    return (char)(*bufferRX);
+};
+
 
 #endif 

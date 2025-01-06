@@ -28,10 +28,10 @@ Disassembly of section .boot:
 
 Disassembly of section .text:
 
-80000000 <_ZN9SerialOut4initEmbN4UART12parityMode_eENS0_10stopBits_eENS0_12dataLenght_eE>:
+80000000 <_ZN9Serial_IO4initEmbN4UART12parityMode_eENS0_10stopBits_eENS0_12dataLenght_eE>:
 80000000:	800017b7          	lui	a5,0x80001
 80000004:	00002837          	lui	a6,0x2
-80000008:	9307aa23          	sw	a6,-1740(a5) # 80000934 <_ZN9SerialOut6statusE>
+80000008:	9307aa23          	sw	a6,-1740(a5) # 80000934 <_ZN9Serial_IO6statusE>
 8000000c:	9347a803          	lw	a6,-1740(a5)
 80000010:	9347a883          	lw	a7,-1740(a5)
 80000014:	0015f593          	andi	a1,a1,1
@@ -93,7 +93,7 @@ Disassembly of section .text:
 800000ec:	00000613          	li	a2,0
 800000f0:	00100593          	li	a1,1
 800000f4:	00112623          	sw	ra,12(sp)
-800000f8:	f09ff0ef          	jal	80000000 <_ZN9SerialOut4initEmbN4UART12parityMode_eENS0_10stopBits_eENS0_12dataLenght_eE>
+800000f8:	f09ff0ef          	jal	80000000 <_ZN9Serial_IO4initEmbN4UART12parityMode_eENS0_10stopBits_eENS0_12dataLenght_eE>
 800000fc:	800017b7          	lui	a5,0x80001
 80000100:	9307ae03          	lw	t3,-1744(a5) # 80000930 <operand_2+0x320>
 80000104:	80000fb7          	lui	t6,0x80000

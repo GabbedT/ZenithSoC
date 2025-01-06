@@ -34,7 +34,7 @@ Disassembly of section .text:
    20838:	07612023          	sw	s6,96(sp)
    2083c:	05712e23          	sw	s7,92(sp)
    20840:	05812c23          	sw	s8,88(sp)
-   20844:	250000ef          	jal	20a94 <_ZN9SerialOut4initEmbN4UART12parityMode_eENS0_10stopBits_eENS0_12dataLenght_eE>
+   20844:	250000ef          	jal	20a94 <_ZN9Serial_IO4initEmbN4UART12parityMode_eENS0_10stopBits_eENS0_12dataLenght_eE>
    20848:	00000593          	li	a1,0
    2084c:	02810513          	add	a0,sp,40
    20850:	471000ef          	jal	214c0 <_ZN5TimerC1Em>
@@ -52,7 +52,7 @@ Disassembly of section .text:
    20880:	00c10713          	add	a4,sp,12
    20884:	00000693          	li	a3,0
    20888:	00000613          	li	a2,0
-   2088c:	24058593          	add	a1,a1,576 # f4240 <_ZN9SerialOut6statusE+0xd1cf4>
+   2088c:	24058593          	add	a1,a1,576 # f4240 <_ZN9Serial_IO6statusE+0xd1cf4>
    20890:	03810513          	add	a0,sp,56
    20894:	16c010ef          	jal	21a00 <_ZN3SPI4initEmNS_9spiMode_eENS_10bitOrder_eEPNS_10spiError_eE>
    20898:	00c10613          	add	a2,sp,12
@@ -107,7 +107,7 @@ Disassembly of section .text:
    2095c:	00a14603          	lbu	a2,10(sp)
    20960:	00048593          	mv	a1,s1
    20964:	2ec90513          	add	a0,s2,748 # 222ec <__clzsi2+0x80>
-   20968:	315000ef          	jal	2147c <_ZN9SerialOut6printfEPKcz>
+   20968:	315000ef          	jal	2147c <_ZN9Serial_IO6printfEPKcz>
    2096c:	01f00793          	li	a5,31
    20970:	01f00493          	li	s1,31
    20974:	0f340863          	beq	s0,s3,20a64 <spi+0x264>
@@ -122,12 +122,12 @@ Disassembly of section .text:
    20998:	0ff4f493          	zext.b	s1,s1
    2099c:	00040593          	mv	a1,s0
    209a0:	2ec90513          	add	a0,s2,748
-   209a4:	2d9000ef          	jal	2147c <_ZN9SerialOut6printfEPKcz>
+   209a4:	2d9000ef          	jal	2147c <_ZN9Serial_IO6printfEPKcz>
    209a8:	f94496e3          	bne	s1,s4,20934 <spi+0x134>
    209ac:	141317b7          	lui	a5,0x14131
-   209b0:	21178793          	add	a5,a5,529 # 14131211 <_ZN9SerialOut6statusE+0x1410ecc5>
+   209b0:	21178793          	add	a5,a5,529 # 14131211 <_ZN9Serial_IO6statusE+0x1410ecc5>
    209b4:	100f1737          	lui	a4,0x100f1
-   209b8:	e0b70713          	add	a4,a4,-501 # 100f0e0b <_ZN9SerialOut6statusE+0x100ce8bf>
+   209b8:	e0b70713          	add	a4,a4,-501 # 100f0e0b <_ZN9Serial_IO6statusE+0x100ce8bf>
    209bc:	00f12a23          	sw	a5,20(sp)
    209c0:	01500793          	li	a5,21
    209c4:	00e12823          	sw	a4,16(sp)
@@ -148,26 +148,26 @@ Disassembly of section .text:
    20a00:	2fcc0513          	add	a0,s8,764 # 222fc <__clzsi2+0x90>
    20a04:	02411403          	lh	s0,36(sp)
    20a08:	02211983          	lh	s3,34(sp)
-   20a0c:	225000ef          	jal	21430 <_ZN9SerialOut7printlnEPKcz>
+   20a0c:	225000ef          	jal	21430 <_ZN9Serial_IO7printlnEPKcz>
    20a10:	000a0593          	mv	a1,s4
    20a14:	30cb8513          	add	a0,s7,780 # 2230c <__clzsi2+0xa0>
-   20a18:	219000ef          	jal	21430 <_ZN9SerialOut7printlnEPKcz>
+   20a18:	219000ef          	jal	21430 <_ZN9Serial_IO7printlnEPKcz>
    20a1c:	00098593          	mv	a1,s3
    20a20:	31cb0513          	add	a0,s6,796 # 2231c <__clzsi2+0xb0>
-   20a24:	20d000ef          	jal	21430 <_ZN9SerialOut7printlnEPKcz>
+   20a24:	20d000ef          	jal	21430 <_ZN9Serial_IO7printlnEPKcz>
    20a28:	00040593          	mv	a1,s0
    20a2c:	32ca8513          	add	a0,s5,812 # 2232c <__clzsi2+0xc0>
-   20a30:	201000ef          	jal	21430 <_ZN9SerialOut7printlnEPKcz>
+   20a30:	201000ef          	jal	21430 <_ZN9Serial_IO7printlnEPKcz>
    20a34:	06400593          	li	a1,100
    20a38:	00000613          	li	a2,0
    20a3c:	02810513          	add	a0,sp,40
    20a40:	455000ef          	jal	21694 <_ZN5Timer5delayEy>
    20a44:	00400413          	li	s0,4
    20a48:	34090513          	add	a0,s2,832 # 22340 <__clzsi2+0xd4>
-   20a4c:	18c000ef          	jal	20bd8 <_ZN9SerialOut5writeEPKc>
+   20a4c:	18c000ef          	jal	20bd8 <_ZN9Serial_IO5writeEPKc>
    20a50:	34848513          	add	a0,s1,840 # 22348 <__clzsi2+0xdc>
    20a54:	fff40413          	add	s0,s0,-1
-   20a58:	180000ef          	jal	20bd8 <_ZN9SerialOut5writeEPKc>
+   20a58:	180000ef          	jal	20bd8 <_ZN9Serial_IO5writeEPKc>
    20a5c:	fe0416e3          	bnez	s0,20a48 <spi+0x248>
    20a60:	f85ff06f          	j	209e4 <spi+0x1e4>
    20a64:	02000413          	li	s0,32
@@ -176,21 +176,21 @@ Disassembly of section .text:
    20a70:	efdff06f          	j	2096c <spi+0x16c>
    20a74:	00022537          	lui	a0,0x22
    20a78:	2a850513          	add	a0,a0,680 # 222a8 <__clzsi2+0x3c>
-   20a7c:	15c000ef          	jal	20bd8 <_ZN9SerialOut5writeEPKc>
+   20a7c:	15c000ef          	jal	20bd8 <_ZN9Serial_IO5writeEPKc>
    20a80:	e39ff06f          	j	208b8 <spi+0xb8>
    20a84:	00022537          	lui	a0,0x22
    20a88:	2cc50513          	add	a0,a0,716 # 222cc <__clzsi2+0x60>
-   20a8c:	14c000ef          	jal	20bd8 <_ZN9SerialOut5writeEPKc>
+   20a8c:	14c000ef          	jal	20bd8 <_ZN9Serial_IO5writeEPKc>
    20a90:	e29ff06f          	j	208b8 <spi+0xb8>
 
-00020a94 <_ZN9SerialOut4initEmbN4UART12parityMode_eENS0_10stopBits_eENS0_12dataLenght_eE>:
+00020a94 <_ZN9Serial_IO4initEmbN4UART12parityMode_eENS0_10stopBits_eENS0_12dataLenght_eE>:
    20a94:	000227b7          	lui	a5,0x22
    20a98:	28b01813          	bset	a6,zero,0xb
-   20a9c:	5507a623          	sw	a6,1356(a5) # 2254c <_ZN9SerialOut6statusE>
+   20a9c:	5507a623          	sw	a6,1356(a5) # 2254c <_ZN9Serial_IO6statusE>
    20aa0:	54c7a803          	lw	a6,1356(a5)
    20aa4:	00480813          	add	a6,a6,4
    20aa8:	000228b7          	lui	a7,0x22
-   20aac:	5508a423          	sw	a6,1352(a7) # 22548 <_ZN9SerialOut8bufferTXE>
+   20aac:	5508a423          	sw	a6,1352(a7) # 22548 <_ZN9Serial_IO8bufferTXE>
    20ab0:	54c7a883          	lw	a7,1356(a5)
    20ab4:	0015f593          	and	a1,a1,1
    20ab8:	00b59813          	sll	a6,a1,0xb
@@ -222,7 +222,7 @@ Disassembly of section .text:
    20b20:	00c6a023          	sw	a2,0(a3)
    20b24:	00451513          	sll	a0,a0,0x4
    20b28:	05f5e737          	lui	a4,0x5f5e
-   20b2c:	10070713          	add	a4,a4,256 # 5f5e100 <_ZN9SerialOut6statusE+0x5f3bbb4>
+   20b2c:	10070713          	add	a4,a4,256 # 5f5e100 <_ZN9Serial_IO6statusE+0x5f3bbb4>
    20b30:	02a75733          	divu	a4,a4,a0
    20b34:	fff70713          	add	a4,a4,-1
    20b38:	54c7a603          	lw	a2,1356(a5)
@@ -242,58 +242,58 @@ Disassembly of section .text:
    20b70:	00f72023          	sw	a5,0(a4)
    20b74:	00008067          	ret
 
-00020b78 <_ZN9SerialOut5writeEc>:
+00020b78 <_ZN9Serial_IO5writeEc>:
    20b78:	00022737          	lui	a4,0x22
-   20b7c:	54c72783          	lw	a5,1356(a4) # 2254c <_ZN9SerialOut6statusE>
+   20b7c:	54c72783          	lw	a5,1356(a4) # 2254c <_ZN9Serial_IO6statusE>
    20b80:	0007a783          	lw	a5,0(a5)
    20b84:	4837d793          	bext	a5,a5,0x3
-   20b88:	fe079ae3          	bnez	a5,20b7c <_ZN9SerialOut5writeEc+0x4>
+   20b88:	fe079ae3          	bnez	a5,20b7c <_ZN9Serial_IO5writeEc+0x4>
    20b8c:	000227b7          	lui	a5,0x22
-   20b90:	5487a783          	lw	a5,1352(a5) # 22548 <_ZN9SerialOut8bufferTXE>
+   20b90:	5487a783          	lw	a5,1352(a5) # 22548 <_ZN9Serial_IO8bufferTXE>
    20b94:	00a78023          	sb	a0,0(a5)
    20b98:	00008067          	ret
 
-00020b9c <_ZN9SerialOut5writeEPKcm>:
-   20b9c:	02058c63          	beqz	a1,20bd4 <_ZN9SerialOut5writeEPKcm+0x38>
+00020b9c <_ZN9Serial_IO5writeEPKcm>:
+   20b9c:	02058c63          	beqz	a1,20bd4 <_ZN9Serial_IO5writeEPKcm+0x38>
    20ba0:	00050693          	mv	a3,a0
    20ba4:	00b505b3          	add	a1,a0,a1
    20ba8:	00022737          	lui	a4,0x22
    20bac:	00022537          	lui	a0,0x22
-   20bb0:	54c72783          	lw	a5,1356(a4) # 2254c <_ZN9SerialOut6statusE>
+   20bb0:	54c72783          	lw	a5,1356(a4) # 2254c <_ZN9Serial_IO6statusE>
    20bb4:	0007a783          	lw	a5,0(a5)
    20bb8:	4837d793          	bext	a5,a5,0x3
-   20bbc:	fe079ae3          	bnez	a5,20bb0 <_ZN9SerialOut5writeEPKcm+0x14>
-   20bc0:	54852783          	lw	a5,1352(a0) # 22548 <_ZN9SerialOut8bufferTXE>
+   20bbc:	fe079ae3          	bnez	a5,20bb0 <_ZN9Serial_IO5writeEPKcm+0x14>
+   20bc0:	54852783          	lw	a5,1352(a0) # 22548 <_ZN9Serial_IO8bufferTXE>
    20bc4:	0006c603          	lbu	a2,0(a3)
    20bc8:	00c78023          	sb	a2,0(a5)
    20bcc:	00168693          	add	a3,a3,1
-   20bd0:	feb690e3          	bne	a3,a1,20bb0 <_ZN9SerialOut5writeEPKcm+0x14>
+   20bd0:	feb690e3          	bne	a3,a1,20bb0 <_ZN9Serial_IO5writeEPKcm+0x14>
    20bd4:	00008067          	ret
 
-00020bd8 <_ZN9SerialOut5writeEPKc>:
+00020bd8 <_ZN9Serial_IO5writeEPKc>:
    20bd8:	ff010113          	add	sp,sp,-16
    20bdc:	00112623          	sw	ra,12(sp)
    20be0:	00054783          	lbu	a5,0(a0)
-   20be4:	02078463          	beqz	a5,20c0c <_ZN9SerialOut5writeEPKc+0x34>
+   20be4:	02078463          	beqz	a5,20c0c <_ZN9Serial_IO5writeEPKc+0x34>
    20be8:	00000593          	li	a1,0
    20bec:	00158593          	add	a1,a1,1
    20bf0:	00b507b3          	add	a5,a0,a1
    20bf4:	0007c783          	lbu	a5,0(a5)
-   20bf8:	fe079ae3          	bnez	a5,20bec <_ZN9SerialOut5writeEPKc+0x14>
-   20bfc:	fa1ff0ef          	jal	20b9c <_ZN9SerialOut5writeEPKcm>
+   20bf8:	fe079ae3          	bnez	a5,20bec <_ZN9Serial_IO5writeEPKc+0x14>
+   20bfc:	fa1ff0ef          	jal	20b9c <_ZN9Serial_IO5writeEPKcm>
    20c00:	00c12083          	lw	ra,12(sp)
    20c04:	01010113          	add	sp,sp,16
    20c08:	00008067          	ret
    20c0c:	00000593          	li	a1,0
-   20c10:	fedff06f          	j	20bfc <_ZN9SerialOut5writeEPKc+0x24>
+   20c10:	fedff06f          	j	20bfc <_ZN9Serial_IO5writeEPKc+0x24>
 
-00020c14 <_ZN9SerialOut7vprintfEPKcPv>:
+00020c14 <_ZN9Serial_IO7vprintfEPKcPv>:
    20c14:	f9010113          	add	sp,sp,-112
    20c18:	06112623          	sw	ra,108(sp)
    20c1c:	06812423          	sw	s0,104(sp)
    20c20:	00050413          	mv	s0,a0
    20c24:	00054503          	lbu	a0,0(a0)
-   20c28:	7e050c63          	beqz	a0,21420 <_ZN9SerialOut7vprintfEPKcPv+0x80c>
+   20c28:	7e050c63          	beqz	a0,21420 <_ZN9Serial_IO7vprintfEPKcPv+0x80c>
    20c2c:	06912223          	sw	s1,100(sp)
    20c30:	07212023          	sw	s2,96(sp)
    20c34:	05312e23          	sw	s3,92(sp)
@@ -307,17 +307,17 @@ Disassembly of section .text:
    20c54:	01600a13          	li	s4,22
    20c58:	000229b7          	lui	s3,0x22
    20c5c:	36498993          	add	s3,s3,868 # 22364 <__clzsi2+0xf8>
-   20c60:	77c0006f          	j	213dc <_ZN9SerialOut7vprintfEPKcPv+0x7c8>
+   20c60:	77c0006f          	j	213dc <_ZN9Serial_IO7vprintfEPKcPv+0x7c8>
    20c64:	004b0b93          	add	s7,s6,4
    20c68:	000b2a83          	lw	s5,0(s6)
    20c6c:	41fadb13          	sra	s6,s5,0x1f
-   20c70:	100ac463          	bltz	s5,20d78 <_ZN9SerialOut7vprintfEPKcPv+0x164>
+   20c70:	100ac463          	bltz	s5,20d78 <_ZN9Serial_IO7vprintfEPKcPv+0x164>
    20c74:	00000593          	li	a1,0
    20c78:	00500613          	li	a2,5
    20c7c:	ccccd6b7          	lui	a3,0xccccd
-   20c80:	ccd68693          	add	a3,a3,-819 # cccccccd <_ZN9SerialOut6statusE+0xcccaa781>
+   20c80:	ccd68693          	add	a3,a3,-819 # cccccccd <_ZN9Serial_IO6statusE+0xcccaa781>
    20c84:	ccccd537          	lui	a0,0xccccd
-   20c88:	ccc50513          	add	a0,a0,-820 # cccccccc <_ZN9SerialOut6statusE+0xcccaa780>
+   20c88:	ccc50513          	add	a0,a0,-820 # cccccccc <_ZN9Serial_IO6statusE+0xcccaa780>
    20c8c:	016a87b3          	add	a5,s5,s6
    20c90:	0157b733          	sltu	a4,a5,s5
    20c94:	00e787b3          	add	a5,a5,a4
@@ -352,13 +352,13 @@ Disassembly of section .text:
    20d08:	00158593          	add	a1,a1,1
    20d0c:	00b10733          	add	a4,sp,a1
    20d10:	fef70fa3          	sb	a5,-1(a4)
-   20d14:	f6031ce3          	bnez	t1,20c8c <_ZN9SerialOut7vprintfEPKcPv+0x78>
-   20d18:	00031663          	bnez	t1,20d24 <_ZN9SerialOut7vprintfEPKcPv+0x110>
+   20d14:	f6031ce3          	bnez	t1,20c8c <_ZN9Serial_IO7vprintfEPKcPv+0x78>
+   20d18:	00031663          	bnez	t1,20d24 <_ZN9Serial_IO7vprintfEPKcPv+0x110>
    20d1c:	00900793          	li	a5,9
-   20d20:	f7c7e6e3          	bltu	a5,t3,20c8c <_ZN9SerialOut7vprintfEPKcPv+0x78>
+   20d20:	f7c7e6e3          	bltu	a5,t3,20c8c <_ZN9Serial_IO7vprintfEPKcPv+0x78>
    20d24:	0015d893          	srl	a7,a1,0x1
    20d28:	00100793          	li	a5,1
-   20d2c:	02b7f863          	bgeu	a5,a1,20d5c <_ZN9SerialOut7vprintfEPKcPv+0x148>
+   20d2c:	02b7f863          	bgeu	a5,a1,20d5c <_ZN9Serial_IO7vprintfEPKcPv+0x148>
    20d30:	010107b3          	add	a5,sp,a6
    20d34:	00010713          	mv	a4,sp
    20d38:	00078513          	mv	a0,a5
@@ -369,33 +369,33 @@ Disassembly of section .text:
    20d4c:	fff78793          	add	a5,a5,-1
    20d50:	00170713          	add	a4,a4,1
    20d54:	40f506b3          	sub	a3,a0,a5
-   20d58:	ff16e2e3          	bltu	a3,a7,20d3c <_ZN9SerialOut7vprintfEPKcPv+0x128>
+   20d58:	ff16e2e3          	bltu	a3,a7,20d3c <_ZN9Serial_IO7vprintfEPKcPv+0x128>
    20d5c:	00010513          	mv	a0,sp
-   20d60:	e3dff0ef          	jal	20b9c <_ZN9SerialOut5writeEPKcm>
+   20d60:	e3dff0ef          	jal	20b9c <_ZN9Serial_IO5writeEPKcm>
    20d64:	00000513          	li	a0,0
-   20d68:	e11ff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
+   20d68:	e11ff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
    20d6c:	000b8b13          	mv	s6,s7
    20d70:	00048a93          	mv	s5,s1
-   20d74:	6580006f          	j	213cc <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
+   20d74:	6580006f          	j	213cc <_ZN9Serial_IO7vprintfEPKcPv+0x7b8>
    20d78:	015037b3          	snez	a5,s5
    20d7c:	41600b33          	neg	s6,s6
    20d80:	40fb0b33          	sub	s6,s6,a5
    20d84:	41500ab3          	neg	s5,s5
    20d88:	02d00513          	li	a0,45
-   20d8c:	dedff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
-   20d90:	ee5ff06f          	j	20c74 <_ZN9SerialOut7vprintfEPKcPv+0x60>
+   20d8c:	dedff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
+   20d90:	ee5ff06f          	j	20c74 <_ZN9Serial_IO7vprintfEPKcPv+0x60>
    20d94:	007b0793          	add	a5,s6,7
    20d98:	ff87f793          	and	a5,a5,-8
    20d9c:	00878b13          	add	s6,a5,8
    20da0:	0007aa83          	lw	s5,0(a5)
    20da4:	0047ab83          	lw	s7,4(a5)
-   20da8:	100bc263          	bltz	s7,20eac <_ZN9SerialOut7vprintfEPKcPv+0x298>
+   20da8:	100bc263          	bltz	s7,20eac <_ZN9Serial_IO7vprintfEPKcPv+0x298>
    20dac:	00000593          	li	a1,0
    20db0:	00500613          	li	a2,5
    20db4:	ccccd6b7          	lui	a3,0xccccd
-   20db8:	ccd68693          	add	a3,a3,-819 # cccccccd <_ZN9SerialOut6statusE+0xcccaa781>
+   20db8:	ccd68693          	add	a3,a3,-819 # cccccccd <_ZN9Serial_IO6statusE+0xcccaa781>
    20dbc:	ccccd537          	lui	a0,0xccccd
-   20dc0:	ccc50513          	add	a0,a0,-820 # cccccccc <_ZN9SerialOut6statusE+0xcccaa780>
+   20dc0:	ccc50513          	add	a0,a0,-820 # cccccccc <_ZN9Serial_IO6statusE+0xcccaa780>
    20dc4:	017a87b3          	add	a5,s5,s7
    20dc8:	0157b733          	sltu	a4,a5,s5
    20dcc:	00e787b3          	add	a5,a5,a4
@@ -430,13 +430,13 @@ Disassembly of section .text:
    20e40:	00158593          	add	a1,a1,1
    20e44:	00b10733          	add	a4,sp,a1
    20e48:	fef70fa3          	sb	a5,-1(a4)
-   20e4c:	f6031ce3          	bnez	t1,20dc4 <_ZN9SerialOut7vprintfEPKcPv+0x1b0>
-   20e50:	00031663          	bnez	t1,20e5c <_ZN9SerialOut7vprintfEPKcPv+0x248>
+   20e4c:	f6031ce3          	bnez	t1,20dc4 <_ZN9Serial_IO7vprintfEPKcPv+0x1b0>
+   20e50:	00031663          	bnez	t1,20e5c <_ZN9Serial_IO7vprintfEPKcPv+0x248>
    20e54:	00900793          	li	a5,9
-   20e58:	f7c7e6e3          	bltu	a5,t3,20dc4 <_ZN9SerialOut7vprintfEPKcPv+0x1b0>
+   20e58:	f7c7e6e3          	bltu	a5,t3,20dc4 <_ZN9Serial_IO7vprintfEPKcPv+0x1b0>
    20e5c:	0015d893          	srl	a7,a1,0x1
    20e60:	00100793          	li	a5,1
-   20e64:	02b7f863          	bgeu	a5,a1,20e94 <_ZN9SerialOut7vprintfEPKcPv+0x280>
+   20e64:	02b7f863          	bgeu	a5,a1,20e94 <_ZN9Serial_IO7vprintfEPKcPv+0x280>
    20e68:	010107b3          	add	a5,sp,a6
    20e6c:	00010713          	mv	a4,sp
    20e70:	00078513          	mv	a0,a5
@@ -447,29 +447,29 @@ Disassembly of section .text:
    20e84:	fff78793          	add	a5,a5,-1
    20e88:	00170713          	add	a4,a4,1
    20e8c:	40f506b3          	sub	a3,a0,a5
-   20e90:	ff16e2e3          	bltu	a3,a7,20e74 <_ZN9SerialOut7vprintfEPKcPv+0x260>
+   20e90:	ff16e2e3          	bltu	a3,a7,20e74 <_ZN9Serial_IO7vprintfEPKcPv+0x260>
    20e94:	00010513          	mv	a0,sp
-   20e98:	d05ff0ef          	jal	20b9c <_ZN9SerialOut5writeEPKcm>
+   20e98:	d05ff0ef          	jal	20b9c <_ZN9Serial_IO5writeEPKcm>
    20e9c:	00000513          	li	a0,0
-   20ea0:	cd9ff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
+   20ea0:	cd9ff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
    20ea4:	00048a93          	mv	s5,s1
-   20ea8:	5240006f          	j	213cc <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
+   20ea8:	5240006f          	j	213cc <_ZN9Serial_IO7vprintfEPKcPv+0x7b8>
    20eac:	015037b3          	snez	a5,s5
    20eb0:	41700bb3          	neg	s7,s7
    20eb4:	40fb8bb3          	sub	s7,s7,a5
    20eb8:	41500ab3          	neg	s5,s5
    20ebc:	02d00513          	li	a0,45
-   20ec0:	cb9ff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
-   20ec4:	ee9ff06f          	j	20dac <_ZN9SerialOut7vprintfEPKcPv+0x198>
+   20ec0:	cb9ff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
+   20ec4:	ee9ff06f          	j	20dac <_ZN9Serial_IO7vprintfEPKcPv+0x198>
    20ec8:	004b0a93          	add	s5,s6,4
    20ecc:	000b2683          	lw	a3,0(s6)
    20ed0:	00000893          	li	a7,0
    20ed4:	00000593          	li	a1,0
    20ed8:	00500513          	li	a0,5
    20edc:	ccccd637          	lui	a2,0xccccd
-   20ee0:	ccd60613          	add	a2,a2,-819 # cccccccd <_ZN9SerialOut6statusE+0xcccaa781>
+   20ee0:	ccd60613          	add	a2,a2,-819 # cccccccd <_ZN9Serial_IO6statusE+0xcccaa781>
    20ee4:	ccccd837          	lui	a6,0xccccd
-   20ee8:	ccc80813          	add	a6,a6,-820 # cccccccc <_ZN9SerialOut6statusE+0xcccaa780>
+   20ee8:	ccc80813          	add	a6,a6,-820 # cccccccc <_ZN9Serial_IO6statusE+0xcccaa780>
    20eec:	011687b3          	add	a5,a3,a7
    20ef0:	00d7b733          	sltu	a4,a5,a3
    20ef4:	00e787b3          	add	a5,a5,a4
@@ -504,13 +504,13 @@ Disassembly of section .text:
    20f68:	00158593          	add	a1,a1,1
    20f6c:	00b10733          	add	a4,sp,a1
    20f70:	fef70fa3          	sb	a5,-1(a4)
-   20f74:	f6031ce3          	bnez	t1,20eec <_ZN9SerialOut7vprintfEPKcPv+0x2d8>
-   20f78:	00031663          	bnez	t1,20f84 <_ZN9SerialOut7vprintfEPKcPv+0x370>
+   20f74:	f6031ce3          	bnez	t1,20eec <_ZN9Serial_IO7vprintfEPKcPv+0x2d8>
+   20f78:	00031663          	bnez	t1,20f84 <_ZN9Serial_IO7vprintfEPKcPv+0x370>
    20f7c:	00900793          	li	a5,9
-   20f80:	f7c7e6e3          	bltu	a5,t3,20eec <_ZN9SerialOut7vprintfEPKcPv+0x2d8>
+   20f80:	f7c7e6e3          	bltu	a5,t3,20eec <_ZN9Serial_IO7vprintfEPKcPv+0x2d8>
    20f84:	0015d813          	srl	a6,a1,0x1
    20f88:	00100793          	li	a5,1
-   20f8c:	02b7f863          	bgeu	a5,a1,20fbc <_ZN9SerialOut7vprintfEPKcPv+0x3a8>
+   20f8c:	02b7f863          	bgeu	a5,a1,20fbc <_ZN9Serial_IO7vprintfEPKcPv+0x3a8>
    20f90:	01d107b3          	add	a5,sp,t4
    20f94:	00010713          	mv	a4,sp
    20f98:	00078513          	mv	a0,a5
@@ -521,44 +521,44 @@ Disassembly of section .text:
    20fac:	fff78793          	add	a5,a5,-1
    20fb0:	00170713          	add	a4,a4,1
    20fb4:	40f506b3          	sub	a3,a0,a5
-   20fb8:	ff06e2e3          	bltu	a3,a6,20f9c <_ZN9SerialOut7vprintfEPKcPv+0x388>
+   20fb8:	ff06e2e3          	bltu	a3,a6,20f9c <_ZN9Serial_IO7vprintfEPKcPv+0x388>
    20fbc:	00010513          	mv	a0,sp
-   20fc0:	bddff0ef          	jal	20b9c <_ZN9SerialOut5writeEPKcm>
+   20fc0:	bddff0ef          	jal	20b9c <_ZN9Serial_IO5writeEPKcm>
    20fc4:	00000513          	li	a0,0
-   20fc8:	bb1ff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
+   20fc8:	bb1ff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
    20fcc:	000a8b13          	mv	s6,s5
    20fd0:	00048a93          	mv	s5,s1
-   20fd4:	3f80006f          	j	213cc <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
+   20fd4:	3f80006f          	j	213cc <_ZN9Serial_IO7vprintfEPKcPv+0x7b8>
    20fd8:	002a8a93          	add	s5,s5,2
    20fdc:	015407b3          	add	a5,s0,s5
    20fe0:	0007c783          	lbu	a5,0(a5)
    20fe4:	06400713          	li	a4,100
-   20fe8:	10e78a63          	beq	a5,a4,210fc <_ZN9SerialOut7vprintfEPKcPv+0x4e8>
+   20fe8:	10e78a63          	beq	a5,a4,210fc <_ZN9Serial_IO7vprintfEPKcPv+0x4e8>
    20fec:	06800713          	li	a4,104
-   20ff0:	06e78063          	beq	a5,a4,21050 <_ZN9SerialOut7vprintfEPKcPv+0x43c>
+   20ff0:	06e78063          	beq	a5,a4,21050 <_ZN9Serial_IO7vprintfEPKcPv+0x43c>
    20ff4:	06200713          	li	a4,98
-   20ff8:	1ae79e63          	bne	a5,a4,211b4 <_ZN9SerialOut7vprintfEPKcPv+0x5a0>
+   20ff8:	1ae79e63          	bne	a5,a4,211b4 <_ZN9Serial_IO7vprintfEPKcPv+0x5a0>
    20ffc:	004b0493          	add	s1,s6,4
    21000:	000b4783          	lbu	a5,0(s6)
    21004:	0047d713          	srl	a4,a5,0x4
    21008:	00f7f793          	and	a5,a5,15
    2100c:	00900613          	li	a2,9
    21010:	03078693          	add	a3,a5,48
-   21014:	00f67463          	bgeu	a2,a5,2101c <_ZN9SerialOut7vprintfEPKcPv+0x408>
+   21014:	00f67463          	bgeu	a2,a5,2101c <_ZN9Serial_IO7vprintfEPKcPv+0x408>
    21018:	03778693          	add	a3,a5,55
    2101c:	00900613          	li	a2,9
    21020:	03770793          	add	a5,a4,55
-   21024:	00e66463          	bltu	a2,a4,2102c <_ZN9SerialOut7vprintfEPKcPv+0x418>
+   21024:	00e66463          	bltu	a2,a4,2102c <_ZN9Serial_IO7vprintfEPKcPv+0x418>
    21028:	03070793          	add	a5,a4,48
    2102c:	00d100a3          	sb	a3,1(sp)
    21030:	00f10023          	sb	a5,0(sp)
    21034:	00200593          	li	a1,2
    21038:	00010513          	mv	a0,sp
-   2103c:	b61ff0ef          	jal	20b9c <_ZN9SerialOut5writeEPKcm>
+   2103c:	b61ff0ef          	jal	20b9c <_ZN9Serial_IO5writeEPKcm>
    21040:	00000513          	li	a0,0
-   21044:	b35ff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
+   21044:	b35ff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
    21048:	00048b13          	mv	s6,s1
-   2104c:	3800006f          	j	213cc <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
+   2104c:	3800006f          	j	213cc <_ZN9Serial_IO7vprintfEPKcPv+0x7b8>
    21050:	004b0493          	add	s1,s6,4
    21054:	000b2703          	lw	a4,0(s6)
    21058:	01071793          	sll	a5,a4,0x10
@@ -568,12 +568,12 @@ Disassembly of section .text:
    21068:	00f77713          	and	a4,a4,15
    2106c:	00900593          	li	a1,9
    21070:	03070613          	add	a2,a4,48
-   21074:	00e5f463          	bgeu	a1,a4,2107c <_ZN9SerialOut7vprintfEPKcPv+0x468>
+   21074:	00e5f463          	bgeu	a1,a4,2107c <_ZN9Serial_IO7vprintfEPKcPv+0x468>
    21078:	03770613          	add	a2,a4,55
    2107c:	00c10023          	sb	a2,0(sp)
    21080:	00900613          	li	a2,9
    21084:	03768713          	add	a4,a3,55
-   21088:	00d66463          	bltu	a2,a3,21090 <_ZN9SerialOut7vprintfEPKcPv+0x47c>
+   21088:	00d66463          	bltu	a2,a3,21090 <_ZN9Serial_IO7vprintfEPKcPv+0x47c>
    2108c:	03068713          	add	a4,a3,48
    21090:	00e100a3          	sb	a4,1(sp)
    21094:	00c7d713          	srl	a4,a5,0xc
@@ -581,12 +581,12 @@ Disassembly of section .text:
    2109c:	00f7f793          	and	a5,a5,15
    210a0:	00900613          	li	a2,9
    210a4:	03078693          	add	a3,a5,48
-   210a8:	00f67463          	bgeu	a2,a5,210b0 <_ZN9SerialOut7vprintfEPKcPv+0x49c>
+   210a8:	00f67463          	bgeu	a2,a5,210b0 <_ZN9Serial_IO7vprintfEPKcPv+0x49c>
    210ac:	03778693          	add	a3,a5,55
    210b0:	00d10123          	sb	a3,2(sp)
    210b4:	00900693          	li	a3,9
    210b8:	03770793          	add	a5,a4,55
-   210bc:	00e6e463          	bltu	a3,a4,210c4 <_ZN9SerialOut7vprintfEPKcPv+0x4b0>
+   210bc:	00e6e463          	bltu	a3,a4,210c4 <_ZN9Serial_IO7vprintfEPKcPv+0x4b0>
    210c0:	03070793          	add	a5,a4,48
    210c4:	00014703          	lbu	a4,0(sp)
    210c8:	00e101a3          	sb	a4,3(sp)
@@ -597,11 +597,11 @@ Disassembly of section .text:
    210dc:	00f100a3          	sb	a5,1(sp)
    210e0:	00400593          	li	a1,4
    210e4:	00010513          	mv	a0,sp
-   210e8:	ab5ff0ef          	jal	20b9c <_ZN9SerialOut5writeEPKcm>
+   210e8:	ab5ff0ef          	jal	20b9c <_ZN9Serial_IO5writeEPKcm>
    210ec:	00000513          	li	a0,0
-   210f0:	a89ff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
+   210f0:	a89ff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
    210f4:	00048b13          	mv	s6,s1
-   210f8:	2d40006f          	j	213cc <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
+   210f8:	2d40006f          	j	213cc <_ZN9Serial_IO7vprintfEPKcPv+0x7b8>
    210fc:	007b0793          	add	a5,s6,7
    21100:	ff87f793          	and	a5,a5,-8
    21104:	00878b13          	add	s6,a5,8
@@ -611,10 +611,10 @@ Disassembly of section .text:
    21114:	01010893          	add	a7,sp,16
    21118:	00058693          	mv	a3,a1
    2111c:	00900813          	li	a6,9
-   21120:	0300006f          	j	21150 <_ZN9SerialOut7vprintfEPKcPv+0x53c>
+   21120:	0300006f          	j	21150 <_ZN9Serial_IO7vprintfEPKcPv+0x53c>
    21124:	03060613          	add	a2,a2,48
    21128:	00c68023          	sb	a2,0(a3)
-   2112c:	03c0006f          	j	21168 <_ZN9SerialOut7vprintfEPKcPv+0x554>
+   2112c:	03c0006f          	j	21168 <_ZN9Serial_IO7vprintfEPKcPv+0x554>
    21130:	03778793          	add	a5,a5,55
    21134:	00f680a3          	sb	a5,1(a3)
    21138:	01851793          	sll	a5,a0,0x18
@@ -622,17 +622,17 @@ Disassembly of section .text:
    21140:	00e7e733          	or	a4,a5,a4
    21144:	00855513          	srl	a0,a0,0x8
    21148:	00268693          	add	a3,a3,2
-   2114c:	03168663          	beq	a3,a7,21178 <_ZN9SerialOut7vprintfEPKcPv+0x564>
+   2114c:	03168663          	beq	a3,a7,21178 <_ZN9Serial_IO7vprintfEPKcPv+0x564>
    21150:	00475793          	srl	a5,a4,0x4
    21154:	00f7f793          	and	a5,a5,15
    21158:	00f77613          	and	a2,a4,15
-   2115c:	fcc874e3          	bgeu	a6,a2,21124 <_ZN9SerialOut7vprintfEPKcPv+0x510>
+   2115c:	fcc874e3          	bgeu	a6,a2,21124 <_ZN9Serial_IO7vprintfEPKcPv+0x510>
    21160:	03760613          	add	a2,a2,55
    21164:	00c68023          	sb	a2,0(a3)
-   21168:	fcf864e3          	bltu	a6,a5,21130 <_ZN9SerialOut7vprintfEPKcPv+0x51c>
+   21168:	fcf864e3          	bltu	a6,a5,21130 <_ZN9Serial_IO7vprintfEPKcPv+0x51c>
    2116c:	03078793          	add	a5,a5,48
    21170:	00f680a3          	sb	a5,1(a3)
-   21174:	fc5ff06f          	j	21138 <_ZN9SerialOut7vprintfEPKcPv+0x524>
+   21174:	fc5ff06f          	j	21138 <_ZN9Serial_IO7vprintfEPKcPv+0x524>
    21178:	00858613          	add	a2,a1,8
    2117c:	00058793          	mv	a5,a1
    21180:	00f5c703          	lbu	a4,15(a1)
@@ -641,38 +641,38 @@ Disassembly of section .text:
    2118c:	00e78023          	sb	a4,0(a5)
    21190:	fff58593          	add	a1,a1,-1
    21194:	00178793          	add	a5,a5,1
-   21198:	fec794e3          	bne	a5,a2,21180 <_ZN9SerialOut7vprintfEPKcPv+0x56c>
+   21198:	fec794e3          	bne	a5,a2,21180 <_ZN9Serial_IO7vprintfEPKcPv+0x56c>
    2119c:	01000593          	li	a1,16
    211a0:	00010513          	mv	a0,sp
-   211a4:	9f9ff0ef          	jal	20b9c <_ZN9SerialOut5writeEPKcm>
+   211a4:	9f9ff0ef          	jal	20b9c <_ZN9Serial_IO5writeEPKcm>
    211a8:	00000513          	li	a0,0
-   211ac:	9cdff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
-   211b0:	21c0006f          	j	213cc <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
+   211ac:	9cdff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
+   211b0:	21c0006f          	j	213cc <_ZN9Serial_IO7vprintfEPKcPv+0x7b8>
    211b4:	004b0a93          	add	s5,s6,4
    211b8:	000b2583          	lw	a1,0(s6)
    211bc:	00010613          	mv	a2,sp
    211c0:	00810813          	add	a6,sp,8
    211c4:	00060713          	mv	a4,a2
    211c8:	00900513          	li	a0,9
-   211cc:	0240006f          	j	211f0 <_ZN9SerialOut7vprintfEPKcPv+0x5dc>
+   211cc:	0240006f          	j	211f0 <_ZN9Serial_IO7vprintfEPKcPv+0x5dc>
    211d0:	03068693          	add	a3,a3,48
    211d4:	00d70023          	sb	a3,0(a4)
-   211d8:	0300006f          	j	21208 <_ZN9SerialOut7vprintfEPKcPv+0x5f4>
+   211d8:	0300006f          	j	21208 <_ZN9Serial_IO7vprintfEPKcPv+0x5f4>
    211dc:	03778793          	add	a5,a5,55
    211e0:	00f700a3          	sb	a5,1(a4)
    211e4:	0085d593          	srl	a1,a1,0x8
    211e8:	00270713          	add	a4,a4,2
-   211ec:	03070663          	beq	a4,a6,21218 <_ZN9SerialOut7vprintfEPKcPv+0x604>
+   211ec:	03070663          	beq	a4,a6,21218 <_ZN9Serial_IO7vprintfEPKcPv+0x604>
    211f0:	0045d793          	srl	a5,a1,0x4
    211f4:	00f7f793          	and	a5,a5,15
    211f8:	00f5f693          	and	a3,a1,15
-   211fc:	fcd57ae3          	bgeu	a0,a3,211d0 <_ZN9SerialOut7vprintfEPKcPv+0x5bc>
+   211fc:	fcd57ae3          	bgeu	a0,a3,211d0 <_ZN9Serial_IO7vprintfEPKcPv+0x5bc>
    21200:	03768693          	add	a3,a3,55
    21204:	00d70023          	sb	a3,0(a4)
-   21208:	fcf56ae3          	bltu	a0,a5,211dc <_ZN9SerialOut7vprintfEPKcPv+0x5c8>
+   21208:	fcf56ae3          	bltu	a0,a5,211dc <_ZN9Serial_IO7vprintfEPKcPv+0x5c8>
    2120c:	03078793          	add	a5,a5,48
    21210:	00f700a3          	sb	a5,1(a4)
-   21214:	fd1ff06f          	j	211e4 <_ZN9SerialOut7vprintfEPKcPv+0x5d0>
+   21214:	fd1ff06f          	j	211e4 <_ZN9Serial_IO7vprintfEPKcPv+0x5d0>
    21218:	00460593          	add	a1,a2,4
    2121c:	00060793          	mv	a5,a2
    21220:	00764703          	lbu	a4,7(a2)
@@ -681,24 +681,24 @@ Disassembly of section .text:
    2122c:	00e78023          	sb	a4,0(a5)
    21230:	fff60613          	add	a2,a2,-1
    21234:	00178793          	add	a5,a5,1
-   21238:	fef594e3          	bne	a1,a5,21220 <_ZN9SerialOut7vprintfEPKcPv+0x60c>
+   21238:	fef594e3          	bne	a1,a5,21220 <_ZN9Serial_IO7vprintfEPKcPv+0x60c>
    2123c:	00800593          	li	a1,8
    21240:	00010513          	mv	a0,sp
-   21244:	959ff0ef          	jal	20b9c <_ZN9SerialOut5writeEPKcm>
+   21244:	959ff0ef          	jal	20b9c <_ZN9Serial_IO5writeEPKcm>
    21248:	00000513          	li	a0,0
-   2124c:	92dff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
+   2124c:	92dff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
    21250:	000a8b13          	mv	s6,s5
    21254:	00048a93          	mv	s5,s1
-   21258:	1740006f          	j	213cc <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
+   21258:	1740006f          	j	213cc <_ZN9Serial_IO7vprintfEPKcPv+0x7b8>
    2125c:	002a8a93          	add	s5,s5,2
    21260:	015407b3          	add	a5,s0,s5
    21264:	0007c783          	lbu	a5,0(a5)
    21268:	06400713          	li	a4,100
-   2126c:	0ae78063          	beq	a5,a4,2130c <_ZN9SerialOut7vprintfEPKcPv+0x6f8>
+   2126c:	0ae78063          	beq	a5,a4,2130c <_ZN9Serial_IO7vprintfEPKcPv+0x6f8>
    21270:	06800713          	li	a4,104
-   21274:	04e78863          	beq	a5,a4,212c4 <_ZN9SerialOut7vprintfEPKcPv+0x6b0>
+   21274:	04e78863          	beq	a5,a4,212c4 <_ZN9Serial_IO7vprintfEPKcPv+0x6b0>
    21278:	06200713          	li	a4,98
-   2127c:	0ee79663          	bne	a5,a4,21368 <_ZN9SerialOut7vprintfEPKcPv+0x754>
+   2127c:	0ee79663          	bne	a5,a4,21368 <_ZN9Serial_IO7vprintfEPKcPv+0x754>
    21280:	004b0493          	add	s1,s6,4
    21284:	000b4683          	lbu	a3,0(s6)
    21288:	00010793          	mv	a5,sp
@@ -708,14 +708,14 @@ Disassembly of section .text:
    21298:	00e783a3          	sb	a4,7(a5)
    2129c:	0016d693          	srl	a3,a3,0x1
    212a0:	fff78793          	add	a5,a5,-1
-   212a4:	fec796e3          	bne	a5,a2,21290 <_ZN9SerialOut7vprintfEPKcPv+0x67c>
+   212a4:	fec796e3          	bne	a5,a2,21290 <_ZN9Serial_IO7vprintfEPKcPv+0x67c>
    212a8:	00800593          	li	a1,8
    212ac:	00010513          	mv	a0,sp
-   212b0:	8edff0ef          	jal	20b9c <_ZN9SerialOut5writeEPKcm>
+   212b0:	8edff0ef          	jal	20b9c <_ZN9Serial_IO5writeEPKcm>
    212b4:	00000513          	li	a0,0
-   212b8:	8c1ff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
+   212b8:	8c1ff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
    212bc:	00048b13          	mv	s6,s1
-   212c0:	10c0006f          	j	213cc <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
+   212c0:	10c0006f          	j	213cc <_ZN9Serial_IO7vprintfEPKcPv+0x7b8>
    212c4:	004b0493          	add	s1,s6,4
    212c8:	000b5683          	lhu	a3,0(s6)
    212cc:	00f10793          	add	a5,sp,15
@@ -726,14 +726,14 @@ Disassembly of section .text:
    212e0:	0016d693          	srl	a3,a3,0x1
    212e4:	00078713          	mv	a4,a5
    212e8:	fff78793          	add	a5,a5,-1
-   212ec:	fec714e3          	bne	a4,a2,212d4 <_ZN9SerialOut7vprintfEPKcPv+0x6c0>
+   212ec:	fec714e3          	bne	a4,a2,212d4 <_ZN9Serial_IO7vprintfEPKcPv+0x6c0>
    212f0:	01000593          	li	a1,16
    212f4:	00010513          	mv	a0,sp
-   212f8:	8a5ff0ef          	jal	20b9c <_ZN9SerialOut5writeEPKcm>
+   212f8:	8a5ff0ef          	jal	20b9c <_ZN9Serial_IO5writeEPKcm>
    212fc:	00000513          	li	a0,0
-   21300:	879ff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
+   21300:	879ff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
    21304:	00048b13          	mv	s6,s1
-   21308:	0c40006f          	j	213cc <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
+   21308:	0c40006f          	j	213cc <_ZN9Serial_IO7vprintfEPKcPv+0x7b8>
    2130c:	007b0713          	add	a4,s6,7
    21310:	ff877713          	and	a4,a4,-8
    21314:	00870b13          	add	s6,a4,8
@@ -750,13 +750,13 @@ Disassembly of section .text:
    21340:	00165613          	srl	a2,a2,0x1
    21344:	00070693          	mv	a3,a4
    21348:	fff70713          	add	a4,a4,-1
-   2134c:	fcd59ee3          	bne	a1,a3,21328 <_ZN9SerialOut7vprintfEPKcPv+0x714>
+   2134c:	fcd59ee3          	bne	a1,a3,21328 <_ZN9Serial_IO7vprintfEPKcPv+0x714>
    21350:	04000593          	li	a1,64
    21354:	00010513          	mv	a0,sp
-   21358:	845ff0ef          	jal	20b9c <_ZN9SerialOut5writeEPKcm>
+   21358:	845ff0ef          	jal	20b9c <_ZN9Serial_IO5writeEPKcm>
    2135c:	00000513          	li	a0,0
-   21360:	819ff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
-   21364:	0680006f          	j	213cc <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
+   21360:	819ff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
+   21364:	0680006f          	j	213cc <_ZN9Serial_IO7vprintfEPKcPv+0x7b8>
    21368:	004b0a93          	add	s5,s6,4
    2136c:	000b2683          	lw	a3,0(s6)
    21370:	01f10793          	add	a5,sp,31
@@ -767,32 +767,32 @@ Disassembly of section .text:
    21384:	0016d693          	srl	a3,a3,0x1
    21388:	00078713          	mv	a4,a5
    2138c:	fff78793          	add	a5,a5,-1
-   21390:	fee614e3          	bne	a2,a4,21378 <_ZN9SerialOut7vprintfEPKcPv+0x764>
+   21390:	fee614e3          	bne	a2,a4,21378 <_ZN9Serial_IO7vprintfEPKcPv+0x764>
    21394:	02000593          	li	a1,32
    21398:	00010513          	mv	a0,sp
-   2139c:	801ff0ef          	jal	20b9c <_ZN9SerialOut5writeEPKcm>
+   2139c:	801ff0ef          	jal	20b9c <_ZN9Serial_IO5writeEPKcm>
    213a0:	00000513          	li	a0,0
-   213a4:	fd4ff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
+   213a4:	fd4ff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
    213a8:	000a8b13          	mv	s6,s5
    213ac:	00048a93          	mv	s5,s1
-   213b0:	01c0006f          	j	213cc <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
+   213b0:	01c0006f          	j	213cc <_ZN9Serial_IO7vprintfEPKcPv+0x7b8>
    213b4:	00022537          	lui	a0,0x22
    213b8:	35050513          	add	a0,a0,848 # 22350 <__clzsi2+0xe4>
-   213bc:	81dff0ef          	jal	20bd8 <_ZN9SerialOut5writeEPKc>
+   213bc:	81dff0ef          	jal	20bd8 <_ZN9Serial_IO5writeEPKc>
    213c0:	00048a93          	mv	s5,s1
-   213c4:	0080006f          	j	213cc <_ZN9SerialOut7vprintfEPKcPv+0x7b8>
-   213c8:	fb0ff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
+   213c4:	0080006f          	j	213cc <_ZN9Serial_IO7vprintfEPKcPv+0x7b8>
+   213c8:	fb0ff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
    213cc:	001a8a93          	add	s5,s5,1
    213d0:	015407b3          	add	a5,s0,s5
    213d4:	0007c503          	lbu	a0,0(a5)
-   213d8:	02050663          	beqz	a0,21404 <_ZN9SerialOut7vprintfEPKcPv+0x7f0>
-   213dc:	ff2516e3          	bne	a0,s2,213c8 <_ZN9SerialOut7vprintfEPKcPv+0x7b4>
+   213d8:	02050663          	beqz	a0,21404 <_ZN9Serial_IO7vprintfEPKcPv+0x7f0>
+   213dc:	ff2516e3          	bne	a0,s2,213c8 <_ZN9Serial_IO7vprintfEPKcPv+0x7b4>
    213e0:	001a8493          	add	s1,s5,1
    213e4:	009407b3          	add	a5,s0,s1
    213e8:	0007c783          	lbu	a5,0(a5)
    213ec:	f9e78793          	add	a5,a5,-98
    213f0:	0ff7f713          	zext.b	a4,a5
-   213f4:	fcea60e3          	bltu	s4,a4,213b4 <_ZN9SerialOut7vprintfEPKcPv+0x7a0>
+   213f4:	fcea60e3          	bltu	s4,a4,213b4 <_ZN9Serial_IO7vprintfEPKcPv+0x7a0>
    213f8:	213747b3          	sh2add	a5,a4,s3
    213fc:	0007a783          	lw	a5,0(a5)
    21400:	00078067          	jr	a5
@@ -808,7 +808,7 @@ Disassembly of section .text:
    21428:	07010113          	add	sp,sp,112
    2142c:	00008067          	ret
 
-00021430 <_ZN9SerialOut7printlnEPKcz>:
+00021430 <_ZN9Serial_IO7printlnEPKcz>:
    21430:	fc010113          	add	sp,sp,-64
    21434:	00112e23          	sw	ra,28(sp)
    21438:	02b12223          	sw	a1,36(sp)
@@ -820,16 +820,16 @@ Disassembly of section .text:
    21450:	03112e23          	sw	a7,60(sp)
    21454:	02410593          	add	a1,sp,36
    21458:	00b12623          	sw	a1,12(sp)
-   2145c:	fb8ff0ef          	jal	20c14 <_ZN9SerialOut7vprintfEPKcPv>
+   2145c:	fb8ff0ef          	jal	20c14 <_ZN9Serial_IO7vprintfEPKcPv>
    21460:	00a00513          	li	a0,10
-   21464:	f14ff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
+   21464:	f14ff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
    21468:	00000513          	li	a0,0
-   2146c:	f0cff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
+   2146c:	f0cff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
    21470:	01c12083          	lw	ra,28(sp)
    21474:	04010113          	add	sp,sp,64
    21478:	00008067          	ret
 
-0002147c <_ZN9SerialOut6printfEPKcz>:
+0002147c <_ZN9Serial_IO6printfEPKcz>:
    2147c:	fc010113          	add	sp,sp,-64
    21480:	00112e23          	sw	ra,28(sp)
    21484:	02b12223          	sw	a1,36(sp)
@@ -841,9 +841,9 @@ Disassembly of section .text:
    2149c:	03112e23          	sw	a7,60(sp)
    214a0:	02410593          	add	a1,sp,36
    214a4:	00b12623          	sw	a1,12(sp)
-   214a8:	f6cff0ef          	jal	20c14 <_ZN9SerialOut7vprintfEPKcPv>
+   214a8:	f6cff0ef          	jal	20c14 <_ZN9Serial_IO7vprintfEPKcPv>
    214ac:	00000513          	li	a0,0
-   214b0:	ec8ff0ef          	jal	20b78 <_ZN9SerialOut5writeEc>
+   214b0:	ec8ff0ef          	jal	20b78 <_ZN9Serial_IO5writeEc>
    214b4:	01c12083          	lw	ra,28(sp)
    214b8:	04010113          	add	sp,sp,64
    214bc:	00008067          	ret
@@ -1118,10 +1118,10 @@ Disassembly of section .text:
 
 00021868 <_ZN3SPI12setFrequencyEmPNS_10spiError_eE>:
    21868:	02faf7b7          	lui	a5,0x2faf
-   2186c:	08078793          	add	a5,a5,128 # 2faf080 <_ZN9SerialOut6statusE+0x2f8cb34>
+   2186c:	08078793          	add	a5,a5,128 # 2faf080 <_ZN9Serial_IO6statusE+0x2f8cb34>
    21870:	04b7e063          	bltu	a5,a1,218b0 <_ZN3SPI12setFrequencyEmPNS_10spiError_eE+0x48>
    21874:	02faf7b7          	lui	a5,0x2faf
-   21878:	08078793          	add	a5,a5,128 # 2faf080 <_ZN9SerialOut6statusE+0x2f8cb34>
+   21878:	08078793          	add	a5,a5,128 # 2faf080 <_ZN9Serial_IO6statusE+0x2f8cb34>
    2187c:	02b7d7b3          	divu	a5,a5,a1
    21880:	fff78793          	add	a5,a5,-1
    21884:	01079793          	sll	a5,a5,0x10
@@ -1130,7 +1130,7 @@ Disassembly of section .text:
    21890:	00979793          	sll	a5,a5,0x9
    21894:	00062703          	lw	a4,0(a2)
    21898:	fe0006b7          	lui	a3,0xfe000
-   2189c:	1ff68693          	add	a3,a3,511 # fe0001ff <_ZN9SerialOut6statusE+0xfdfddcb3>
+   2189c:	1ff68693          	add	a3,a3,511 # fe0001ff <_ZN9Serial_IO6statusE+0xfdfddcb3>
    218a0:	00d77733          	and	a4,a4,a3
    218a4:	00f767b3          	or	a5,a4,a5
    218a8:	00f62023          	sw	a5,0(a2)
@@ -1195,7 +1195,7 @@ Disassembly of section .text:
    2197c:	f61ff0ef          	jal	218dc <_ZN3SPI7setModeENS_9spiMode_eE>
    21980:	00000613          	li	a2,0
    21984:	000f45b7          	lui	a1,0xf4
-   21988:	24058593          	add	a1,a1,576 # f4240 <_ZN9SerialOut6statusE+0xd1cf4>
+   21988:	24058593          	add	a1,a1,576 # f4240 <_ZN9Serial_IO6statusE+0xd1cf4>
    2198c:	00040513          	mv	a0,s0
    21990:	ed9ff0ef          	jal	21868 <_ZN3SPI12setFrequencyEmPNS_10spiError_eE>
    21994:	00c12083          	lw	ra,12(sp)
@@ -1220,7 +1220,7 @@ Disassembly of section .text:
    219d8:	f05ff0ef          	jal	218dc <_ZN3SPI7setModeENS_9spiMode_eE>
    219dc:	00000613          	li	a2,0
    219e0:	000f45b7          	lui	a1,0xf4
-   219e4:	24058593          	add	a1,a1,576 # f4240 <_ZN9SerialOut6statusE+0xd1cf4>
+   219e4:	24058593          	add	a1,a1,576 # f4240 <_ZN9Serial_IO6statusE+0xd1cf4>
    219e8:	00040513          	mv	a0,s0
    219ec:	e7dff0ef          	jal	21868 <_ZN3SPI12setFrequencyEmPNS_10spiError_eE>
    219f0:	00c12083          	lw	ra,12(sp)
@@ -1603,7 +1603,7 @@ Disassembly of section .text:
    21ed8:	971a                	add	a4,a4,t1
    21eda:	4581                	li	a1,0
    21edc:	d6e8fce3          	bgeu	a7,a4,21c54 <__udivdi3+0xc8>
-   21ee0:	157d                	add	a0,a0,-1 # ffffff <_ZN9SerialOut6statusE+0xfddab3>
+   21ee0:	157d                	add	a0,a0,-1 # ffffff <_ZN9Serial_IO6statusE+0xfddab3>
    21ee2:	bb85                	j	21c52 <__udivdi3+0xc6>
    21ee4:	4581                	li	a1,0
    21ee6:	4501                	li	a0,0
@@ -1643,7 +1643,7 @@ Disassembly of section .text:
    21f48:	040e                	sll	s0,s0,0x3
    21f4a:	04000737          	lui	a4,0x4000
    21f4e:	8c59                	or	s0,s0,a4
-   21f50:	f8178793          	add	a5,a5,-127 # 3ffff81 <_ZN9SerialOut6statusE+0x3fdda35>
+   21f50:	f8178793          	add	a5,a5,-127 # 3ffff81 <_ZN9Serial_IO6statusE+0x3fdda35>
    21f54:	4681                	li	a3,0
    21f56:	8c9d                	sub	s1,s1,a5
    21f58:	002a9793          	sll	a5,s5,0x2
@@ -1756,7 +1756,7 @@ Disassembly of section .text:
    2208e:	8fe1                	and	a5,a5,s0
    22090:	c799                	beqz	a5,2209e <__divsf3+0x1b4>
    22092:	f80007b7          	lui	a5,0xf8000
-   22096:	17fd                	add	a5,a5,-1 # f7ffffff <_ZN9SerialOut6statusE+0xf7fddab3>
+   22096:	17fd                	add	a5,a5,-1 # f7ffffff <_ZN9Serial_IO6statusE+0xf7fddab3>
    22098:	8c7d                	and	s0,s0,a5
    2209a:	08048713          	add	a4,s1,128
    2209e:	0fe00793          	li	a5,254
@@ -1846,7 +1846,7 @@ Disassembly of section .text:
    22176:	205d                	jal	2221c <__lshrdi3>
    22178:	8c49                	or	s0,s0,a0
    2217a:	fc0007b7          	lui	a5,0xfc000
-   2217e:	17fd                	add	a5,a5,-1 # fbffffff <_ZN9SerialOut6statusE+0xfbfddab3>
+   2217e:	17fd                	add	a5,a5,-1 # fbffffff <_ZN9Serial_IO6statusE+0xfbfddab3>
    22180:	00747713          	and	a4,s0,7
    22184:	8fe1                	and	a5,a5,s0
    22186:	c711                	beqz	a4,22192 <__floatundisf+0x60>
@@ -1858,7 +1858,7 @@ Disassembly of section .text:
    22196:	8f7d                	and	a4,a4,a5
    22198:	cb09                	beqz	a4,221aa <__floatundisf+0x78>
    2219a:	fc000737          	lui	a4,0xfc000
-   2219e:	177d                	add	a4,a4,-1 # fbffffff <_ZN9SerialOut6statusE+0xfbfddab3>
+   2219e:	177d                	add	a4,a4,-1 # fbffffff <_ZN9Serial_IO6statusE+0xfbfddab3>
    221a0:	0bf00493          	li	s1,191
    221a4:	8ff9                	and	a5,a5,a4
    221a6:	412484b3          	sub	s1,s1,s2

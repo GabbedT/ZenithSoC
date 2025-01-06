@@ -1,6 +1,6 @@
 # Debug Print Program
 
-This program simply tests the print functions (and the UART module) of the static class SerialOut used for debugging purpouses. 
+This program simply tests the print functions (and the UART module) of the static class Serial_IO used for debugging purpouses. 
 
 # Compilation
 
