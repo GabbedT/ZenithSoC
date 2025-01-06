@@ -1,7 +1,7 @@
 #include "../../Library/Driver/GPIO.h"
 #include "../../Library/Driver/Timer.h"
 #include "../../Library/Driver/SPI.h"
-#include "../../Library/SerialOut.h"
+#include "../../Library/Serial_IO.h"
 
 #include <inttypes.h>
 
@@ -17,7 +17,7 @@
 // #define _TEST_
 
 extern "C" void spi() {
-    SerialOut::init();
+    Serial_IO::init();
     Timer timer(0);
 
     timer.init(-1, Timer::ONE_SHOT)
@@ -29,9 +29,9 @@ extern "C" void spi() {
        .connect(0, &error);
 
     if (error == SPI::INDEX_OUT_OF_RANGE) {
-        SerialOut::write("[SPI] ERROR ON SLAVE CONNECTION\n");
+        Serial_IO::write("[SPI] ERROR ON SLAVE CONNECTION\n");
     } else if (error == SPI::ILLEGAL_CLOCK) {
-        SerialOut::write("[SPI] ERROR ON CLOCK SELECTION\n");
+        Serial_IO::write("[SPI] ERROR ON CLOCK SELECTION\n");
     }
 
 
@@ -63,7 +63,7 @@ extern "C" void spi() {
         devCommand[1] = i;
         spi.exchangeStream(devCommand, devDataRX, sizeof(devCommand));
 
-        SerialOut::printf("[0x%xb]: 0x%xh\n", i, devDataRX[2]);
+        Serial_IO::printf("[0x%xb]: 0x%xh\n", i, devDataRX[2]);
     }
 
     int16_t xAxis, yAxis, zAxis, temperature;
@@ -80,10 +80,10 @@ extern "C" void spi() {
         zAxis = burstRX[6] | (burstRX[7] << 8);
         temperature = burstRX[8] | (burstRX[9] << 8);
 
-        SerialOut::println("[X-Axis]: %d", xAxis);
-        SerialOut::println("[Y-Axis]: %d", yAxis);
-        SerialOut::println("[Z-Axis]: %d", zAxis);
-        SerialOut::println("[Temperature]: %d", temperature);
+        Serial_IO::println("[X-Axis]: %d", xAxis);
+        Serial_IO::println("[Y-Axis]: %d", yAxis);
+        Serial_IO::println("[Z-Axis]: %d", zAxis);
+        Serial_IO::println("[Temperature]: %d", temperature);
 
         #ifndef _TEST_
             timer.delay(100);
@@ -91,8 +91,8 @@ extern "C" void spi() {
 
         for (int i = 0; i < 4; i++) {
             /* Cancel current line */
-            SerialOut::write("\x1b[2K"); 
-            SerialOut::write("\x1b[1A");
+            Serial_IO::write("\x1b[2K"); 
+            Serial_IO::write("\x1b[1A");
         }
     }
 }
