@@ -595,7 +595,7 @@ module ZenithSoC (
 
     localparam _BOOT_ = 0;
 
-    on_chip_memory #(BOOT_SIZE, "/home/gabriele/Desktop/Projects/ZenithSoC/Software/Examples/PNRG/output.hex") boot_memory (
+    on_chip_memory #(BOOT_SIZE, "/home/gabriele/Desktop/Projects/ZenithSoC/Software/Examples/Audio FFT/output.hex") boot_memory (
         .clk_i      ( sys_clk ),
         .rst_n_i    ( reset_n ),
 
@@ -659,11 +659,11 @@ module ZenithSoC (
         .read_error_o   ( read_error[_PDM2PCM_]        )
     );
 
-    assign write_busy[_PRNG_] = 1'b0;
-    assign write_ready[_PRNG_] = 1'b1;
+    assign write_busy[_PDM2PCM_] = 1'b0;
+    assign write_ready[_PDM2PCM_] = 1'b1;
 
-    assign read_busy[_PRNG_] = 1'b0;
-    assign read_ready[_PRNG_] = 1'b1;
+    assign read_busy[_PDM2PCM_] = 1'b0;
+    assign read_ready[_PDM2PCM_] = 1'b1;
 
 
 //====================================================================================
