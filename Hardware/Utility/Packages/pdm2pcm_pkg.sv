@@ -37,6 +37,9 @@ package pdm2pcm_pkg;
         /* Decimation Factor Register */
         PDM2PCM_DECIMATION_FACTOR,
 
+        /* Normalization Factor Register */
+        PDM2PCM_NORMALIZER,
+
         /* FIFO that holds the samples */
         PDM2PCM_SAMPLE_BUFFER,
 
@@ -62,7 +65,7 @@ package pdm2pcm_pkg;
         logic channel;
 
         /* Enable interrupt generation */
-        logic [4:0] interrupt_enable;
+        logic [5:0] interrupt_enable;
         
         /* Divide the clock */
         logic [6:0] clock_divisor;

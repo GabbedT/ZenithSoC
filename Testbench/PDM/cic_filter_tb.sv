@@ -21,7 +21,7 @@ module cic_filter_tb;
     logic [15:0] gain_i;
     // logic [NUMBER_OF_DUT - 1:0][63:0] pcm_o;
     // logic [NUMBER_OF_DUT - 1:0] valid_out;
-    logic [63:0] pcm_o;
+    logic [7:0] pcm_o;
     logic valid_out;
     logic valid_o, invalid_o;
 
@@ -35,6 +35,7 @@ module cic_filter_tb;
         .pdm_i              ( pdm_i              ),
         .valid_i            ( valid_i            ),
         .decimator_factor_i ( decimator_factor_i ),
+        .normalizer_i       ( 64 ** 4 ),
         .gain_i             ( gain_i             ),
         .pcm_o              ( pcm_o              ),
         .valid_o            ( valid_o            ),
@@ -63,7 +64,7 @@ module cic_filter_tb;
     //     end
     // endgenerate 
 
-    logic [15:0] pcm_final, normalized_pcm, filter_pcm;
+    logic [7:0] pcm_final, normalized_pcm, filter_pcm;
 
         always_ff @(posedge clk_i) begin
             if (valid_o) begin
@@ -131,7 +132,7 @@ module cic_filter_tb;
         pdm_i <= 0;
         decimator_factor_i <= DECIMATION_FACTOR; 
         gain_i <= '0;
-        gain_i[15] <= 1;
+        gain_i <= 16'h8000;
 
 
         /* Apply reset */

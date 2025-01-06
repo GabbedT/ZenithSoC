@@ -1,3 +1,5 @@
+`include "/home/gabriele/Desktop/Projects/ZenithSoC/Hardware/Utility/Packages/pdm2pcm_pkg.sv"
+
 module tb_pdm2pcm;
 
     /* Testbench nets */
@@ -84,6 +86,11 @@ module tb_pdm2pcm;
         reg_read = decimation_rate;
         write_register(PDM2PCM_DECIMATION_FACTOR, reg_read);
     endtask
+    
+    /* Cange normalization rate */
+    task change_normalizer(input logic [31:0] normalizer);
+        write_register(PDM2PCM_NORMALIZER, normalizer);
+    endtask
 
     /* Change gain */
     task change_gain(input logic [15:0] gain);
@@ -165,8 +172,9 @@ module tb_pdm2pcm;
             begin
                 // channel(LEFT, 1'b0);
                 change_gain(16'h8000);
-                change_decimation(8'd50);
-                start_audio(7'd20);
+                change_decimation(8'd62);
+                change_normalizer(62 ** 4);
+                start_audio(7'd16);
 
                 while (1) begin 
                     read_register(PDM2PCM_STATUS, temp);

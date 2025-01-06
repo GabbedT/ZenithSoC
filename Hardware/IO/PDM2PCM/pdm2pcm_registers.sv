@@ -22,6 +22,7 @@ module pdm2pcm_registers #(
     output logic [6:0] divisor_o,
     output logic [7:0] decimation_rate_o,
     output logic [15:0] gain_o,
+    output logic [31:0] normalizer_o,
     output logic enable_interface_o,
     
     /* Channel configuration */
@@ -82,11 +83,14 @@ module pdm2pcm_registers #(
                     end
 
                     if (write_strobe_i[1]) begin
-                        control_register.interrupt_enable[4:1] <= write_data_i[1][3:0];
-                        control_register.channel <= write_data_i[1][4];
-                        control_register.dual_channel <= write_data_i[1][5];
-                        control_register.buffer_enable <= write_data_i[1][6];
-                        control_register.interface_enable <= write_data_i[1][7];
+                        control_register.interrupt_enable[5:1] <= write_data_i[1][4:0];
+                        control_register.channel <= write_data_i[1][5];
+                        control_register.dual_channel <= write_data_i[1][6];
+                        control_register.buffer_enable <= write_data_i[1][7];
+                    end
+
+                    if (write_strobe_i[2]) begin
+                        control_register.interface_enable <= write_data_i[2][0];
                     end
                 end
             end 
@@ -144,7 +148,38 @@ module pdm2pcm_registers #(
 
 
 //====================================================================================
-//      LEFT BUFFER REGISTER
+//      NORMALIZER VALUE REGISTER
+//====================================================================================  
+
+    logic [31:0] normalizer_register;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                normalizer_register <= '0;
+            end else if ((write_address_i == PDM2PCM_NORMALIZER) & write_i) begin 
+                if (write_strobe_i[0]) begin
+                    normalizer_register[7:0] <= write_data_i[0];
+                end
+
+                if (write_strobe_i[1]) begin
+                    normalizer_register[15:8] <= write_data_i[1];
+                end
+
+                if (write_strobe_i[2]) begin
+                    normalizer_register[23:16] <= write_data_i[2];
+                end
+
+                if (write_strobe_i[3]) begin
+                    normalizer_register[31:24] <= write_data_i[3];
+                end
+            end 
+        end 
+
+    assign normalizer_o = normalizer_register;
+
+
+//====================================================================================
+//      BUFFER REGISTER
 //====================================================================================  
 
     logic empty, full, write_buffer, read_buffer; logic [15:0] sample;
@@ -229,31 +264,31 @@ module pdm2pcm_registers #(
                 end
             end else begin
                 if (full) begin
-                    event_register[0] <= 1'b1;
+                    event_register[0] <= control_register.interrupt_enable[0];
                 end
 
                 if (valid_i & (channel_i == LEFT) & (pcm_sample_i > threshold_register[1])) begin
                     /* Left channel sample surpassed threshold */
-                    event_register[1] <= 1'b1;
+                    event_register[1] <= control_register.interrupt_enable[1];
                 end
 
                 if (valid_i & (channel_i == LEFT) & (pcm_sample_i < threshold_register[1])) begin
                     /* Left channel sample fell below threshold */
-                    event_register[2] <= 1'b1;
+                    event_register[2] <= control_register.interrupt_enable[2];
                 end
 
                 if (valid_i & (channel_i == RIGHT) & (pcm_sample_i > threshold_register[0])) begin
                     /* Right channel sample surpassed threshold */
-                    event_register[3] <= 1'b1;
+                    event_register[3] <= control_register.interrupt_enable[3];
                 end
 
                 if (valid_i & (channel_i == RIGHT) & (pcm_sample_i < threshold_register[0])) begin
                     /* Right channel sample fell below threshold */
-                    event_register[4] <= 1'b1;
+                    event_register[4] <= control_register.interrupt_enable[4];
                 end
 
                 if (invalid_i) begin
-                    event_register[5] <= 1'b1;
+                    event_register[5] <= control_register.interrupt_enable[5];
                 end
             end
         end 
@@ -296,6 +331,8 @@ module pdm2pcm_registers #(
                 PDM2PCM_GAIN: read_data_o = gain_register;
 
                 PDM2PCM_DECIMATION_FACTOR: read_data_o = decimation_register;
+
+                PDM2PCM_NORMALIZER: read_data_o = normalizer_register;
 
                 PDM2PCM_SAMPLE_BUFFER: read_data_o = sample;
 

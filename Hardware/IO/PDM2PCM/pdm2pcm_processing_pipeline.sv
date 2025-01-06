@@ -34,7 +34,7 @@ module pdm2pcm_processing_pipeline #(
     input logic [15:0] gain_i,
 
     /* Pulse Code Modulation, either signed or unsigned */
-    output logic [15:0] pcm_o,
+    output logic [7:0] pcm_o,
     output logic valid_o,
     output logic channel_o,
 
@@ -154,7 +154,7 @@ module pdm2pcm_processing_pipeline #(
             .P   ( fxp_product )
         );
 
-        assign pcm_o = fxp_product[30:15];
+        assign pcm_o = fxp_product[30:23];
 
         /* To match multiplier latency */
         logic [1:0] valid_pipe;

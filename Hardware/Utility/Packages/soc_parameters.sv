@@ -153,10 +153,13 @@ package soc_parameters;
 
     /* Number of PRNGs */
     localparam PRNG_NUMBER = 1;
+    
+    /* Memory mapped registers */
+    localparam PRNG_DEVICE_SPACE = 4;
 
     /* PNRG MMIO address */
     localparam PRNG_BASE_ADDRESS = ETH_BASE_ADDRESS + 2**13;
-    localparam PRNG_END_ADDRESS = PRNG_BASE_ADDRESS + 4;
+    localparam PRNG_END_ADDRESS = PRNG_BASE_ADDRESS + ((PRNG_DEVICE_SPACE - 1) * 4);
 
 
 //====================================================================================
@@ -169,9 +172,12 @@ package soc_parameters;
     /* Buffer size */
     localparam PDM2PCM_SAMPLE_BUFFER_SIZE = 2**11;
 
+    /* Memory mapped registers */
+    localparam PDM2PCM_DEVICE_SPACE = 8;
+
     /* Ethernet MAC MMIO address */
     localparam PDM2PCM_BASE_ADDRESS = PRNG_BASE_ADDRESS + 2**13;
-    localparam PDM2PCM_END_ADDRESS = PDM2PCM_BASE_ADDRESS + 4;
+    localparam PDM2PCM_END_ADDRESS = PDM2PCM_BASE_ADDRESS + ((PDM2PCM_DEVICE_SPACE - 1) * 4);
 
 
 //====================================================================================

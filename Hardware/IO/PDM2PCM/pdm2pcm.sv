@@ -43,7 +43,7 @@ module pdm2pcm #(
     logic sample_valid, sample_channel, sample_invalid; logic [15:0] sample;
 
     /* Configuration interface */
-    logic [6:0] clock_divisor; logic [7:0] decimation_rate; logic [15:0] sample_gain; logic enable_interface;
+    logic [6:0] clock_divisor; logic [7:0] decimation_rate; logic [15:0] sample_gain; logic [31:0] normalizer; logic enable_interface;
 
     /* Channel */
     logic dual_channel, channel_selection;
@@ -65,6 +65,7 @@ module pdm2pcm #(
         .divisor_o          ( clock_divisor    ),
         .decimation_rate_o  ( decimation_rate  ),
         .gain_o             ( sample_gain      ),
+        .normalizer_o       ( normalizer       ),
         .enable_interface_o ( enable_interface ),
 
         /* Channel configuration */
@@ -143,7 +144,7 @@ module pdm2pcm #(
 //====================================================================================
 
     pdm2pcm_processing_pipeline #(
-        .CIC_FILTER_ORDER ( 2 ),
+        .CIC_FILTER_ORDER ( 5 ),
         .CIC_COMB_DELAY   ( 1 )
     ) pdm2pcm_pipeline_inst (
         /* Global signals */
@@ -157,6 +158,7 @@ module pdm2pcm #(
         .channel_i ( pdm_channel ),
 
         .decimator_factor_i ( decimation_rate ),
+        .normalizer_i       ( normalizer      ),
         .gain_i             ( sample_gain     ),
 
         /* PCM output */
