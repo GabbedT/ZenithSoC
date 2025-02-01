@@ -27,13 +27,15 @@ module ethernet_test;
 
     /* RMII Interface */
     logic phy_interrupt_i = 0;
-    logic [1:0] rmii_rxd_i;
-    logic rmii_crsdv_i;
+    wire [1:0] rmii_rxd_io;
+    wire rmii_crsdv_io;
     logic rmii_rxer_i = 0;
     logic [1:0] rmii_txd_o;
     logic rmii_txen_o;
     logic rmii_refclk_o;
     logic rmii_rstn_o;
+    
+    logic busy_o;
 
     /* SMII interface */
     logic smii_mdc_o;
@@ -93,7 +95,7 @@ module ethernet_test;
         packet_descriptor.mac_address = '1;
 
         for (int j = 0; j < 10; ++j) begin
-            for (int i = 0; i < 20; ++i) begin
+            for (int i = 0; i < 40; ++i) begin
                 write_register(35, i);
             end
 
