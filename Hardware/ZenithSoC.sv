@@ -595,7 +595,7 @@ module ZenithSoC (
 
     localparam _BOOT_ = 0;
 
-    on_chip_memory #(BOOT_SIZE, "/home/gabriele/Desktop/Projects/ZenithSoC/Software/Examples/Audio FFT/output.hex") boot_memory (
+    on_chip_memory #(BOOT_SIZE, "/home/gabriele/Desktop/Projects/ZenithSoC/Software/Examples/Audio Record/output.hex") boot_memory (
         .clk_i      ( sys_clk ),
         .rst_n_i    ( reset_n ),
 
