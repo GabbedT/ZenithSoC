@@ -105,7 +105,7 @@ module ZenithSoC (
             if (!rst_n_i) begin
                 rst_sync <= 1'b0;
                 reset_n <= 1'b0;
-            end else if (!locked) begin 
+            end else if (!locked | !ddr_ready) begin 
                 rst_sync <= 1'b0;
                 reset_n <= 1'b0;
             end else if (locked & ddr_ready) begin 
