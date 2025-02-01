@@ -379,7 +379,7 @@ module ethernet_tx #(
                                 load_data = payload_data_i;
                                 load = 1'b1;
 
-                                read_data_o = 1'b1;
+                                read_data_o = bytes_counter < (payload_length_i - 2);
                             end
 
                             crc32_compute = 1'b1;
