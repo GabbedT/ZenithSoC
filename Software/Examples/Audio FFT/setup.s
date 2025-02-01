@@ -15,7 +15,7 @@ boot_program:
     
     la t0, 0x00000048    # Load address of text section start in ROM
     la t1, 0x80000000    # Load address of text section start in RAM
-    la t2, 0x00001700    # Load address of text section end in ROM
+    la t2, 0x00001FFF    # Load address of text section end in ROM
 
 copy_loop:
     lw a0, 0(t0)              # Load a word from ROM
