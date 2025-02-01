@@ -5,7 +5,6 @@
 
 `define CPU dut.ApogeoRV.system_cpu
 
-// SEE THE FIRST TRANSACTION IN DDR INTERFACE
 /* Enable or disable tracing */
 `define TRACE_CPU
 // `define TRACE_MEMORY
