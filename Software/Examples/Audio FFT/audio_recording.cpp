@@ -5,9 +5,9 @@
 #include "../../Library/Driver/Timer.h"
 #include "../../Library/Serial_IO.h"
 
-void recordAudio(uint8_t *audioSamples, uint32_t bufferSize, uint32_t recordTime, Timer &timer, PDM2PCM &microphone);
+uint32_t recordAudio(uint8_t *audioSamples, uint32_t bufferSize, uint32_t recordTime, Timer &timer, PDM2PCM &microphone);
 bool initMicrophone(Timer &timer, PDM2PCM &microphone);
-
+void getRegister(uint8_t addr, const char *name, Ethernet& ethernet);
 
 extern "C" void audio_recording() {
     Serial_IO::init();
@@ -31,9 +31,8 @@ extern "C" void audio_recording() {
     }
 
     Serial_IO::write("Done\n");
-
-
-    recordAudio(audioSamples, AUDIO_BUFFER_SIZE, 5, timer, microphone);
+    
+    uint32_t samplesRead = recordAudio(audioSamples, AUDIO_BUFFER_SIZE, 10000, timer, microphone);
 
     Serial_IO::write("Sending audio samples...\n");
 
@@ -44,10 +43,24 @@ extern "C" void audio_recording() {
     Serial_IO::write("\n\n[LINK STATUS] Linking...\n");
     ethernet.waitLink();
     Serial_IO::write("[LINK STATUS] Enstablished!\n\n");
+    timer.delay(1000);
 
-    // for (int i = 0; i < numberOfSamples; ++i) {
-    //     Serial_IO::printf("%x\n\r", audioSamples[i]);
-    // }
+
+    /* Print all PHY registers */
+    getRegister(Ethernet::_BasicControl_, "\n[0] BASIC CONTROL REGISTER: ", ethernet);
+    getRegister(Ethernet::_BasicStatus_, "\n[1] BASIC STATUS REGISTER: ", ethernet);
+    getRegister(Ethernet::_PHYIdentifier1_, "\n[2] PHY IDENTIFIER 1 REGISTER: ", ethernet);
+    getRegister(Ethernet::_PHYIdentifier2_, "\n[3] PHY IDENTIFIER 2 REGISTER: ", ethernet);
+    getRegister(Ethernet::_AutoNegAdvertisement_, "\n[4] AUTO NEGOTIATION ADVERTISEMENT REGISTER: ", ethernet);
+    getRegister(Ethernet::_AutoNegLinkAbility_, "\n[5] AUTO NEGOTIATION LINK PARTNER REGISTER: ", ethernet);
+    getRegister(Ethernet::_AutoNegExpansion_, "\n[6] AUTO NEGOTIATION EXPANSION REGISTER: ", ethernet);
+    getRegister(Ethernet::_ModeCtrlStatus_, "\n[17] MODE CONTROL/STATUS REGISTER: ", ethernet);
+    getRegister(Ethernet::_SpecialModes_, "\n[18] SPECIAL MODES REGISTER: ", ethernet);
+    getRegister(Ethernet::_SymbolErrorCnt_, "\n[26] SYMBOL ERROR COUNTER REGISTER: ", ethernet);
+    getRegister(Ethernet::_CtrlStatusIndication_, "\n[27] SPECIAL CONTROL/STATUS INDICATIONS REGISTER: ", ethernet);
+    getRegister(Ethernet::_InterruptSource_, "\n[29] INTERRUPT SOURCE REGISTER: ", ethernet);
+    getRegister(Ethernet::_InterruptMask_, "\n[30] INTERRUPT MASK REGISTER: ", ethernet);
+    getRegister(Ethernet::_SpecialCtrlStatus_, "\n[31] PHY SPECIAL CONTROL/STATUS REGISTER: ", ethernet);
 
     macDestination.byte[0] = 0xBB;
     macDestination.byte[1] = 0xE0;
@@ -56,22 +69,32 @@ extern "C" void audio_recording() {
     macDestination.byte[4] = 0x8F;
     macDestination.byte[5] = 0x08;
 
+    uint32_t bytesSent = 0;
+
     /* Calculate the total number of 1.5kB chunks in the audio buffer (consi) */
-    ethernet.sendFrame(audioSamples, 1400, macDestination, nullptr);
+    while(bytesSent != (samplesRead * 2)) { 
+        uint32_t remainingBytes = (samplesRead * 2) - bytesSent;
 
-    while (ethernet.isSending()) {  }
+        if (remainingBytes > ethernet.MAX_PAYLOAD_LENGTH) {
+            ethernet.sendFrame(&audioSamples[bytesSent], ethernet.MAX_PAYLOAD_LENGTH, macDestination, nullptr);
 
-    if (!ethernet.isEmptyPayloadTX()) {
-        Serial_IO::write("Payload not empty");
+            bytesSent += ethernet.MAX_PAYLOAD_LENGTH;
+        } else {
+            ethernet.sendFrame(&audioSamples[bytesSent], remainingBytes, macDestination, nullptr);
+
+            bytesSent = samplesRead * 2;
+        }
     }
 
-    if (!ethernet.isEmptyPacketTX()) {
-        Serial_IO::write("Packet not empty");
-    }
-
-    while(1) {  }
 
     return;
+};
+
+void getRegister(uint8_t addr, const char *name, Ethernet& ethernet) {
+    uint16_t reg = ethernet.readPHYRegister(addr);
+
+    Serial_IO::printf(name);
+    Serial_IO::writeB(reg);
 };
 
 bool initMicrophone(Timer &timer, PDM2PCM &microphone) {
@@ -96,33 +119,38 @@ bool initMicrophone(Timer &timer, PDM2PCM &microphone) {
 };
 
 
-void recordAudio(uint8_t *audioSamples, uint32_t bufferSize, uint32_t recordTime, Timer &timer, PDM2PCM &microphone) {
+uint32_t recordAudio(uint8_t *audioSamples, uint32_t bufferSize, uint32_t recordTime, Timer &timer, PDM2PCM &microphone) {
     PDM2PCM::error_e error = PDM2PCM::NO_ERROR;
+
+    Serial_IO::write("Entering\n");
 
     microphone.startRecording();
 
     /* Set amount of counting and reset timer */
-    timer.setThreshold(10'000 * recordTime);
+    timer.setThreshold(100'000 * recordTime);
     timer.setTime(0);
 
     /* Start timer (non blocking function) */
     timer.start();
 
-    Serial_IO::write("Entering\n");
+    Serial_IO::write("Sampling\n");
 
 
     uint32_t samplesRead = 0;
+    uint32_t strange = 0;
     uint32_t index = 0;
 
     while (!timer.isHalted()) {
         if (!microphone.isEmpty()) {
-            uint16_t sample = microphone.readSample();
+            volatile int16_t sample = microphone.readSample() - 32768;
 
-            audioSamples[index] = sample & 0x00FF;
-            audioSamples[index + 1] = (sample & 0xFF00) >> 8;
+            if (sample > 31000 || sample < -31000) {
+                ++strange;
+            }
 
-            Serial_IO::printf("%xb%xb\n", audioSamples[index + 1], audioSamples[index]);
-            
+            audioSamples[index] = (sample & 0xFF00) >> 8;
+            audioSamples[index + 1] = sample & 0x00FF;
+
             index += 2;
             ++samplesRead;
         }
@@ -133,4 +161,7 @@ void recordAudio(uint8_t *audioSamples, uint32_t bufferSize, uint32_t recordTime
     microphone.stopRecording();
 
     Serial_IO::printf("Done reading %d samples\n", samplesRead);
+    Serial_IO::printf("Sample sus %d samples\n", strange);
+
+    return samplesRead;
 };
