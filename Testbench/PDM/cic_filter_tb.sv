@@ -3,7 +3,7 @@
 module cic_filter_tb;
 
     localparam NUMBER_OF_DUT = 5;
-    localparam DECIMATION_FACTOR = 64;
+    localparam DECIMATION_FACTOR = 32;
 
     parameter WIDTH = 16;
     parameter FILTER_ORDER = 5;
@@ -21,7 +21,7 @@ module cic_filter_tb;
     logic [15:0] gain_i;
     // logic [NUMBER_OF_DUT - 1:0][63:0] pcm_o;
     // logic [NUMBER_OF_DUT - 1:0] valid_out;
-    logic [7:0] pcm_o;
+    logic [15:0] pcm_o, filtered_sample;
     logic valid_out;
     logic valid_o, invalid_o;
 
@@ -34,15 +34,16 @@ module cic_filter_tb;
         .clk_en_i           ( clk_en_i           ),
         .pdm_i              ( pdm_i              ),
         .valid_i            ( valid_i            ),
+        .channel_i (1'b0),
         .decimator_factor_i ( decimator_factor_i ),
-        .normalizer_i       ( 64 ** 4 ),
+        .normalizer_i       ( 32 ** 4 ),
         .gain_i             ( gain_i             ),
         .pcm_o              ( pcm_o              ),
         .valid_o            ( valid_o            ),
         .invalid_o          ( invalid_o          )
     );
 
-
+    
     // genvar i;
 
     // generate
@@ -64,11 +65,20 @@ module cic_filter_tb;
     //     end
     // endgenerate 
 
-    logic [7:0] pcm_final, normalized_pcm, filter_pcm;
+    logic [15:0] pcm_final, pcm_audio, normalized_pcm, filter_pcm; logic [7:0] pcm_high, pcm_low;
 
         always_ff @(posedge clk_i) begin
-            if (valid_o) begin
-                pcm_final <= pcm_o;
+            if (valid_out) begin
+                pcm_final <= filtered_sample;
+                
+                pcm_high <= pcm_o[15:8];
+                pcm_low <= pcm_o[7:0];
+            end
+            
+            if (!rst_n_i) begin
+                pcm_audio <= '0;
+            end else if (valid_o) begin 
+                pcm_audio <= pcm_o;
             end
 
             if (dut.normalized_valid) begin
@@ -79,6 +89,32 @@ module cic_filter_tb;
                 filter_pcm <= dut.filtered_sample;
             end
         end
+        
+        
+
+
+    localparam BIAS = 2**(15);
+
+    logic [15:0] sample_scaled; 
+
+    assign sample_scaled = $signed(pcm_audio) - 16'sd32768;
+    logic [16:0] sample_biased;
+    logic [16:0] accumulator;
+
+    assign sample_biased = {sample_scaled[15], sample_scaled} + BIAS;
+
+        always_ff @(posedge clk_i) begin
+            if (!rst_n_i) begin 
+                accumulator <= '0;
+            end else begin
+                accumulator <= {1'b0, accumulator[15:0]} + sample_biased;
+            end
+        end
+
+    assign pwm_o = accumulator[16];
+    
+    
+    
 
     /* Clock generation: 100 MHz */
     always #5 clk_i <= !clk_i;
@@ -132,7 +168,7 @@ module cic_filter_tb;
         pdm_i <= 0;
         decimator_factor_i <= DECIMATION_FACTOR; 
         gain_i <= '0;
-        gain_i <= 16'h8000;
+        gain_i <= 16'h4000;
 
 
         /* Apply reset */
@@ -141,22 +177,31 @@ module cic_filter_tb;
         reset_filter_i = 0;
         #100;
 
-        /* Feed PDM input from file */
-        while (!$feof(pdm_file)) begin
-            if (valid_i) begin
-                read_bit = $fgetc(pdm_file);
-
-                if (read_bit == "0") begin
-                    pdm_i = 0;
-                end else if (read_bit == "1") begin
-                    pdm_i = 1;
-                end else begin
-                    continue;
-                end 
+        fork 
+            begin
+                gain_i <= 16'h8000;
+                #5s;
             end
 
-            @(posedge clk_i);
-        end
+            begin
+                /* Feed PDM input from file */
+                while (!$feof(pdm_file)) begin
+                    if (valid_i) begin
+                        read_bit = $fgetc(pdm_file);
+
+                        if (read_bit == "0") begin
+                            pdm_i = 0;
+                        end else if (read_bit == "1") begin
+                            pdm_i = 1;
+                        end else begin
+                            continue;
+                        end 
+                    end
+
+                    @(posedge clk_i);
+                end
+            end
+        join
         
         repeat (1000) @(posedge clk_i);
 
