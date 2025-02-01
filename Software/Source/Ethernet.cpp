@@ -238,7 +238,6 @@ Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct Eth
     for (int i = 0; i < length; ++i) {
         while (isFullPayloadTX()) {  }
 
-        Serial_IO::printf("%xb\n", packet[i]);
         *macTxBuffer = packet[i];
     }
 
@@ -249,7 +248,6 @@ Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct Eth
         for (int i = 0; i < padding; ++i) {
             while (isFullPayloadTX()) {  }
             
-            Serial_IO::printf("Padding\n", packet[i]);
             *macTxBuffer = 0;
         }
     }
@@ -281,8 +279,6 @@ Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct Eth
     descriptor.fields.macByte3 = destMac.byte[3];
     descriptor.fields.macByte4 = destMac.byte[4];
     descriptor.fields.macByte5 = destMac.byte[5];
-
-    Serial_IO::printf("%d\n", descriptor.fields.length);
 
     /* Send the descriptor the the descriptor buffer in the MAC */
     *macTxPktDesc = descriptor.raw;
