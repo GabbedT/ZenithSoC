@@ -13,5 +13,4 @@
 * Build I2C device
 * Integrate VGA
 
-Add README in examples
 SPI add disable RX
