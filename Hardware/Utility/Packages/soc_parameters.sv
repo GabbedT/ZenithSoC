@@ -167,17 +167,17 @@ package soc_parameters;
 //====================================================================================
 
     /* Number of PRNGs */
-    localparam PDM2PCM_NUMBER = 1;
+    localparam APU_NUMBER = 1;
 
     /* Buffer size */
-    localparam PDM2PCM_SAMPLE_BUFFER_SIZE = 2**11;
+    localparam APU_SAMPLE_BUFFER_SIZE = 2**11;
 
     /* Memory mapped registers */
-    localparam PDM2PCM_DEVICE_SPACE = 8;
+    localparam APU_DEVICE_SPACE = 2**12;
 
     /* Ethernet MAC MMIO address */
-    localparam PDM2PCM_BASE_ADDRESS = PRNG_BASE_ADDRESS + 2**13;
-    localparam PDM2PCM_END_ADDRESS = PDM2PCM_BASE_ADDRESS + ((PDM2PCM_DEVICE_SPACE - 1) * 4);
+    localparam APU_BASE_ADDRESS = PRNG_BASE_ADDRESS + 2**13;
+    localparam APU_END_ADDRESS = APU_BASE_ADDRESS + ((APU_DEVICE_SPACE - 1) * 4);
 
 
 //====================================================================================
@@ -190,7 +190,7 @@ package soc_parameters;
     localparam NC_MEMORY_NUMBER = 1;
 
     /* Non cachable memory MMIO address */
-    localparam NCMEM_BASE_ADDRESS = PDM2PCM_BASE_ADDRESS + 2**13;
+    localparam NCMEM_BASE_ADDRESS = APU_BASE_ADDRESS + 2**13;
     localparam NCMEM_END_ADDRESS = NCMEM_BASE_ADDRESS + NC_MEMORY_SIZE;
 
 
@@ -212,7 +212,7 @@ package soc_parameters;
                                  ETH_DEVICE_NUMBER + 
                                  BOOT_MEMORY_NUMBER + 
                                  PRNG_NUMBER +
-                                 PDM2PCM_NUMBER +
+                                 APU_NUMBER +
                                  NC_MEMORY_NUMBER;
 
 
@@ -235,7 +235,7 @@ package soc_parameters;
 
         PRNG_BASE_ADDRESS,
 
-        PDM2PCM_BASE_ADDRESS,
+        APU_BASE_ADDRESS,
 
         NCMEM_BASE_ADDRESS
     };
@@ -255,7 +255,7 @@ package soc_parameters;
 
         PRNG_END_ADDRESS,
 
-        PDM2PCM_END_ADDRESS,
+        APU_END_ADDRESS,
 
         NCMEM_END_ADDRESS
     };

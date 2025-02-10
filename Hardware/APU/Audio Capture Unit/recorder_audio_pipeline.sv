@@ -3,7 +3,7 @@
 
 `include "cic_filter.sv"
 
-`include "../../Utility/Packages/pdm2pcm_pkg.sv"
+`include "../../Utility/Packages/apu_pkg.sv"
 `include "../../CPU/ApogeoRV/Hardware/Back End/Execution Unit/Arithmetic Circuits/Integer/Dividers/non_restoring_divider.sv"
 
 `define _VIVADO_

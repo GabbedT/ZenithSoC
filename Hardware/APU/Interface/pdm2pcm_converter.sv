@@ -1,7 +1,7 @@
 `ifndef PDM2PCM_CONVERTER
     `define PDM2PCM_CONVERTER
 
-`include "../../Utility/Packages/pdm2pcm_pkg.sv"
+`include "../../Utility/Packages/apu_pkg.sv"
 
 module pdm2pcm_converter (
     /* Global signals */

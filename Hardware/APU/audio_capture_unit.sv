@@ -1,11 +1,11 @@
-`ifndef PDM2PCM_SV
-    `define PDM2PCM_SV
+`ifndef AUDIO_CAPTURE_UNIT_SV
+    `define AUDIO_CAPTURE_UNIT_SV
 
-`include "pdm2pcm_registers.sv"
-`include "pdm2pcm_processing_pipeline.sv"
-`include "pdm2pcm_interface.sv"
+`include "Interface/ac_unit_registers.sv"
+`include "Audio Capture Unit/recorder_audio_pipeline.sv"
+`include "Interface/pdm2pcm_converter.sv"
 
-module pdm2pcm #(
+module audio_capture_unit #(
     /* Buffer sizes */
     parameter BUFFER_SIZE = 512
 ) (
@@ -43,12 +43,12 @@ module pdm2pcm #(
     logic sample_valid, sample_channel, sample_invalid; logic [15:0] sample;
 
     /* Configuration interface */
-    logic [6:0] clock_divisor; logic [7:0] decimation_rate; logic [15:0] sample_gain; logic [31:0] normalizer; logic enable_interface;
+    logic [6:0] clock_divisor; logic [6:0] decimation_rate; logic [15:0] sample_gain; logic [31:0] normalizer; logic enable_interface;
 
     /* Channel */
     logic dual_channel, channel_selection;
 
-    pdm2pcm_registers #(
+    ac_unit_registers #(
         .BUFFER_SIZE  ( BUFFER_SIZE  )
     ) register_interface (
         .clk_i         ( clk_i        ),
@@ -92,7 +92,7 @@ module pdm2pcm #(
 
     logic is_delayed;
 
-    assign is_delayed = (pdm2pcm_registers_t'(read_address_i) == PDM2PCM_SAMPLE_BUFFER);
+    assign is_delayed = (capture_unit_registers_t'(read_address_i) == CAPTURE_UNIT_SAMPLE_BUFFER);
 
 
     logic read_done_delay; 
@@ -114,7 +114,7 @@ module pdm2pcm #(
 
     logic pdm_sampled, pdm_valid, pdm_direction;
 
-    pdm2pcm_interface external_interface (
+    pdm2pcm_converter pdm_converter (
         /* Global signals */
         .clk_i        ( clk_i            ),
         .rst_n_i      ( rst_n_i          ),
@@ -143,10 +143,10 @@ module pdm2pcm #(
 //      PROCESSING PIPELINE
 //====================================================================================
 
-    pdm2pcm_processing_pipeline #(
+    recorder_audio_pipeline #(
         .CIC_FILTER_ORDER ( 5 ),
         .CIC_COMB_DELAY   ( 1 )
-    ) pdm2pcm_pipeline_inst (
+    ) audio_pipeline (
         /* Global signals */
         .clk_i    ( clk_i            ),
         .rst_n_i  ( rst_n_i          ),
@@ -168,6 +168,6 @@ module pdm2pcm #(
         .invalid_o ( sample_invalid )
     );
 
-endmodule : pdm2pcm 
+endmodule : audio_capture_unit 
 
 `endif 

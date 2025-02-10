@@ -1,9 +1,9 @@
-`ifndef PDM2PCM_REGISTERS_SV
-    `define PDM2PCM_REGISTERS_SV
+`ifndef AC_UNIT_REGISTERS_SV
+    `define AC_UNIT_REGISTERS_SV
 
-`include "../../Utility/Packages/pdm2pcm_pkg.sv"
+`include "../../Utility/Packages/apu_pkg.sv"
 
-module pdm2pcm_registers #(
+module ac_unit_registers #(
     /* Buffer sizes */
     parameter BUFFER_SIZE = 512
 ) (
@@ -31,14 +31,14 @@ module pdm2pcm_registers #(
 
     /* Write interface */
     input logic write_i,
-    input pdm2pcm_registers_t write_address_i,
+    input capture_unit_registers_t write_address_i,
     input logic [3:0][7:0] write_data_i,
     input logic [3:0] write_strobe_i,
     output logic write_error_o,
 
     /* Read interface */
     input logic read_i,
-    input pdm2pcm_registers_t read_address_i,
+    input capture_unit_registers_t read_address_i,
     output logic [31:0] read_data_o,
     output logic read_error_o
 );
@@ -49,8 +49,8 @@ module pdm2pcm_registers #(
 //====================================================================================
 
     /* Error checking */
-    assign write_error_o = ( (write_address_i == PDM2PCM_SAMPLE_BUFFER) 
-                           | (write_address_i == PDM2PCM_STATUS)) & write_i;
+    assign write_error_o = ( (write_address_i == CAPTURE_UNIT_SAMPLE_BUFFER) 
+                           | (write_address_i == CAPTURE_UNIT_STATUS)) & write_i;
 
     assign read_error_o = 1'b0;
 
@@ -59,7 +59,7 @@ module pdm2pcm_registers #(
 //      CONTROL REGISTER
 //====================================================================================  
 
-    pdm2pcm_control_t control_register;
+    capture_unit_control_t control_register;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
@@ -76,7 +76,7 @@ module pdm2pcm_registers #(
                 /* Operation disabled on reset */
                 control_register.interrupt_enable <= 5'b0;
             end else begin 
-                if ((write_address_i == PDM2PCM_CONTROL) & write_i) begin 
+                if ((write_address_i == CAPTURE_UNIT_CONTROL) & write_i) begin 
                     if (write_strobe_i[0]) begin
                         control_register.clock_divisor <= write_data_i[0][6:0];
                         control_register.interrupt_enable[0] <= write_data_i[0][7];
@@ -114,7 +114,7 @@ module pdm2pcm_registers #(
             if (!rst_n_i) begin 
                 /* Gain = 1.0 */
                 gain_register <= 16'h8000;
-            end else if ((write_address_i == PDM2PCM_GAIN) & write_i) begin 
+            end else if ((write_address_i == CAPTURE_UNIT_GAIN) & write_i) begin 
                 if (write_strobe_i[0]) begin
                     gain_register[7:0] <= write_data_i[0];
                 end
@@ -137,7 +137,7 @@ module pdm2pcm_registers #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 decimation_register <= 8'h00;
-            end else if ((write_address_i == PDM2PCM_DECIMATION_FACTOR) & write_i) begin 
+            end else if ((write_address_i == CAPTURE_UNIT_DECIMATION_FACTOR) & write_i) begin 
                 if (write_strobe_i[0]) begin
                     decimation_register <= write_data_i[0];
                 end
@@ -156,7 +156,7 @@ module pdm2pcm_registers #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 normalizer_register <= '0;
-            end else if ((write_address_i == PDM2PCM_NORMALIZER) & write_i) begin 
+            end else if ((write_address_i == CAPTURE_UNIT_NORMALIZER) & write_i) begin 
                 if (write_strobe_i[0]) begin
                     normalizer_register[7:0] <= write_data_i[0];
                 end
@@ -187,7 +187,7 @@ module pdm2pcm_registers #(
     /* Write when left sample is full */
     assign write_buffer = valid_i & control_register.buffer_enable;
 
-    assign read_buffer = read_i & (read_address_i == PDM2PCM_SAMPLE_BUFFER);
+    assign read_buffer = read_i & (read_address_i == CAPTURE_UNIT_SAMPLE_BUFFER);
 
     /* TX Buffer asyncronous FIFO instantiation */
     synchronous_buffer #(BUFFER_SIZE, 16) sample_buffer (
@@ -209,7 +209,7 @@ module pdm2pcm_registers #(
 //      STATUS REGISTER
 //====================================================================================  
 
-    pdm2pcm_status_t status_register;
+    capture_unit_status_t status_register;
 
     assign status_register.buffer_empty = empty;
     assign status_register.buffer_full = full;
@@ -224,7 +224,7 @@ module pdm2pcm_registers #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 threshold_register <= '0;
-            end else if ((write_address_i == PDM2PCM_THRESHOLD) & write_i) begin 
+            end else if ((write_address_i == CAPTURE_UNIT_THRESHOLD) & write_i) begin 
                 if (write_strobe_i[0]) begin
                     /* Right low byte */
                     threshold_register[0][7:0] <= write_data_i[0];
@@ -258,7 +258,7 @@ module pdm2pcm_registers #(
         if (!rst_n_i) begin 
             event_register <= '0;
         end else begin 
-            if ((write_address_i == PDM2PCM_EVENT) & write_i) begin
+            if ((write_address_i == CAPTURE_UNIT_EVENT) & write_i) begin
                 if (write_strobe_i[0]) begin
                     event_register <= write_data_i[0][5:0];
                 end
@@ -324,24 +324,24 @@ module pdm2pcm_registers #(
             read_data_o = '0;
 
             case (read_address_i)
-                PDM2PCM_STATUS: read_data_o = status_register;
+                CAPTURE_UNIT_STATUS: read_data_o = status_register;
 
-                PDM2PCM_CONTROL: read_data_o = control_register;
+                CAPTURE_UNIT_CONTROL: read_data_o = control_register;
 
-                PDM2PCM_GAIN: read_data_o = gain_register;
+                CAPTURE_UNIT_GAIN: read_data_o = gain_register;
 
-                PDM2PCM_DECIMATION_FACTOR: read_data_o = decimation_register;
+                CAPTURE_UNIT_DECIMATION_FACTOR: read_data_o = decimation_register;
 
-                PDM2PCM_NORMALIZER: read_data_o = normalizer_register;
+                CAPTURE_UNIT_NORMALIZER: read_data_o = normalizer_register;
 
-                PDM2PCM_SAMPLE_BUFFER: read_data_o = sample;
+                CAPTURE_UNIT_SAMPLE_BUFFER: read_data_o = sample;
 
-                PDM2PCM_THRESHOLD: read_data_o = threshold_register;
+                CAPTURE_UNIT_THRESHOLD: read_data_o = threshold_register;
 
-                PDM2PCM_EVENT: read_data_o = event_register;
+                CAPTURE_UNIT_EVENT: read_data_o = event_register;
             endcase 
         end
 
-endmodule : pdm2pcm_registers
+endmodule : ac_unit_registers
 
 `endif
