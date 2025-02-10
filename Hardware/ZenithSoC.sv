@@ -17,7 +17,8 @@
 `include "IO/SPI/spi.sv"
 `include "IO/Ethernet/ethernet.sv"
 `include "IO/PRNG/prng.sv"
-`include "IO/PDM2PCM/pdm2pcm.sv"
+
+`include "APU/apu.sv"
 
 `include "Memory/DDR/cache_ddr_interface.sv"
 `include "Memory/DDR/ddr_memory_interface.sv"
@@ -61,6 +62,10 @@ module ZenithSoC (
     input logic pdm_data_i,
     output logic pdm_clk_o,
     output logic pdm_lrsel_o,
+
+    /* PWM Interface */
+    inout logic pwm_o,
+    output logic audio_enable_o,
 
     /* DDR Interface */
     inout logic [15:0] ddr2_dq,
@@ -596,8 +601,8 @@ module ZenithSoC (
     localparam _BOOT_ = 0;
 
     on_chip_memory #(BOOT_SIZE, "/home/gabriele/Desktop/Projects/ZenithSoC/Software/Examples/Audio Record/output.hex") boot_memory (
-        .clk_i      ( sys_clk ),
-        .rst_n_i    ( reset_n ),
+        .clk_i   ( sys_clk ),
+        .rst_n_i ( reset_n ),
 
         .store_i         ( write_request[_BOOT_] ),
         .store_address_i ( write_address[_BOOT_] ),
@@ -628,49 +633,48 @@ module ZenithSoC (
 
 
 //====================================================================================
-//      PDM TO PCM CONVERTER
+//      AUDIO PROCESSING UNIT
 //====================================================================================
 
-    localparam _PDM2PCM_ = _PRNG_ + 1;
+    localparam _APU_ = _PRNG_ + 1;
 
-    pdm2pcm #(
-        .BUFFER_SIZE  ( PDM2PCM_SAMPLE_BUFFER_SIZE )
-    ) pdm2pcm_converter (
-        .clk_i       ( sys_clk   ),
-        .rst_n_i     ( reset_n   ),
+    apu #(APU_SAMPLE_BUFFER_SIZE) audio_processing_unit (
+        .clk_i   ( sys_clk ),
+        .rst_n_i ( reset_n ),
 
         .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 7] ),
-
+        
+        .write_i         ( write_request[_APU_] ),
+        .write_address_i ( write_address[_APU_] ),
+        .write_data_i    ( write_data[_APU_]    ),
+        .write_strobe_i  ( write_strobe[_APU_]  ),
+        .write_error_o   ( write_error[_APU_]   ),
+        
+        .read_i         ( read_request[_APU_] ),
+        .read_address_i ( read_address[_APU_] ),
+        .read_data_o    ( read_data[_APU_]    ),
+        .read_error_o   ( read_error[_APU_]   ),
+        
         .pdm_data_i  ( pdm_data_i  ),
         .pdm_clk_o   ( pdm_clk_o   ),
         .pdm_lrsel_o ( pdm_lrsel_o ),
-
-        .write_i         ( write_request[_PDM2PCM_]      ),
-        .write_address_i ( write_address[_PDM2PCM_] >> 2 ),
-        .write_data_i    ( write_data[_PDM2PCM_]         ),
-        .write_strobe_i  ( write_strobe[_PDM2PCM_]       ),
-        .write_done_o    ( write_done[_PDM2PCM_]         ),
-        .write_error_o   ( write_error[_PDM2PCM_]        ),
-
-        .read_i         ( read_request[_PDM2PCM_]      ),
-        .read_address_i ( read_address[_PDM2PCM_] >> 2 ),
-        .read_data_o    ( read_data[_PDM2PCM_]         ),
-        .read_done_o    ( read_done[_PDM2PCM_]         ),
-        .read_error_o   ( read_error[_PDM2PCM_]        )
+        
+        .pwm_o          ( pwm_o          ),
+        .audio_enable_o ( audio_enable_o )
     );
 
-    assign write_busy[_PDM2PCM_] = 1'b0;
-    assign write_ready[_PDM2PCM_] = 1'b1;
+    assign write_busy[_APU_] = 1'b0;
+    assign write_ready[_APU_] = 1'b1;
 
-    assign read_busy[_PDM2PCM_] = 1'b0;
-    assign read_ready[_PDM2PCM_] = 1'b1;
+    assign read_busy[_APU_] = 1'b0;
+    assign read_ready[_APU_] = 1'b1;
 
 
 //====================================================================================
 //      NON CACHABLE MEMORY
 //====================================================================================
 
-    localparam _NC_MEM_ = _PDM2PCM_ + 1;
+    localparam _NC_MEM_ = _APU_ + 1;
 
     assign write_busy[_NC_MEM_] = 1'b0;
     assign write_ready[_NC_MEM_] = 1'b1;
