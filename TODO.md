@@ -14,3 +14,5 @@
 * Integrate VGA
 
 SPI add disable RX
+Add write strobe to Eth registers
+Change abs path to sine wave gen 
