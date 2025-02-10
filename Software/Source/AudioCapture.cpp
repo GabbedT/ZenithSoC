@@ -1,14 +1,14 @@
-#ifndef PDM2PCM_CPP
-#define PDM2PCM_CPP
+#ifndef AudioCapture_CPP
+#define AudioCapture_CPP
 
-#include "../Library/Driver/PDM2PCM.h"
+#include "../Library/Driver/AudioCapture.h"
 #include "../Library/mmio.h"
 #include "../Library/platform.h"
 
 #include <inttypes.h>
 
-PDM2PCM::PDM2PCM() :
-    baseAddress( (uint32_t *) PDM2PCM_BASE ),
+AudioCapture::AudioCapture() :
+    baseAddress( (uint32_t *) ACU_BASE ),
 
     /* Initialize register addresses based on the base address */
     status         ( (struct statusRegister_s *) (baseAddress)      ),
@@ -23,13 +23,13 @@ PDM2PCM::PDM2PCM() :
     control->interruptEnable = 0;
 };
 
-PDM2PCM::~PDM2PCM() {};
+AudioCapture::~AudioCapture() {};
 
 /*****************************************************************/
 /*                         CONFIGURATION                         */
 /*****************************************************************/
 
-PDM2PCM& PDM2PCM::init(channel_e channel, bool dualChannel, uint32_t frequency, uint32_t sampleRate, error_e* error) {
+AudioCapture& AudioCapture::init(channel_e channel, bool dualChannel, uint32_t frequency, uint32_t sampleRate, error_e* error) {
     setChannel(channel);
     setDualChannel(dualChannel);
 
@@ -53,7 +53,7 @@ PDM2PCM& PDM2PCM::init(channel_e channel, bool dualChannel, uint32_t frequency, 
 
     setDecimationRate(decimationRate);
 
-    PDM2PCM::control->interfaceEnable = true;
+    AudioCapture::control->interfaceEnable = true;
 
     uint32_t normalizerFactor = 1;
 
@@ -62,60 +62,60 @@ PDM2PCM& PDM2PCM::init(channel_e channel, bool dualChannel, uint32_t frequency, 
         normalizerFactor *= decimationRate;
     }
 
-    *PDM2PCM::normalizer = normalizerFactor;
+    *AudioCapture::normalizer = normalizerFactor;
 
     return *this;
 };
 
-PDM2PCM& PDM2PCM::setGain(uint16_t gain, error_e* error) {
+AudioCapture& AudioCapture::setGain(uint16_t gain, error_e* error) {
     if (gain > 0x8000) {
         *error = ILLEGAL_GAIN;
 
         return *this;
     }
 
-    *PDM2PCM::gain = gain;
+    *AudioCapture::gain = gain;
 
     return *this;
 };
 
-PDM2PCM& PDM2PCM::setDecimationRate(uint8_t decimationRate) {
-    *PDM2PCM::decimationRate = decimationRate;
+AudioCapture& AudioCapture::setDecimationRate(uint8_t decimationRate) {
+    *AudioCapture::decimationRate = decimationRate;
 
     return *this;
 };
 
-PDM2PCM& PDM2PCM::setThreshold(uint16_t threshold) {
-    *PDM2PCM::threshold = threshold;
+AudioCapture& AudioCapture::setThreshold(uint16_t threshold) {
+    *AudioCapture::threshold = threshold;
 
     return *this;
 };
 
-PDM2PCM& PDM2PCM::setChannel(channel_e channel) {
-    PDM2PCM::control->channel = channel;
+AudioCapture& AudioCapture::setChannel(channel_e channel) {
+    AudioCapture::control->channel = channel;
 
     return *this;
 };
 
-PDM2PCM& PDM2PCM::setDualChannel(bool dualChannel) {
-    PDM2PCM::control->dualChannel = dualChannel;
+AudioCapture& AudioCapture::setDualChannel(bool dualChannel) {
+    AudioCapture::control->dualChannel = dualChannel;
 
     return *this;
 };
 
-PDM2PCM& PDM2PCM::enableInterface(bool enable) {
-    PDM2PCM::control->interfaceEnable = enable;
+AudioCapture& AudioCapture::enableInterface(bool enable) {
+    AudioCapture::control->interfaceEnable = enable;
 
     return *this;
 };
 
-PDM2PCM& PDM2PCM::enableBuffer(bool enable) {
-    PDM2PCM::control->bufferEnable = enable;
+AudioCapture& AudioCapture::enableBuffer(bool enable) {
+    AudioCapture::control->bufferEnable = enable;
 
     return *this;
 };
 
-PDM2PCM& PDM2PCM::setFrequency(uint32_t frequency, error_e* error) {
+AudioCapture& AudioCapture::setFrequency(uint32_t frequency, error_e* error) {
     /* Check value validity */
     if (frequency > 3'000'000 || frequency < 1'000'000) {
         *error = ILLEGAL_CLOCK;
@@ -123,7 +123,7 @@ PDM2PCM& PDM2PCM::setFrequency(uint32_t frequency, error_e* error) {
         return *this;
     }
 
-    PDM2PCM::control->clockDivisor = SYSTEM_FREQUENCY / (frequency * 2);
+    AudioCapture::control->clockDivisor = SYSTEM_FREQUENCY / (frequency * 2);
 
     return *this;
 };
@@ -133,24 +133,24 @@ PDM2PCM& PDM2PCM::setFrequency(uint32_t frequency, error_e* error) {
 /*****************************************************************/
 
 
-PDM2PCM& PDM2PCM::startRecording() {
-    PDM2PCM::control->bufferEnable = true;
+AudioCapture& AudioCapture::startRecording() {
+    AudioCapture::control->bufferEnable = true;
 
     return *this;
 };
 
-PDM2PCM& PDM2PCM::stopRecording() {
-    PDM2PCM::control->bufferEnable = false;
+AudioCapture& AudioCapture::stopRecording() {
+    AudioCapture::control->bufferEnable = false;
 
     return *this;
 };
 
-uint16_t PDM2PCM::readSample() {
+uint16_t AudioCapture::readSample() {
     /* Read sample buffer 1 time */
-    return *PDM2PCM::sampleBuffer;
+    return *AudioCapture::sampleBuffer;
 };
 
-uint32_t PDM2PCM::readAudioStream(uint16_t* buffer, uint32_t size, error_e* error) {
+uint32_t AudioCapture::readAudioStream(uint16_t* buffer, uint32_t size, error_e* error) {
     if (size == 0 || !buffer) {
         *error = ILLEGAL_ARGUMENTS;
     }
@@ -160,7 +160,7 @@ uint32_t PDM2PCM::readAudioStream(uint16_t* buffer, uint32_t size, error_e* erro
 
     while (samplesRead < size && !isEmpty()) {
         /* Read until the end of the array or the sample buffer become empty */
-        buffer[samplesRead++] = *PDM2PCM::sampleBuffer;
+        buffer[samplesRead++] = *AudioCapture::sampleBuffer;
     }
 
     /* Return the last index */

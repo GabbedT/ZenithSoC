@@ -1,11 +1,11 @@
-#ifndef PDM2PCM_H
-#define PDM2PCM_H
+#ifndef AudioCapture_H
+#define AudioCapture_H
 
 #include <inttypes.h>
 
 #include "../mmio.h"
 
-class PDM2PCM {
+class AudioCapture {
 
 public: 
 
@@ -91,40 +91,40 @@ private:
 
 public: 
 
-    PDM2PCM();
+    AudioCapture();
 
     /* Deconstructor */
-    ~PDM2PCM();
+    ~AudioCapture();
 
 
 /*****************************************************************/
 /*                         CONFIGURATION                         */
 /*****************************************************************/
 
-    PDM2PCM& init(channel_e channel, bool dualChannel, uint32_t frequency, uint32_t sampleRate, error_e* error);
+    AudioCapture& init(channel_e channel, bool dualChannel, uint32_t frequency, uint32_t sampleRate, error_e* error);
 
-    PDM2PCM& setGain(uint16_t gain, error_e* error);
+    AudioCapture& setGain(uint16_t gain, error_e* error);
 
-    PDM2PCM& setDecimationRate(uint8_t decimationRate);
+    AudioCapture& setDecimationRate(uint8_t decimationRate);
 
-    PDM2PCM& setThreshold(uint16_t threshold);
+    AudioCapture& setThreshold(uint16_t threshold);
 
-    PDM2PCM& setChannel(channel_e channel);
+    AudioCapture& setChannel(channel_e channel);
 
-    PDM2PCM& setDualChannel(bool dualChannel);
+    AudioCapture& setDualChannel(bool dualChannel);
 
-    PDM2PCM& enableInterface(bool enable);
+    AudioCapture& enableInterface(bool enable);
 
-    PDM2PCM& enableBuffer(bool enable);
+    AudioCapture& enableBuffer(bool enable);
 
-    PDM2PCM& setFrequency(uint32_t value, error_e* error);
+    AudioCapture& setFrequency(uint32_t value, error_e* error);
 
     inline bool isFull() {
-        return PDM2PCM::status->bufferFull;
+        return AudioCapture::status->bufferFull;
     };
 
     inline bool isEmpty() {
-        return PDM2PCM::status->bufferEmpty;
+        return AudioCapture::status->bufferEmpty;
     };
 
 
@@ -132,9 +132,9 @@ public:
 /*                           SAMPLES                             */
 /*****************************************************************/
 
-    PDM2PCM& startRecording();
+    AudioCapture& startRecording();
 
-    PDM2PCM& stopRecording();
+    AudioCapture& stopRecording();
 
     uint16_t readSample();
 

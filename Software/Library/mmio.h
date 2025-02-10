@@ -20,8 +20,11 @@
 /* PRNG base address */
 #define PRNG_BASE (ETHERNET_BASE + DEVICE_INTERLEAVE)
 
-/* PDM to PCM base address */
-#define PDM2PCM_BASE (PRNG_BASE + DEVICE_INTERLEAVE)
+/* Audio Capture Unit base address */
+#define ACU_BASE (PRNG_BASE + DEVICE_INTERLEAVE)
+
+/* Audio Synthesis Unit */
+#define ASU_BASE (ACU_BASE | 1 << 12)
 
 /* Non cachable memory base address */
 #define NC_MEMORY_BASE (PDM2PCM_BASE + DEVICE_INTERLEAVE)
