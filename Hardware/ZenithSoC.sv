@@ -644,16 +644,16 @@ module ZenithSoC (
 
         .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 7] ),
         
-        .write_i         ( write_request[_APU_] ),
-        .write_address_i ( write_address[_APU_] ),
-        .write_data_i    ( write_data[_APU_]    ),
-        .write_strobe_i  ( write_strobe[_APU_]  ),
-        .write_error_o   ( write_error[_APU_]   ),
+        .write_i         ( write_request[_APU_]      ),
+        .write_address_i ( write_address[_APU_] >> 2 ),
+        .write_data_i    ( write_data[_APU_]         ),
+        .write_strobe_i  ( write_strobe[_APU_]       ),
+        .write_error_o   ( write_error[_APU_]        ),
         
-        .read_i         ( read_request[_APU_] ),
-        .read_address_i ( read_address[_APU_] ),
-        .read_data_o    ( read_data[_APU_]    ),
-        .read_error_o   ( read_error[_APU_]   ),
+        .read_i         ( read_request[_APU_]      ),
+        .read_address_i ( read_address[_APU_] >> 2 ),
+        .read_data_o    ( read_data[_APU_]         ),
+        .read_error_o   ( read_error[_APU_]        ),
         
         .pdm_data_i  ( pdm_data_i  ),
         .pdm_clk_o   ( pdm_clk_o   ),
