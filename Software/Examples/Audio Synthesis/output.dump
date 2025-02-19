@@ -1,0 +1,1496 @@
+
+output.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .boot:
+
+00000000 <boot_program>:
+   0:	00004137          	.word	0x00004137
+   4:	00800293          	.word	0x00800293
+   8:	3002a073          	.word	0x3002a073
+   c:	fff00293          	.word	0xfff00293
+  10:	3042a073          	.word	0x3042a073
+  14:	00001317          	.word	0x00001317
+  18:	b7830313          	.word	0xb7830313
+  1c:	000300e7          	.word	0x000300e7
+  20:	c0001073          	.word	0xc0001073
+
+Disassembly of section .text:
+
+00000024 <_ZN9Serial_IO4initEmbN4UART12parityMode_eENS0_10stopBits_eENS0_12dataLenght_eE>:
+      24:	000027b7          	lui	a5,0x2
+      28:	00004837          	lui	a6,0x4
+      2c:	8f07a823          	sw	a6,-1808(a5) # 18f0 <_ZN9Serial_IO6statusE>
+      30:	8f07a803          	lw	a6,-1808(a5)
+      34:	00480813          	addi	a6,a6,4 # 4004 <_ZN9Serial_IO6statusE+0x2714>
+      38:	000028b7          	lui	a7,0x2
+      3c:	8f08a623          	sw	a6,-1812(a7) # 18ec <_ZN9Serial_IO8bufferTXE>
+      40:	8f07a803          	lw	a6,-1808(a5)
+      44:	8f07a883          	lw	a7,-1808(a5)
+      48:	0015f593          	andi	a1,a1,1
+      4c:	00b59813          	slli	a6,a1,0xb
+      50:	0008a583          	lw	a1,0(a7)
+      54:	48b59593          	bclri	a1,a1,0xb
+      58:	0105e5b3          	or	a1,a1,a6
+      5c:	00b8a023          	sw	a1,0(a7)
+      60:	8f07a803          	lw	a6,-1808(a5)
+      64:	00377713          	andi	a4,a4,3
+      68:	00e71593          	slli	a1,a4,0xe
+      6c:	00082703          	lw	a4,0(a6)
+      70:	48e71713          	bclri	a4,a4,0xe
+      74:	48f71713          	bclri	a4,a4,0xf
+      78:	00b76733          	or	a4,a4,a1
+      7c:	00e82023          	sw	a4,0(a6)
+      80:	8f07a583          	lw	a1,-1808(a5)
+      84:	0016f693          	andi	a3,a3,1
+      88:	00d69693          	slli	a3,a3,0xd
+      8c:	0005a703          	lw	a4,0(a1)
+      90:	48d71713          	bclri	a4,a4,0xd
+      94:	00d76733          	or	a4,a4,a3
+      98:	00e5a023          	sw	a4,0(a1)
+      9c:	8f07a683          	lw	a3,-1808(a5)
+      a0:	00167613          	andi	a2,a2,1
+      a4:	00c61713          	slli	a4,a2,0xc
+      a8:	0006a603          	lw	a2,0(a3)
+      ac:	48c61613          	bclri	a2,a2,0xc
+      b0:	00e66633          	or	a2,a2,a4
+      b4:	00c6a023          	sw	a2,0(a3)
+      b8:	00451513          	slli	a0,a0,0x4
+      bc:	05f5e737          	lui	a4,0x5f5e
+      c0:	10070713          	addi	a4,a4,256 # 5f5e100 <_ZN9Serial_IO6statusE+0x5f5c810>
+      c4:	02a75733          	divu	a4,a4,a0
+      c8:	fff70713          	addi	a4,a4,-1
+      cc:	8f07a603          	lw	a2,-1808(a5)
+      d0:	01171713          	slli	a4,a4,0x11
+      d4:	00062683          	lw	a3,0(a2)
+      d8:	00f69693          	slli	a3,a3,0xf
+      dc:	00f6d693          	srli	a3,a3,0xf
+      e0:	00e6e733          	or	a4,a3,a4
+      e4:	00e62023          	sw	a4,0(a2)
+      e8:	8f07a683          	lw	a3,-1808(a5)
+      ec:	0006a703          	lw	a4,0(a3)
+      f0:	20076713          	ori	a4,a4,512
+      f4:	00e6a023          	sw	a4,0(a3)
+      f8:	8f07a703          	lw	a4,-1808(a5)
+      fc:	00072783          	lw	a5,0(a4)
+     100:	4007e793          	ori	a5,a5,1024
+     104:	00f72023          	sw	a5,0(a4)
+     108:	00008067          	ret
+
+0000010c <_ZN9Serial_IO5writeEPKc>:
+     10c:	00054783          	lbu	a5,0(a0)
+     110:	04078863          	beqz	a5,160 <_ZN9Serial_IO5writeEPKc+0x54>
+     114:	00000793          	li	a5,0
+     118:	00178793          	addi	a5,a5,1
+     11c:	00f50733          	add	a4,a0,a5
+     120:	00074703          	lbu	a4,0(a4)
+     124:	fe071ae3          	bnez	a4,118 <_ZN9Serial_IO5writeEPKc+0xc>
+     128:	02078c63          	beqz	a5,160 <_ZN9Serial_IO5writeEPKc+0x54>
+     12c:	00002737          	lui	a4,0x2
+     130:	8ec72603          	lw	a2,-1812(a4) # 18ec <_ZN9Serial_IO8bufferTXE>
+     134:	00050693          	mv	a3,a0
+     138:	00f50533          	add	a0,a0,a5
+     13c:	00002737          	lui	a4,0x2
+     140:	8f072783          	lw	a5,-1808(a4) # 18f0 <_ZN9Serial_IO6statusE>
+     144:	0007a783          	lw	a5,0(a5)
+     148:	4837d793          	bexti	a5,a5,0x3
+     14c:	fe079ae3          	bnez	a5,140 <_ZN9Serial_IO5writeEPKc+0x34>
+     150:	0006c783          	lbu	a5,0(a3)
+     154:	00f60023          	sb	a5,0(a2)
+     158:	00168693          	addi	a3,a3,1
+     15c:	fed512e3          	bne	a0,a3,140 <_ZN9Serial_IO5writeEPKc+0x34>
+     160:	00008067          	ret
+
+00000164 <_ZN16AudioSynthesizerC1Ev>:
+     164:	000107b7          	lui	a5,0x10
+     168:	02078793          	addi	a5,a5,32 # 10020 <_ZN9Serial_IO6statusE+0xe730>
+     16c:	00f52223          	sw	a5,4(a0)
+     170:	00f52423          	sw	a5,8(a0)
+     174:	00011637          	lui	a2,0x11
+     178:	02060613          	addi	a2,a2,32 # 11020 <_ZN9Serial_IO6statusE+0xf730>
+     17c:	00c52623          	sw	a2,12(a0)
+     180:	000117b7          	lui	a5,0x11
+     184:	02478793          	addi	a5,a5,36 # 11024 <_ZN9Serial_IO6statusE+0xf734>
+     188:	00f52823          	sw	a5,16(a0)
+     18c:	000117b7          	lui	a5,0x11
+     190:	02878793          	addi	a5,a5,40 # 11028 <_ZN9Serial_IO6statusE+0xf738>
+     194:	00f52a23          	sw	a5,20(a0)
+     198:	000117b7          	lui	a5,0x11
+     19c:	02c78793          	addi	a5,a5,44 # 1102c <_ZN9Serial_IO6statusE+0xf73c>
+     1a0:	00f52c23          	sw	a5,24(a0)
+     1a4:	000117b7          	lui	a5,0x11
+     1a8:	03078793          	addi	a5,a5,48 # 11030 <_ZN9Serial_IO6statusE+0xf740>
+     1ac:	00f52e23          	sw	a5,28(a0)
+     1b0:	000117b7          	lui	a5,0x11
+     1b4:	03478793          	addi	a5,a5,52 # 11034 <_ZN9Serial_IO6statusE+0xf744>
+     1b8:	02f52023          	sw	a5,32(a0)
+     1bc:	000117b7          	lui	a5,0x11
+     1c0:	03878793          	addi	a5,a5,56 # 11038 <_ZN9Serial_IO6statusE+0xf748>
+     1c4:	02f52223          	sw	a5,36(a0)
+     1c8:	000117b7          	lui	a5,0x11
+     1cc:	03c78793          	addi	a5,a5,60 # 1103c <_ZN9Serial_IO6statusE+0xf74c>
+     1d0:	02f52423          	sw	a5,40(a0)
+     1d4:	000116b7          	lui	a3,0x11
+     1d8:	04068693          	addi	a3,a3,64 # 11040 <_ZN9Serial_IO6statusE+0xf750>
+     1dc:	02d52623          	sw	a3,44(a0)
+     1e0:	000117b7          	lui	a5,0x11
+     1e4:	04478793          	addi	a5,a5,68 # 11044 <_ZN9Serial_IO6statusE+0xf754>
+     1e8:	02f52823          	sw	a5,48(a0)
+     1ec:	000117b7          	lui	a5,0x11
+     1f0:	04878793          	addi	a5,a5,72 # 11048 <_ZN9Serial_IO6statusE+0xf758>
+     1f4:	02f52a23          	sw	a5,52(a0)
+     1f8:	000117b7          	lui	a5,0x11
+     1fc:	04c78793          	addi	a5,a5,76 # 1104c <_ZN9Serial_IO6statusE+0xf75c>
+     200:	02f52c23          	sw	a5,56(a0)
+     204:	000117b7          	lui	a5,0x11
+     208:	05078793          	addi	a5,a5,80 # 11050 <_ZN9Serial_IO6statusE+0xf760>
+     20c:	02f52e23          	sw	a5,60(a0)
+     210:	000117b7          	lui	a5,0x11
+     214:	05478793          	addi	a5,a5,84 # 11054 <_ZN9Serial_IO6statusE+0xf764>
+     218:	04f52023          	sw	a5,64(a0)
+     21c:	000117b7          	lui	a5,0x11
+     220:	05878793          	addi	a5,a5,88 # 11058 <_ZN9Serial_IO6statusE+0xf768>
+     224:	04f52223          	sw	a5,68(a0)
+     228:	000117b7          	lui	a5,0x11
+     22c:	05c78793          	addi	a5,a5,92 # 1105c <_ZN9Serial_IO6statusE+0xf76c>
+     230:	04f52423          	sw	a5,72(a0)
+     234:	00011737          	lui	a4,0x11
+     238:	06070713          	addi	a4,a4,96 # 11060 <_ZN9Serial_IO6statusE+0xf770>
+     23c:	04e52623          	sw	a4,76(a0)
+     240:	000117b7          	lui	a5,0x11
+     244:	06478793          	addi	a5,a5,100 # 11064 <_ZN9Serial_IO6statusE+0xf774>
+     248:	04f52823          	sw	a5,80(a0)
+     24c:	000117b7          	lui	a5,0x11
+     250:	06878793          	addi	a5,a5,104 # 11068 <_ZN9Serial_IO6statusE+0xf778>
+     254:	04f52a23          	sw	a5,84(a0)
+     258:	000117b7          	lui	a5,0x11
+     25c:	06c78793          	addi	a5,a5,108 # 1106c <_ZN9Serial_IO6statusE+0xf77c>
+     260:	04f52c23          	sw	a5,88(a0)
+     264:	000117b7          	lui	a5,0x11
+     268:	07078793          	addi	a5,a5,112 # 11070 <_ZN9Serial_IO6statusE+0xf780>
+     26c:	04f52e23          	sw	a5,92(a0)
+     270:	000117b7          	lui	a5,0x11
+     274:	07478793          	addi	a5,a5,116 # 11074 <_ZN9Serial_IO6statusE+0xf784>
+     278:	06f52023          	sw	a5,96(a0)
+     27c:	000117b7          	lui	a5,0x11
+     280:	07878793          	addi	a5,a5,120 # 11078 <_ZN9Serial_IO6statusE+0xf788>
+     284:	06f52223          	sw	a5,100(a0)
+     288:	000117b7          	lui	a5,0x11
+     28c:	07c78793          	addi	a5,a5,124 # 1107c <_ZN9Serial_IO6statusE+0xf78c>
+     290:	06f52423          	sw	a5,104(a0)
+     294:	000117b7          	lui	a5,0x11
+     298:	08078793          	addi	a5,a5,128 # 11080 <_ZN9Serial_IO6statusE+0xf790>
+     29c:	06f52623          	sw	a5,108(a0)
+     2a0:	000115b7          	lui	a1,0x11
+     2a4:	08458593          	addi	a1,a1,132 # 11084 <_ZN9Serial_IO6statusE+0xf794>
+     2a8:	06b52823          	sw	a1,112(a0)
+     2ac:	000115b7          	lui	a1,0x11
+     2b0:	08858593          	addi	a1,a1,136 # 11088 <_ZN9Serial_IO6statusE+0xf798>
+     2b4:	06b52a23          	sw	a1,116(a0)
+     2b8:	000115b7          	lui	a1,0x11
+     2bc:	08c58593          	addi	a1,a1,140 # 1108c <_ZN9Serial_IO6statusE+0xf79c>
+     2c0:	06b52c23          	sw	a1,120(a0)
+     2c4:	000115b7          	lui	a1,0x11
+     2c8:	09058593          	addi	a1,a1,144 # 11090 <_ZN9Serial_IO6statusE+0xf7a0>
+     2cc:	06b52e23          	sw	a1,124(a0)
+     2d0:	000115b7          	lui	a1,0x11
+     2d4:	09458593          	addi	a1,a1,148 # 11094 <_ZN9Serial_IO6statusE+0xf7a4>
+     2d8:	08b52023          	sw	a1,128(a0)
+     2dc:	000115b7          	lui	a1,0x11
+     2e0:	09858593          	addi	a1,a1,152 # 11098 <_ZN9Serial_IO6statusE+0xf7a8>
+     2e4:	08b52223          	sw	a1,132(a0)
+     2e8:	000115b7          	lui	a1,0x11
+     2ec:	09c58593          	addi	a1,a1,156 # 1109c <_ZN9Serial_IO6statusE+0xf7ac>
+     2f0:	08b52423          	sw	a1,136(a0)
+     2f4:	000115b7          	lui	a1,0x11
+     2f8:	0a058593          	addi	a1,a1,160 # 110a0 <_ZN9Serial_IO6statusE+0xf7b0>
+     2fc:	08b52623          	sw	a1,140(a0)
+     300:	00062583          	lw	a1,0(a2)
+     304:	ff75f593          	andi	a1,a1,-9
+     308:	00b62023          	sw	a1,0(a2)
+     30c:	00062583          	lw	a1,0(a2)
+     310:	ffd5f593          	andi	a1,a1,-3
+     314:	00b62023          	sw	a1,0(a2)
+     318:	0006a603          	lw	a2,0(a3)
+     31c:	ff767613          	andi	a2,a2,-9
+     320:	00c6a023          	sw	a2,0(a3)
+     324:	0006a603          	lw	a2,0(a3)
+     328:	ffd67613          	andi	a2,a2,-3
+     32c:	00c6a023          	sw	a2,0(a3)
+     330:	00072683          	lw	a3,0(a4)
+     334:	ff76f693          	andi	a3,a3,-9
+     338:	00d72023          	sw	a3,0(a4)
+     33c:	00072683          	lw	a3,0(a4)
+     340:	ffd6f693          	andi	a3,a3,-3
+     344:	00d72023          	sw	a3,0(a4)
+     348:	0007a703          	lw	a4,0(a5)
+     34c:	ff777713          	andi	a4,a4,-9
+     350:	00e7a023          	sw	a4,0(a5)
+     354:	0007a703          	lw	a4,0(a5)
+     358:	ffd77713          	andi	a4,a4,-3
+     35c:	00e7a023          	sw	a4,0(a5)
+     360:	00100793          	li	a5,1
+     364:	00f52023          	sw	a5,0(a0)
+     368:	00008067          	ret
+
+0000036c <_ZN16AudioSynthesizer10selectWaveENS_6wave_eE>:
+     36c:	00b52023          	sw	a1,0(a0)
+     370:	00008067          	ret
+
+00000374 <_ZN16AudioSynthesizer7setWaveEb>:
+     374:	00052783          	lw	a5,0(a0)
+     378:	00200713          	li	a4,2
+     37c:	06e78c63          	beq	a5,a4,3f4 <_ZN16AudioSynthesizer7setWaveEb+0x80>
+     380:	02f76463          	bltu	a4,a5,3a8 <_ZN16AudioSynthesizer7setWaveEb+0x34>
+     384:	04078863          	beqz	a5,3d4 <_ZN16AudioSynthesizer7setWaveEb+0x60>
+     388:	02c52703          	lw	a4,44(a0)
+     38c:	0015f593          	andi	a1,a1,1
+     390:	00159593          	slli	a1,a1,0x1
+     394:	00072783          	lw	a5,0(a4)
+     398:	ffd7f793          	andi	a5,a5,-3
+     39c:	00b7e7b3          	or	a5,a5,a1
+     3a0:	00f72023          	sw	a5,0(a4)
+     3a4:	00008067          	ret
+     3a8:	00300713          	li	a4,3
+     3ac:	02e79263          	bne	a5,a4,3d0 <_ZN16AudioSynthesizer7setWaveEb+0x5c>
+     3b0:	06c52703          	lw	a4,108(a0)
+     3b4:	0015f593          	andi	a1,a1,1
+     3b8:	00159593          	slli	a1,a1,0x1
+     3bc:	00072783          	lw	a5,0(a4)
+     3c0:	ffd7f793          	andi	a5,a5,-3
+     3c4:	00b7e7b3          	or	a5,a5,a1
+     3c8:	00f72023          	sw	a5,0(a4)
+     3cc:	00008067          	ret
+     3d0:	00008067          	ret
+     3d4:	00c52703          	lw	a4,12(a0)
+     3d8:	0015f593          	andi	a1,a1,1
+     3dc:	00159593          	slli	a1,a1,0x1
+     3e0:	00072783          	lw	a5,0(a4)
+     3e4:	ffd7f793          	andi	a5,a5,-3
+     3e8:	00b7e7b3          	or	a5,a5,a1
+     3ec:	00f72023          	sw	a5,0(a4)
+     3f0:	00008067          	ret
+     3f4:	04c52703          	lw	a4,76(a0)
+     3f8:	0015f593          	andi	a1,a1,1
+     3fc:	00159593          	slli	a1,a1,0x1
+     400:	00072783          	lw	a5,0(a4)
+     404:	ffd7f793          	andi	a5,a5,-3
+     408:	00b7e7b3          	or	a5,a5,a1
+     40c:	00f72023          	sw	a5,0(a4)
+     410:	00008067          	ret
+
+00000414 <_ZN16AudioSynthesizer11restartWaveEv>:
+     414:	00052783          	lw	a5,0(a0)
+     418:	00200713          	li	a4,2
+     41c:	04e78a63          	beq	a5,a4,470 <_ZN16AudioSynthesizer11restartWaveEv+0x5c>
+     420:	00f76e63          	bltu	a4,a5,43c <_ZN16AudioSynthesizer11restartWaveEv+0x28>
+     424:	02078c63          	beqz	a5,45c <_ZN16AudioSynthesizer11restartWaveEv+0x48>
+     428:	02c52703          	lw	a4,44(a0)
+     42c:	00072783          	lw	a5,0(a4)
+     430:	0017e793          	ori	a5,a5,1
+     434:	00f72023          	sw	a5,0(a4)
+     438:	00008067          	ret
+     43c:	00300713          	li	a4,3
+     440:	00e79c63          	bne	a5,a4,458 <_ZN16AudioSynthesizer11restartWaveEv+0x44>
+     444:	06c52703          	lw	a4,108(a0)
+     448:	00072783          	lw	a5,0(a4)
+     44c:	0017e793          	ori	a5,a5,1
+     450:	00f72023          	sw	a5,0(a4)
+     454:	00008067          	ret
+     458:	00008067          	ret
+     45c:	00c52703          	lw	a4,12(a0)
+     460:	00072783          	lw	a5,0(a4)
+     464:	0017e793          	ori	a5,a5,1
+     468:	00f72023          	sw	a5,0(a4)
+     46c:	00008067          	ret
+     470:	04c52703          	lw	a4,76(a0)
+     474:	00072783          	lw	a5,0(a4)
+     478:	0017e793          	ori	a5,a5,1
+     47c:	00f72023          	sw	a5,0(a4)
+     480:	00008067          	ret
+
+00000484 <_ZN16AudioSynthesizer12setFrequencyEm>:
+     484:	ff010113          	addi	sp,sp,-16
+     488:	00112623          	sw	ra,12(sp)
+     48c:	00812423          	sw	s0,8(sp)
+     490:	00050413          	mv	s0,a0
+     494:	00052783          	lw	a5,0(a0)
+     498:	00200713          	li	a4,2
+     49c:	0ae78463          	beq	a5,a4,544 <_ZN16AudioSynthesizer12setFrequencyEm+0xc0>
+     4a0:	02f76c63          	bltu	a4,a5,4d8 <_ZN16AudioSynthesizer12setFrequencyEm+0x54>
+     4a4:	00912223          	sw	s1,4(sp)
+     4a8:	06078263          	beqz	a5,50c <_ZN16AudioSynthesizer12setFrequencyEm+0x88>
+     4ac:	03052483          	lw	s1,48(a0)
+     4b0:	40b005b3          	neg	a1,a1
+     4b4:	05f5e637          	lui	a2,0x5f5e
+     4b8:	10060613          	addi	a2,a2,256 # 5f5e100 <_ZN9Serial_IO6statusE+0x5f5c810>
+     4bc:	00000693          	li	a3,0
+     4c0:	00259513          	slli	a0,a1,0x2
+     4c4:	00000593          	li	a1,0
+     4c8:	1c1000ef          	jal	e88 <__udivdi3>
+     4cc:	00a4a023          	sw	a0,0(s1)
+     4d0:	00412483          	lw	s1,4(sp)
+     4d4:	05c0006f          	j	530 <_ZN16AudioSynthesizer12setFrequencyEm+0xac>
+     4d8:	00300713          	li	a4,3
+     4dc:	04e79a63          	bne	a5,a4,530 <_ZN16AudioSynthesizer12setFrequencyEm+0xac>
+     4e0:	00912223          	sw	s1,4(sp)
+     4e4:	07052483          	lw	s1,112(a0)
+     4e8:	05f5e637          	lui	a2,0x5f5e
+     4ec:	10060613          	addi	a2,a2,256 # 5f5e100 <_ZN9Serial_IO6statusE+0x5f5c810>
+     4f0:	00000693          	li	a3,0
+     4f4:	40b00533          	neg	a0,a1
+     4f8:	00000593          	li	a1,0
+     4fc:	18d000ef          	jal	e88 <__udivdi3>
+     500:	00a4a023          	sw	a0,0(s1)
+     504:	00412483          	lw	s1,4(sp)
+     508:	0280006f          	j	530 <_ZN16AudioSynthesizer12setFrequencyEm+0xac>
+     50c:	01052483          	lw	s1,16(a0)
+     510:	05f5e637          	lui	a2,0x5f5e
+     514:	10060613          	addi	a2,a2,256 # 5f5e100 <_ZN9Serial_IO6statusE+0x5f5c810>
+     518:	00000693          	li	a3,0
+     51c:	40b00533          	neg	a0,a1
+     520:	00000593          	li	a1,0
+     524:	165000ef          	jal	e88 <__udivdi3>
+     528:	00a4a023          	sw	a0,0(s1)
+     52c:	00412483          	lw	s1,4(sp)
+     530:	00040513          	mv	a0,s0
+     534:	00c12083          	lw	ra,12(sp)
+     538:	00812403          	lw	s0,8(sp)
+     53c:	01010113          	addi	sp,sp,16
+     540:	00008067          	ret
+     544:	00912223          	sw	s1,4(sp)
+     548:	05052483          	lw	s1,80(a0)
+     54c:	40b005b3          	neg	a1,a1
+     550:	05f5e637          	lui	a2,0x5f5e
+     554:	10060613          	addi	a2,a2,256 # 5f5e100 <_ZN9Serial_IO6statusE+0x5f5c810>
+     558:	00000693          	li	a3,0
+     55c:	00159513          	slli	a0,a1,0x1
+     560:	00000593          	li	a1,0
+     564:	125000ef          	jal	e88 <__udivdi3>
+     568:	00a4a023          	sw	a0,0(s1)
+     56c:	00412483          	lw	s1,4(sp)
+     570:	fc1ff06f          	j	530 <_ZN16AudioSynthesizer12setFrequencyEm+0xac>
+
+00000574 <_ZN16AudioSynthesizer7setGainEt>:
+     574:	00052783          	lw	a5,0(a0)
+     578:	00200713          	li	a4,2
+     57c:	08e78263          	beq	a5,a4,600 <_ZN16AudioSynthesizer7setGainEt+0x8c>
+     580:	02f76663          	bltu	a4,a5,5ac <_ZN16AudioSynthesizer7setGainEt+0x38>
+     584:	04078c63          	beqz	a5,5dc <_ZN16AudioSynthesizer7setGainEt+0x68>
+     588:	02c52683          	lw	a3,44(a0)
+     58c:	00559593          	slli	a1,a1,0x5
+     590:	0006a783          	lw	a5,0(a3)
+     594:	ffe00737          	lui	a4,0xffe00
+     598:	01f70713          	addi	a4,a4,31 # ffe0001f <_ZN9Serial_IO6statusE+0xffdfe72f>
+     59c:	00e7f7b3          	and	a5,a5,a4
+     5a0:	00b7e7b3          	or	a5,a5,a1
+     5a4:	00f6a023          	sw	a5,0(a3)
+     5a8:	00008067          	ret
+     5ac:	00300713          	li	a4,3
+     5b0:	02e79463          	bne	a5,a4,5d8 <_ZN16AudioSynthesizer7setGainEt+0x64>
+     5b4:	06c52683          	lw	a3,108(a0)
+     5b8:	00559593          	slli	a1,a1,0x5
+     5bc:	0006a783          	lw	a5,0(a3)
+     5c0:	ffe00737          	lui	a4,0xffe00
+     5c4:	01f70713          	addi	a4,a4,31 # ffe0001f <_ZN9Serial_IO6statusE+0xffdfe72f>
+     5c8:	00e7f7b3          	and	a5,a5,a4
+     5cc:	00b7e7b3          	or	a5,a5,a1
+     5d0:	00f6a023          	sw	a5,0(a3)
+     5d4:	00008067          	ret
+     5d8:	00008067          	ret
+     5dc:	00c52683          	lw	a3,12(a0)
+     5e0:	00559593          	slli	a1,a1,0x5
+     5e4:	0006a783          	lw	a5,0(a3)
+     5e8:	ffe00737          	lui	a4,0xffe00
+     5ec:	01f70713          	addi	a4,a4,31 # ffe0001f <_ZN9Serial_IO6statusE+0xffdfe72f>
+     5f0:	00e7f7b3          	and	a5,a5,a4
+     5f4:	00b7e7b3          	or	a5,a5,a1
+     5f8:	00f6a023          	sw	a5,0(a3)
+     5fc:	00008067          	ret
+     600:	04c52683          	lw	a3,76(a0)
+     604:	00559593          	slli	a1,a1,0x5
+     608:	0006a783          	lw	a5,0(a3)
+     60c:	ffe00737          	lui	a4,0xffe00
+     610:	01f70713          	addi	a4,a4,31 # ffe0001f <_ZN9Serial_IO6statusE+0xffdfe72f>
+     614:	00e7f7b3          	and	a5,a5,a4
+     618:	00b7e7b3          	or	a5,a5,a1
+     61c:	00f6a023          	sw	a5,0(a3)
+     620:	00008067          	ret
+
+00000624 <_ZN16AudioSynthesizer18setSquareDutyCycleEfPNS_7error_eE>:
+     624:	08c52783          	lw	a5,140(a0)
+     628:	00001737          	lui	a4,0x1
+     62c:	7a472703          	lw	a4,1956(a4) # 17a4 <__umoddi3+0x4f0>
+     630:	10e5f5d3          	fmul.s	a1,a1,a4
+     634:	c01595d3          	fcvt.wu.s	a1,a1,rtz
+     638:	00b7a023          	sw	a1,0(a5)
+     63c:	00008067          	ret
+
+00000640 <_ZN16AudioSynthesizer13setCustomWaveEtmPNS_7error_eE>:
+     640:	40000793          	li	a5,1024
+     644:	00c7f863          	bgeu	a5,a2,654 <_ZN16AudioSynthesizer13setCustomWaveEtmPNS_7error_eE+0x14>
+     648:	00300793          	li	a5,3
+     64c:	00f6a023          	sw	a5,0(a3)
+     650:	00008067          	ret
+     654:	00852783          	lw	a5,8(a0)
+     658:	00b7a023          	sw	a1,0(a5)
+     65c:	00008067          	ret
+
+00000660 <_ZN16AudioSynthesizer7setADSREb>:
+     660:	00052783          	lw	a5,0(a0)
+     664:	00200713          	li	a4,2
+     668:	06e78c63          	beq	a5,a4,6e0 <_ZN16AudioSynthesizer7setADSREb+0x80>
+     66c:	02f76463          	bltu	a4,a5,694 <_ZN16AudioSynthesizer7setADSREb+0x34>
+     670:	04078863          	beqz	a5,6c0 <_ZN16AudioSynthesizer7setADSREb+0x60>
+     674:	02c52703          	lw	a4,44(a0)
+     678:	0015f593          	andi	a1,a1,1
+     67c:	00359593          	slli	a1,a1,0x3
+     680:	00072783          	lw	a5,0(a4)
+     684:	ff77f793          	andi	a5,a5,-9
+     688:	00b7e7b3          	or	a5,a5,a1
+     68c:	00f72023          	sw	a5,0(a4)
+     690:	00008067          	ret
+     694:	00300713          	li	a4,3
+     698:	02e79263          	bne	a5,a4,6bc <_ZN16AudioSynthesizer7setADSREb+0x5c>
+     69c:	06c52703          	lw	a4,108(a0)
+     6a0:	0015f593          	andi	a1,a1,1
+     6a4:	00359593          	slli	a1,a1,0x3
+     6a8:	00072783          	lw	a5,0(a4)
+     6ac:	ff77f793          	andi	a5,a5,-9
+     6b0:	00b7e7b3          	or	a5,a5,a1
+     6b4:	00f72023          	sw	a5,0(a4)
+     6b8:	00008067          	ret
+     6bc:	00008067          	ret
+     6c0:	00c52703          	lw	a4,12(a0)
+     6c4:	0015f593          	andi	a1,a1,1
+     6c8:	00359593          	slli	a1,a1,0x3
+     6cc:	00072783          	lw	a5,0(a4)
+     6d0:	ff77f793          	andi	a5,a5,-9
+     6d4:	00b7e7b3          	or	a5,a5,a1
+     6d8:	00f72023          	sw	a5,0(a4)
+     6dc:	00008067          	ret
+     6e0:	04c52703          	lw	a4,76(a0)
+     6e4:	0015f593          	andi	a1,a1,1
+     6e8:	00359593          	slli	a1,a1,0x3
+     6ec:	00072783          	lw	a5,0(a4)
+     6f0:	ff77f793          	andi	a5,a5,-9
+     6f4:	00b7e7b3          	or	a5,a5,a1
+     6f8:	00f72023          	sw	a5,0(a4)
+     6fc:	00008067          	ret
+
+00000700 <_ZN16AudioSynthesizer13setModulationEmmmmmm>:
+     700:	000188b7          	lui	a7,0x18
+     704:	6a088893          	addi	a7,a7,1696 # 186a0 <_ZN9Serial_IO6statusE+0x16db0>
+     708:	031585b3          	mul	a1,a1,a7
+     70c:	02b7d5b3          	divu	a1,a5,a1
+     710:	41078333          	sub	t1,a5,a6
+     714:	03160633          	mul	a2,a2,a7
+     718:	02c35333          	divu	t1,t1,a2
+     71c:	03170733          	mul	a4,a4,a7
+     720:	02e85633          	divu	a2,a6,a4
+     724:	0056d693          	srli	a3,a3,0x5
+     728:	0a7c6737          	lui	a4,0xa7c6
+     72c:	ac570713          	addi	a4,a4,-1339 # a7c5ac5 <_ZN9Serial_IO6statusE+0xa7c41d5>
+     730:	02e6b6b3          	mulhu	a3,a3,a4
+     734:	0076d693          	srli	a3,a3,0x7
+     738:	00052703          	lw	a4,0(a0)
+     73c:	00200893          	li	a7,2
+     740:	0b170a63          	beq	a4,a7,7f4 <_ZN16AudioSynthesizer13setModulationEmmmmmm+0xf4>
+     744:	02e8ee63          	bltu	a7,a4,780 <_ZN16AudioSynthesizer13setModulationEmmmmmm+0x80>
+     748:	06070c63          	beqz	a4,7c0 <_ZN16AudioSynthesizer13setModulationEmmmmmm+0xc0>
+     74c:	03452703          	lw	a4,52(a0)
+     750:	00b72023          	sw	a1,0(a4)
+     754:	03852703          	lw	a4,56(a0)
+     758:	00672023          	sw	t1,0(a4)
+     75c:	03c52703          	lw	a4,60(a0)
+     760:	00c72023          	sw	a2,0(a4)
+     764:	04052703          	lw	a4,64(a0)
+     768:	00d72023          	sw	a3,0(a4)
+     76c:	04452703          	lw	a4,68(a0)
+     770:	00f72023          	sw	a5,0(a4)
+     774:	04852783          	lw	a5,72(a0)
+     778:	0107a023          	sw	a6,0(a5)
+     77c:	00008067          	ret
+     780:	00300893          	li	a7,3
+     784:	03171c63          	bne	a4,a7,7bc <_ZN16AudioSynthesizer13setModulationEmmmmmm+0xbc>
+     788:	07452703          	lw	a4,116(a0)
+     78c:	00b72023          	sw	a1,0(a4)
+     790:	07852703          	lw	a4,120(a0)
+     794:	00672023          	sw	t1,0(a4)
+     798:	07c52703          	lw	a4,124(a0)
+     79c:	00c72023          	sw	a2,0(a4)
+     7a0:	08052703          	lw	a4,128(a0)
+     7a4:	00d72023          	sw	a3,0(a4)
+     7a8:	08452703          	lw	a4,132(a0)
+     7ac:	00f72023          	sw	a5,0(a4)
+     7b0:	08852783          	lw	a5,136(a0)
+     7b4:	0107a023          	sw	a6,0(a5)
+     7b8:	00008067          	ret
+     7bc:	00008067          	ret
+     7c0:	01452703          	lw	a4,20(a0)
+     7c4:	00b72023          	sw	a1,0(a4)
+     7c8:	01852703          	lw	a4,24(a0)
+     7cc:	00672023          	sw	t1,0(a4)
+     7d0:	01c52703          	lw	a4,28(a0)
+     7d4:	00c72023          	sw	a2,0(a4)
+     7d8:	02052703          	lw	a4,32(a0)
+     7dc:	00d72023          	sw	a3,0(a4)
+     7e0:	02452703          	lw	a4,36(a0)
+     7e4:	00f72023          	sw	a5,0(a4)
+     7e8:	02852783          	lw	a5,40(a0)
+     7ec:	0107a023          	sw	a6,0(a5)
+     7f0:	00008067          	ret
+     7f4:	05452703          	lw	a4,84(a0)
+     7f8:	00b72023          	sw	a1,0(a4)
+     7fc:	05852703          	lw	a4,88(a0)
+     800:	00672023          	sw	t1,0(a4)
+     804:	05c52703          	lw	a4,92(a0)
+     808:	00c72023          	sw	a2,0(a4)
+     80c:	06052703          	lw	a4,96(a0)
+     810:	00d72023          	sw	a3,0(a4)
+     814:	06452703          	lw	a4,100(a0)
+     818:	00f72023          	sw	a5,0(a4)
+     81c:	06852783          	lw	a5,104(a0)
+     820:	0107a023          	sw	a6,0(a5)
+     824:	00008067          	ret
+
+00000828 <_ZN4PRNG6randomEv>:
+     828:	0000e7b7          	lui	a5,0xe
+     82c:	0007a503          	lw	a0,0(a5) # e000 <_ZN9Serial_IO6statusE+0xc710>
+     830:	0047a583          	lw	a1,4(a5)
+     834:	00008067          	ret
+
+00000838 <_ZN5TimerC1Em>:
+     838:	000017b7          	lui	a5,0x1
+     83c:	c0078793          	addi	a5,a5,-1024 # c00 <audio_synthesizer+0x74>
+     840:	00f585b3          	add	a1,a1,a5
+     844:	00359593          	slli	a1,a1,0x3
+     848:	00b52023          	sw	a1,0(a0)
+     84c:	00858793          	addi	a5,a1,8
+     850:	00f52223          	sw	a5,4(a0)
+     854:	00b52423          	sw	a1,8(a0)
+     858:	01058793          	addi	a5,a1,16
+     85c:	00f52623          	sw	a5,12(a0)
+     860:	00c52703          	lw	a4,12(a0)
+     864:	00072783          	lw	a5,0(a4)
+     868:	ffe7f793          	andi	a5,a5,-2
+     86c:	00f72023          	sw	a5,0(a4)
+     870:	00c52703          	lw	a4,12(a0)
+     874:	00072783          	lw	a5,0(a4)
+     878:	ffb7f793          	andi	a5,a5,-5
+     87c:	00f72023          	sw	a5,0(a4)
+     880:	00000793          	li	a5,0
+     884:	00000813          	li	a6,0
+     888:	00f5a423          	sw	a5,8(a1)
+     88c:	0105a623          	sw	a6,12(a1)
+     890:	00852783          	lw	a5,8(a0)
+     894:	fff00613          	li	a2,-1
+     898:	fff00693          	li	a3,-1
+     89c:	00c7a023          	sw	a2,0(a5)
+     8a0:	00d7a223          	sw	a3,4(a5)
+     8a4:	00c52703          	lw	a4,12(a0)
+     8a8:	00072783          	lw	a5,0(a4)
+     8ac:	ffd7f793          	andi	a5,a5,-3
+     8b0:	00f72023          	sw	a5,0(a4)
+     8b4:	00008067          	ret
+
+000008b8 <_ZN5TimerD1Ev>:
+     8b8:	00c52703          	lw	a4,12(a0)
+     8bc:	00072783          	lw	a5,0(a4)
+     8c0:	ffe7f793          	andi	a5,a5,-2
+     8c4:	00f72023          	sw	a5,0(a4)
+     8c8:	00c52703          	lw	a4,12(a0)
+     8cc:	00072783          	lw	a5,0(a4)
+     8d0:	ffb7f793          	andi	a5,a5,-5
+     8d4:	00f72023          	sw	a5,0(a4)
+     8d8:	00452783          	lw	a5,4(a0)
+     8dc:	00000693          	li	a3,0
+     8e0:	00000713          	li	a4,0
+     8e4:	00d7a023          	sw	a3,0(a5)
+     8e8:	00e7a223          	sw	a4,4(a5)
+     8ec:	00852783          	lw	a5,8(a0)
+     8f0:	fff00613          	li	a2,-1
+     8f4:	fff00693          	li	a3,-1
+     8f8:	00c7a023          	sw	a2,0(a5)
+     8fc:	00d7a223          	sw	a3,4(a5)
+     900:	00c52703          	lw	a4,12(a0)
+     904:	00072783          	lw	a5,0(a4)
+     908:	ffd7f793          	andi	a5,a5,-3
+     90c:	00f72023          	sw	a5,0(a4)
+     910:	00008067          	ret
+
+00000914 <_ZN5Timer4initEyNS_11timerMode_eE>:
+     914:	00060893          	mv	a7,a2
+     918:	00c52603          	lw	a2,12(a0)
+     91c:	00062703          	lw	a4,0(a2)
+     920:	ffb77713          	andi	a4,a4,-5
+     924:	00e62023          	sw	a4,0(a2)
+     928:	00852703          	lw	a4,8(a0)
+     92c:	00b72023          	sw	a1,0(a4)
+     930:	01172223          	sw	a7,4(a4)
+     934:	00c52603          	lw	a2,12(a0)
+     938:	0016f693          	andi	a3,a3,1
+     93c:	00169693          	slli	a3,a3,0x1
+     940:	00062703          	lw	a4,0(a2)
+     944:	ffd77713          	andi	a4,a4,-3
+     948:	00d76733          	or	a4,a4,a3
+     94c:	00e62023          	sw	a4,0(a2)
+     950:	00452783          	lw	a5,4(a0)
+     954:	00000693          	li	a3,0
+     958:	00000713          	li	a4,0
+     95c:	00d7a023          	sw	a3,0(a5)
+     960:	00e7a223          	sw	a4,4(a5)
+     964:	00008067          	ret
+
+00000968 <_ZN5Timer5delayEy>:
+     968:	00c52703          	lw	a4,12(a0)
+     96c:	00072783          	lw	a5,0(a4)
+     970:	ffe7f793          	andi	a5,a5,-2
+     974:	00f72023          	sw	a5,0(a4)
+     978:	00452783          	lw	a5,4(a0)
+     97c:	00000693          	li	a3,0
+     980:	00000713          	li	a4,0
+     984:	00d7a023          	sw	a3,0(a5)
+     988:	00e7a223          	sw	a4,4(a5)
+     98c:	00852783          	lw	a5,8(a0)
+     990:	00b7a023          	sw	a1,0(a5)
+     994:	00c7a223          	sw	a2,4(a5)
+     998:	00c52703          	lw	a4,12(a0)
+     99c:	00072783          	lw	a5,0(a4)
+     9a0:	0017e793          	ori	a5,a5,1
+     9a4:	00f72023          	sw	a5,0(a4)
+     9a8:	00c52703          	lw	a4,12(a0)
+     9ac:	00072783          	lw	a5,0(a4)
+     9b0:	ff77f793          	andi	a5,a5,-9
+     9b4:	00f72023          	sw	a5,0(a4)
+     9b8:	00c52783          	lw	a5,12(a0)
+     9bc:	0007a783          	lw	a5,0(a5)
+     9c0:	4837d793          	bexti	a5,a5,0x3
+     9c4:	fe078ae3          	beqz	a5,9b8 <_ZN5Timer5delayEy+0x50>
+     9c8:	00008067          	ret
+
+000009cc <_Z8testWaveN16AudioSynthesizer6wave_eERS_R5Timer>:
+     9cc:	fe010113          	addi	sp,sp,-32
+     9d0:	00912a23          	sw	s1,20(sp)
+     9d4:	00058493          	mv	s1,a1
+     9d8:	01412423          	sw	s4,8(sp)
+     9dc:	00050593          	mv	a1,a0
+     9e0:	00050a13          	mv	s4,a0
+     9e4:	00048513          	mv	a0,s1
+     9e8:	00112e23          	sw	ra,28(sp)
+     9ec:	00812c23          	sw	s0,24(sp)
+     9f0:	01212823          	sw	s2,16(sp)
+     9f4:	01312623          	sw	s3,12(sp)
+     9f8:	00060913          	mv	s2,a2
+     9fc:	971ff0ef          	jal	36c <_ZN16AudioSynthesizer10selectWaveENS_6wave_eE>
+     a00:	1b800593          	li	a1,440
+     a04:	00048513          	mv	a0,s1
+     a08:	a7dff0ef          	jal	484 <_ZN16AudioSynthesizer12setFrequencyEm>
+     a0c:	000085b7          	lui	a1,0x8
+     a10:	b65ff0ef          	jal	574 <_ZN16AudioSynthesizer7setGainEt>
+     a14:	00100593          	li	a1,1
+     a18:	00048513          	mv	a0,s1
+     a1c:	959ff0ef          	jal	374 <_ZN16AudioSynthesizer7setWaveEb>
+     a20:	9f5ff0ef          	jal	414 <_ZN16AudioSynthesizer11restartWaveEv>
+     a24:	000015b7          	lui	a1,0x1
+     a28:	fa058593          	addi	a1,a1,-96 # fa0 <__udivdi3+0x118>
+     a2c:	00000613          	li	a2,0
+     a30:	00090513          	mv	a0,s2
+     a34:	f35ff0ef          	jal	968 <_ZN5Timer5delayEy>
+     a38:	00001537          	lui	a0,0x1
+     a3c:	69450513          	addi	a0,a0,1684 # 1694 <__umoddi3+0x3e0>
+     a40:	000039b7          	lui	s3,0x3
+     a44:	ec8ff0ef          	jal	10c <_ZN9Serial_IO5writeEPKc>
+     a48:	8c898993          	addi	s3,s3,-1848 # 28c8 <_ZN9Serial_IO6statusE+0xfd8>
+     a4c:	1b800413          	li	s0,440
+     a50:	00040593          	mv	a1,s0
+     a54:	00048513          	mv	a0,s1
+     a58:	a2dff0ef          	jal	484 <_ZN16AudioSynthesizer12setFrequencyEm>
+     a5c:	00090513          	mv	a0,s2
+     a60:	00200593          	li	a1,2
+     a64:	00000613          	li	a2,0
+     a68:	00a40413          	addi	s0,s0,10
+     a6c:	efdff0ef          	jal	968 <_ZN5Timer5delayEy>
+     a70:	ff3410e3          	bne	s0,s3,a50 <_Z8testWaveN16AudioSynthesizer6wave_eERS_R5Timer+0x84>
+     a74:	00300793          	li	a5,3
+     a78:	0efa0463          	beq	s4,a5,b60 <_Z8testWaveN16AudioSynthesizer6wave_eERS_R5Timer+0x194>
+     a7c:	1b800593          	li	a1,440
+     a80:	00048513          	mv	a0,s1
+     a84:	a01ff0ef          	jal	484 <_ZN16AudioSynthesizer12setFrequencyEm>
+     a88:	00001537          	lui	a0,0x1
+     a8c:	6d450513          	addi	a0,a0,1748 # 16d4 <__umoddi3+0x420>
+     a90:	000049b7          	lui	s3,0x4
+     a94:	e78ff0ef          	jal	10c <_ZN9Serial_IO5writeEPKc>
+     a98:	18098993          	addi	s3,s3,384 # 4180 <_ZN9Serial_IO6statusE+0x2890>
+     a9c:	00008437          	lui	s0,0x8
+     aa0:	00040593          	mv	a1,s0
+     aa4:	00048513          	mv	a0,s1
+     aa8:	ff040413          	addi	s0,s0,-16 # 7ff0 <_ZN9Serial_IO6statusE+0x6700>
+     aac:	ac9ff0ef          	jal	574 <_ZN16AudioSynthesizer7setGainEt>
+     ab0:	01041413          	slli	s0,s0,0x10
+     ab4:	00090513          	mv	a0,s2
+     ab8:	00200593          	li	a1,2
+     abc:	00000613          	li	a2,0
+     ac0:	01045413          	srli	s0,s0,0x10
+     ac4:	ea5ff0ef          	jal	968 <_ZN5Timer5delayEy>
+     ac8:	fd341ce3          	bne	s0,s3,aa0 <_Z8testWaveN16AudioSynthesizer6wave_eERS_R5Timer+0xd4>
+     acc:	00001537          	lui	a0,0x1
+     ad0:	6f450513          	addi	a0,a0,1780 # 16f4 <__umoddi3+0x440>
+     ad4:	e38ff0ef          	jal	10c <_ZN9Serial_IO5writeEPKc>
+     ad8:	00100593          	li	a1,1
+     adc:	00048513          	mv	a0,s1
+     ae0:	b81ff0ef          	jal	660 <_ZN16AudioSynthesizer7setADSREb>
+     ae4:	5dc00593          	li	a1,1500
+     ae8:	99dff0ef          	jal	484 <_ZN16AudioSynthesizer12setFrequencyEm>
+     aec:	000085b7          	lui	a1,0x8
+     af0:	a85ff0ef          	jal	574 <_ZN16AudioSynthesizer7setGainEt>
+     af4:	00500413          	li	s0,5
+     af8:	00006837          	lui	a6,0x6
+     afc:	000087b7          	lui	a5,0x8
+     b00:	0c800713          	li	a4,200
+     b04:	3e800693          	li	a3,1000
+     b08:	06400613          	li	a2,100
+     b0c:	03200593          	li	a1,50
+     b10:	00048513          	mv	a0,s1
+     b14:	bedff0ef          	jal	700 <_ZN16AudioSynthesizer13setModulationEmmmmmm>
+     b18:	00090513          	mv	a0,s2
+     b1c:	7d000593          	li	a1,2000
+     b20:	00000613          	li	a2,0
+     b24:	fff40413          	addi	s0,s0,-1
+     b28:	e41ff0ef          	jal	968 <_ZN5Timer5delayEy>
+     b2c:	fc0416e3          	bnez	s0,af8 <_Z8testWaveN16AudioSynthesizer6wave_eERS_R5Timer+0x12c>
+     b30:	00048513          	mv	a0,s1
+     b34:	00000593          	li	a1,0
+     b38:	83dff0ef          	jal	374 <_ZN16AudioSynthesizer7setWaveEb>
+     b3c:	01812403          	lw	s0,24(sp)
+     b40:	01c12083          	lw	ra,28(sp)
+     b44:	01412483          	lw	s1,20(sp)
+     b48:	01012903          	lw	s2,16(sp)
+     b4c:	00c12983          	lw	s3,12(sp)
+     b50:	00812a03          	lw	s4,8(sp)
+     b54:	00000593          	li	a1,0
+     b58:	02010113          	addi	sp,sp,32
+     b5c:	b05ff06f          	j	660 <_ZN16AudioSynthesizer7setADSREb>
+     b60:	00001537          	lui	a0,0x1
+     b64:	6b450513          	addi	a0,a0,1716 # 16b4 <__umoddi3+0x400>
+     b68:	da4ff0ef          	jal	10c <_ZN9Serial_IO5writeEPKc>
+     b6c:	3e800413          	li	s0,1000
+     b70:	00000613          	li	a2,0
+     b74:	00000593          	li	a1,0
+     b78:	00048513          	mv	a0,s1
+     b7c:	fff40413          	addi	s0,s0,-1
+     b80:	aa5ff0ef          	jal	624 <_ZN16AudioSynthesizer18setSquareDutyCycleEfPNS_7error_eE>
+     b84:	fe0416e3          	bnez	s0,b70 <_Z8testWaveN16AudioSynthesizer6wave_eERS_R5Timer+0x1a4>
+     b88:	ef5ff06f          	j	a7c <_Z8testWaveN16AudioSynthesizer6wave_eERS_R5Timer+0xb0>
+
+00000b8c <audio_synthesizer>:
+     b8c:	f5010113          	addi	sp,sp,-176
+     b90:	00010513          	mv	a0,sp
+     b94:	00000593          	li	a1,0
+     b98:	0a112623          	sw	ra,172(sp)
+     b9c:	0a812423          	sw	s0,168(sp)
+     ba0:	0a912223          	sw	s1,164(sp)
+     ba4:	c95ff0ef          	jal	838 <_ZN5TimerC1Em>
+     ba8:	0001c537          	lui	a0,0x1c
+     bac:	00300713          	li	a4,3
+     bb0:	00000693          	li	a3,0
+     bb4:	00000613          	li	a2,0
+     bb8:	00100593          	li	a1,1
+     bbc:	20050513          	addi	a0,a0,512 # 1c200 <_ZN9Serial_IO6statusE+0x1a910>
+     bc0:	c64ff0ef          	jal	24 <_ZN9Serial_IO4initEmbN4UART12parityMode_eENS0_10stopBits_eENS0_12dataLenght_eE>
+     bc4:	01010513          	addi	a0,sp,16
+     bc8:	d9cff0ef          	jal	164 <_ZN16AudioSynthesizerC1Ev>
+     bcc:	00100693          	li	a3,1
+     bd0:	fff00593          	li	a1,-1
+     bd4:	fff00613          	li	a2,-1
+     bd8:	00010513          	mv	a0,sp
+     bdc:	d39ff0ef          	jal	914 <_ZN5Timer4initEyNS_11timerMode_eE>
+     be0:	00001537          	lui	a0,0x1
+     be4:	70c50513          	addi	a0,a0,1804 # 170c <__umoddi3+0x458>
+     be8:	d24ff0ef          	jal	10c <_ZN9Serial_IO5writeEPKc>
+     bec:	00010613          	mv	a2,sp
+     bf0:	01010593          	addi	a1,sp,16
+     bf4:	00100513          	li	a0,1
+     bf8:	dd5ff0ef          	jal	9cc <_Z8testWaveN16AudioSynthesizer6wave_eERS_R5Timer>
+     bfc:	00001537          	lui	a0,0x1
+     c00:	72050513          	addi	a0,a0,1824 # 1720 <__umoddi3+0x46c>
+     c04:	d08ff0ef          	jal	10c <_ZN9Serial_IO5writeEPKc>
+     c08:	00010613          	mv	a2,sp
+     c0c:	01010593          	addi	a1,sp,16
+     c10:	00200513          	li	a0,2
+     c14:	db9ff0ef          	jal	9cc <_Z8testWaveN16AudioSynthesizer6wave_eERS_R5Timer>
+     c18:	00001537          	lui	a0,0x1
+     c1c:	73850513          	addi	a0,a0,1848 # 1738 <__umoddi3+0x484>
+     c20:	cecff0ef          	jal	10c <_ZN9Serial_IO5writeEPKc>
+     c24:	00010613          	mv	a2,sp
+     c28:	01010593          	addi	a1,sp,16
+     c2c:	00300513          	li	a0,3
+     c30:	d9dff0ef          	jal	9cc <_Z8testWaveN16AudioSynthesizer6wave_eERS_R5Timer>
+     c34:	00000413          	li	s0,0
+     c38:	40000493          	li	s1,1024
+     c3c:	00541593          	slli	a1,s0,0x5
+     c40:	01059593          	slli	a1,a1,0x10
+     c44:	00040613          	mv	a2,s0
+     c48:	0105d593          	srli	a1,a1,0x10
+     c4c:	00000693          	li	a3,0
+     c50:	01010513          	addi	a0,sp,16
+     c54:	00140413          	addi	s0,s0,1
+     c58:	9e9ff0ef          	jal	640 <_ZN16AudioSynthesizer13setCustomWaveEtmPNS_7error_eE>
+     c5c:	fe9410e3          	bne	s0,s1,c3c <audio_synthesizer+0xb0>
+     c60:	00001537          	lui	a0,0x1
+     c64:	74c50513          	addi	a0,a0,1868 # 174c <__umoddi3+0x498>
+     c68:	ca4ff0ef          	jal	10c <_ZN9Serial_IO5writeEPKc>
+     c6c:	00010613          	mv	a2,sp
+     c70:	01010593          	addi	a1,sp,16
+     c74:	00000513          	li	a0,0
+     c78:	d55ff0ef          	jal	9cc <_Z8testWaveN16AudioSynthesizer6wave_eERS_R5Timer>
+     c7c:	00001537          	lui	a0,0x1
+     c80:	76050513          	addi	a0,a0,1888 # 1760 <__umoddi3+0x4ac>
+     c84:	c88ff0ef          	jal	10c <_ZN9Serial_IO5writeEPKc>
+     c88:	00300593          	li	a1,3
+     c8c:	01010513          	addi	a0,sp,16
+     c90:	edcff0ef          	jal	36c <_ZN16AudioSynthesizer10selectWaveENS_6wave_eE>
+     c94:	00100593          	li	a1,1
+     c98:	01010513          	addi	a0,sp,16
+     c9c:	ed8ff0ef          	jal	374 <_ZN16AudioSynthesizer7setWaveEb>
+     ca0:	000017b7          	lui	a5,0x1
+     ca4:	7a87a583          	lw	a1,1960(a5) # 17a8 <__umoddi3+0x4f4>
+     ca8:	00000613          	li	a2,0
+     cac:	32000413          	li	s0,800
+     cb0:	975ff0ef          	jal	624 <_ZN16AudioSynthesizer18setSquareDutyCycleEfPNS_7error_eE>
+     cb4:	32000593          	li	a1,800
+     cb8:	fccff0ef          	jal	484 <_ZN16AudioSynthesizer12setFrequencyEm>
+     cbc:	000085b7          	lui	a1,0x8
+     cc0:	8b5ff0ef          	jal	574 <_ZN16AudioSynthesizer7setGainEt>
+     cc4:	15e00493          	li	s1,350
+     cc8:	00040593          	mv	a1,s0
+     ccc:	01010513          	addi	a0,sp,16
+     cd0:	fb4ff0ef          	jal	484 <_ZN16AudioSynthesizer12setFrequencyEm>
+     cd4:	00010513          	mv	a0,sp
+     cd8:	01400593          	li	a1,20
+     cdc:	00000613          	li	a2,0
+     ce0:	fce40413          	addi	s0,s0,-50
+     ce4:	c85ff0ef          	jal	968 <_ZN5Timer5delayEy>
+     ce8:	fe9410e3          	bne	s0,s1,cc8 <audio_synthesizer+0x13c>
+     cec:	00000593          	li	a1,0
+     cf0:	01010513          	addi	a0,sp,16
+     cf4:	e80ff0ef          	jal	374 <_ZN16AudioSynthesizer7setWaveEb>
+     cf8:	00000613          	li	a2,0
+     cfc:	3e800593          	li	a1,1000
+     d00:	00010513          	mv	a0,sp
+     d04:	c65ff0ef          	jal	968 <_ZN5Timer5delayEy>
+     d08:	00001537          	lui	a0,0x1
+     d0c:	77050513          	addi	a0,a0,1904 # 1770 <__umoddi3+0x4bc>
+     d10:	bfcff0ef          	jal	10c <_ZN9Serial_IO5writeEPKc>
+     d14:	00300593          	li	a1,3
+     d18:	01010513          	addi	a0,sp,16
+     d1c:	e50ff0ef          	jal	36c <_ZN16AudioSynthesizer10selectWaveENS_6wave_eE>
+     d20:	00100593          	li	a1,1
+     d24:	01010513          	addi	a0,sp,16
+     d28:	e4cff0ef          	jal	374 <_ZN16AudioSynthesizer7setWaveEb>
+     d2c:	000017b7          	lui	a5,0x1
+     d30:	7ac7a583          	lw	a1,1964(a5) # 17ac <__umoddi3+0x4f8>
+     d34:	00000613          	li	a2,0
+     d38:	0c800413          	li	s0,200
+     d3c:	8e9ff0ef          	jal	624 <_ZN16AudioSynthesizer18setSquareDutyCycleEfPNS_7error_eE>
+     d40:	7d000593          	li	a1,2000
+     d44:	831ff0ef          	jal	574 <_ZN16AudioSynthesizer7setGainEt>
+     d48:	27100493          	li	s1,625
+     d4c:	00040593          	mv	a1,s0
+     d50:	01010513          	addi	a0,sp,16
+     d54:	f30ff0ef          	jal	484 <_ZN16AudioSynthesizer12setFrequencyEm>
+     d58:	00010513          	mv	a0,sp
+     d5c:	01400593          	li	a1,20
+     d60:	00000613          	li	a2,0
+     d64:	01940413          	addi	s0,s0,25
+     d68:	c01ff0ef          	jal	968 <_ZN5Timer5delayEy>
+     d6c:	fe9410e3          	bne	s0,s1,d4c <audio_synthesizer+0x1c0>
+     d70:	00000593          	li	a1,0
+     d74:	01010513          	addi	a0,sp,16
+     d78:	dfcff0ef          	jal	374 <_ZN16AudioSynthesizer7setWaveEb>
+     d7c:	00000613          	li	a2,0
+     d80:	3e800593          	li	a1,1000
+     d84:	00010513          	mv	a0,sp
+     d88:	be1ff0ef          	jal	968 <_ZN5Timer5delayEy>
+     d8c:	00001537          	lui	a0,0x1
+     d90:	78050513          	addi	a0,a0,1920 # 1780 <__umoddi3+0x4cc>
+     d94:	b78ff0ef          	jal	10c <_ZN9Serial_IO5writeEPKc>
+     d98:	00200593          	li	a1,2
+     d9c:	01010513          	addi	a0,sp,16
+     da0:	dccff0ef          	jal	36c <_ZN16AudioSynthesizer10selectWaveENS_6wave_eE>
+     da4:	00100593          	li	a1,1
+     da8:	01010513          	addi	a0,sp,16
+     dac:	dc8ff0ef          	jal	374 <_ZN16AudioSynthesizer7setWaveEb>
+     db0:	06e00593          	li	a1,110
+     db4:	ed0ff0ef          	jal	484 <_ZN16AudioSynthesizer12setFrequencyEm>
+     db8:	5dc00593          	li	a1,1500
+     dbc:	fb8ff0ef          	jal	574 <_ZN16AudioSynthesizer7setGainEt>
+     dc0:	00000613          	li	a2,0
+     dc4:	1f400593          	li	a1,500
+     dc8:	00010513          	mv	a0,sp
+     dcc:	b9dff0ef          	jal	968 <_ZN5Timer5delayEy>
+     dd0:	00000593          	li	a1,0
+     dd4:	01010513          	addi	a0,sp,16
+     dd8:	d9cff0ef          	jal	374 <_ZN16AudioSynthesizer7setWaveEb>
+     ddc:	00000613          	li	a2,0
+     de0:	3e800593          	li	a1,1000
+     de4:	00010513          	mv	a0,sp
+     de8:	b81ff0ef          	jal	968 <_ZN5Timer5delayEy>
+     dec:	00001537          	lui	a0,0x1
+     df0:	79050513          	addi	a0,a0,1936 # 1790 <__umoddi3+0x4dc>
+     df4:	b18ff0ef          	jal	10c <_ZN9Serial_IO5writeEPKc>
+     df8:	00100593          	li	a1,1
+     dfc:	01010513          	addi	a0,sp,16
+     e00:	d6cff0ef          	jal	36c <_ZN16AudioSynthesizer10selectWaveENS_6wave_eE>
+     e04:	00100593          	li	a1,1
+     e08:	01010513          	addi	a0,sp,16
+     e0c:	d68ff0ef          	jal	374 <_ZN16AudioSynthesizer7setWaveEb>
+     e10:	7d000593          	li	a1,2000
+     e14:	f60ff0ef          	jal	574 <_ZN16AudioSynthesizer7setGainEt>
+     e18:	03200413          	li	s0,50
+     e1c:	a0dff0ef          	jal	828 <_ZN4PRNG6randomEv>
+     e20:	7d000613          	li	a2,2000
+     e24:	00000693          	li	a3,0
+     e28:	48c000ef          	jal	12b4 <__umoddi3>
+     e2c:	0c850593          	addi	a1,a0,200
+     e30:	01010513          	addi	a0,sp,16
+     e34:	e50ff0ef          	jal	484 <_ZN16AudioSynthesizer12setFrequencyEm>
+     e38:	00010513          	mv	a0,sp
+     e3c:	01400593          	li	a1,20
+     e40:	00000613          	li	a2,0
+     e44:	fff40413          	addi	s0,s0,-1
+     e48:	b21ff0ef          	jal	968 <_ZN5Timer5delayEy>
+     e4c:	fc0418e3          	bnez	s0,e1c <audio_synthesizer+0x290>
+     e50:	01010513          	addi	a0,sp,16
+     e54:	00000593          	li	a1,0
+     e58:	d1cff0ef          	jal	374 <_ZN16AudioSynthesizer7setWaveEb>
+     e5c:	00010513          	mv	a0,sp
+     e60:	3e800593          	li	a1,1000
+     e64:	00000613          	li	a2,0
+     e68:	b01ff0ef          	jal	968 <_ZN5Timer5delayEy>
+     e6c:	00010513          	mv	a0,sp
+     e70:	a49ff0ef          	jal	8b8 <_ZN5TimerD1Ev>
+     e74:	0ac12083          	lw	ra,172(sp)
+     e78:	0a812403          	lw	s0,168(sp)
+     e7c:	0a412483          	lw	s1,164(sp)
+     e80:	0b010113          	addi	sp,sp,176
+     e84:	00008067          	ret
+
+00000e88 <__udivdi3>:
+     e88:	00050893          	mv	a7,a0
+     e8c:	00058313          	mv	t1,a1
+     e90:	00060713          	mv	a4,a2
+     e94:	00050813          	mv	a6,a0
+     e98:	00058793          	mv	a5,a1
+     e9c:	28069263          	bnez	a3,1120 <__udivdi3+0x298>
+     ea0:	000015b7          	lui	a1,0x1
+     ea4:	7ec58593          	addi	a1,a1,2028 # 17ec <__clz_tab>
+     ea8:	0ec37663          	bgeu	t1,a2,f94 <__udivdi3+0x10c>
+     eac:	000106b7          	lui	a3,0x10
+     eb0:	0cd67863          	bgeu	a2,a3,f80 <__udivdi3+0xf8>
+     eb4:	10063693          	sltiu	a3,a2,256
+     eb8:	0016b693          	seqz	a3,a3
+     ebc:	00369693          	slli	a3,a3,0x3
+     ec0:	00d65533          	srl	a0,a2,a3
+     ec4:	00a585b3          	add	a1,a1,a0
+     ec8:	0005c583          	lbu	a1,0(a1)
+     ecc:	02000513          	li	a0,32
+     ed0:	00d586b3          	add	a3,a1,a3
+     ed4:	40d505b3          	sub	a1,a0,a3
+     ed8:	00d50c63          	beq	a0,a3,ef0 <__udivdi3+0x68>
+     edc:	00b317b3          	sll	a5,t1,a1
+     ee0:	00d8d6b3          	srl	a3,a7,a3
+     ee4:	00b61733          	sll	a4,a2,a1
+     ee8:	00f6e7b3          	or	a5,a3,a5
+     eec:	00b89833          	sll	a6,a7,a1
+     ef0:	01075593          	srli	a1,a4,0x10
+     ef4:	02b7d333          	divu	t1,a5,a1
+     ef8:	01071613          	slli	a2,a4,0x10
+     efc:	01065613          	srli	a2,a2,0x10
+     f00:	02b7f7b3          	remu	a5,a5,a1
+     f04:	00030513          	mv	a0,t1
+     f08:	026608b3          	mul	a7,a2,t1
+     f0c:	01079693          	slli	a3,a5,0x10
+     f10:	01085793          	srli	a5,a6,0x10
+     f14:	00d7e7b3          	or	a5,a5,a3
+     f18:	0117fe63          	bgeu	a5,a7,f34 <__udivdi3+0xac>
+     f1c:	00f707b3          	add	a5,a4,a5
+     f20:	fff30513          	addi	a0,t1,-1
+     f24:	00e7e863          	bltu	a5,a4,f34 <__udivdi3+0xac>
+     f28:	0117f663          	bgeu	a5,a7,f34 <__udivdi3+0xac>
+     f2c:	ffe30513          	addi	a0,t1,-2
+     f30:	00e787b3          	add	a5,a5,a4
+     f34:	411787b3          	sub	a5,a5,a7
+     f38:	02b7d8b3          	divu	a7,a5,a1
+     f3c:	01081813          	slli	a6,a6,0x10
+     f40:	01085813          	srli	a6,a6,0x10
+     f44:	02b7f7b3          	remu	a5,a5,a1
+     f48:	031606b3          	mul	a3,a2,a7
+     f4c:	01079793          	slli	a5,a5,0x10
+     f50:	00f86833          	or	a6,a6,a5
+     f54:	00088793          	mv	a5,a7
+     f58:	00d87c63          	bgeu	a6,a3,f70 <__udivdi3+0xe8>
+     f5c:	01070833          	add	a6,a4,a6
+     f60:	fff88793          	addi	a5,a7,-1
+     f64:	00e86663          	bltu	a6,a4,f70 <__udivdi3+0xe8>
+     f68:	00d87463          	bgeu	a6,a3,f70 <__udivdi3+0xe8>
+     f6c:	ffe88793          	addi	a5,a7,-2
+     f70:	01051513          	slli	a0,a0,0x10
+     f74:	00f56533          	or	a0,a0,a5
+     f78:	00000593          	li	a1,0
+     f7c:	00008067          	ret
+     f80:	01000537          	lui	a0,0x1000
+     f84:	01800693          	li	a3,24
+     f88:	f2a67ce3          	bgeu	a2,a0,ec0 <__udivdi3+0x38>
+     f8c:	01000693          	li	a3,16
+     f90:	f31ff06f          	j	ec0 <__udivdi3+0x38>
+     f94:	00000693          	li	a3,0
+     f98:	00060c63          	beqz	a2,fb0 <__udivdi3+0x128>
+     f9c:	000107b7          	lui	a5,0x10
+     fa0:	0cf67063          	bgeu	a2,a5,1060 <__udivdi3+0x1d8>
+     fa4:	10063693          	sltiu	a3,a2,256
+     fa8:	0016b693          	seqz	a3,a3
+     fac:	00369693          	slli	a3,a3,0x3
+     fb0:	00d657b3          	srl	a5,a2,a3
+     fb4:	00f585b3          	add	a1,a1,a5
+     fb8:	0005c783          	lbu	a5,0(a1)
+     fbc:	00d787b3          	add	a5,a5,a3
+     fc0:	02000693          	li	a3,32
+     fc4:	40f685b3          	sub	a1,a3,a5
+     fc8:	0af69663          	bne	a3,a5,1074 <__udivdi3+0x1ec>
+     fcc:	40c307b3          	sub	a5,t1,a2
+     fd0:	00100593          	li	a1,1
+     fd4:	01075893          	srli	a7,a4,0x10
+     fd8:	0317de33          	divu	t3,a5,a7
+     fdc:	01071613          	slli	a2,a4,0x10
+     fe0:	01065613          	srli	a2,a2,0x10
+     fe4:	01085693          	srli	a3,a6,0x10
+     fe8:	0317f7b3          	remu	a5,a5,a7
+     fec:	000e0513          	mv	a0,t3
+     ff0:	03c60333          	mul	t1,a2,t3
+     ff4:	01079793          	slli	a5,a5,0x10
+     ff8:	00f6e7b3          	or	a5,a3,a5
+     ffc:	0067fe63          	bgeu	a5,t1,1018 <__udivdi3+0x190>
+    1000:	00f707b3          	add	a5,a4,a5
+    1004:	fffe0513          	addi	a0,t3,-1
+    1008:	00e7e863          	bltu	a5,a4,1018 <__udivdi3+0x190>
+    100c:	0067f663          	bgeu	a5,t1,1018 <__udivdi3+0x190>
+    1010:	ffee0513          	addi	a0,t3,-2
+    1014:	00e787b3          	add	a5,a5,a4
+    1018:	406787b3          	sub	a5,a5,t1
+    101c:	0317d333          	divu	t1,a5,a7
+    1020:	01081813          	slli	a6,a6,0x10
+    1024:	01085813          	srli	a6,a6,0x10
+    1028:	0317f7b3          	remu	a5,a5,a7
+    102c:	026606b3          	mul	a3,a2,t1
+    1030:	01079793          	slli	a5,a5,0x10
+    1034:	00f86833          	or	a6,a6,a5
+    1038:	00030793          	mv	a5,t1
+    103c:	00d87c63          	bgeu	a6,a3,1054 <__udivdi3+0x1cc>
+    1040:	01070833          	add	a6,a4,a6
+    1044:	fff30793          	addi	a5,t1,-1
+    1048:	00e86663          	bltu	a6,a4,1054 <__udivdi3+0x1cc>
+    104c:	00d87463          	bgeu	a6,a3,1054 <__udivdi3+0x1cc>
+    1050:	ffe30793          	addi	a5,t1,-2
+    1054:	01051513          	slli	a0,a0,0x10
+    1058:	00f56533          	or	a0,a0,a5
+    105c:	00008067          	ret
+    1060:	010007b7          	lui	a5,0x1000
+    1064:	01800693          	li	a3,24
+    1068:	f4f674e3          	bgeu	a2,a5,fb0 <__udivdi3+0x128>
+    106c:	01000693          	li	a3,16
+    1070:	f41ff06f          	j	fb0 <__udivdi3+0x128>
+    1074:	00b61733          	sll	a4,a2,a1
+    1078:	00f356b3          	srl	a3,t1,a5
+    107c:	01075513          	srli	a0,a4,0x10
+    1080:	00b31333          	sll	t1,t1,a1
+    1084:	00f8d7b3          	srl	a5,a7,a5
+    1088:	0067e7b3          	or	a5,a5,t1
+    108c:	02a6d333          	divu	t1,a3,a0
+    1090:	01071613          	slli	a2,a4,0x10
+    1094:	01065613          	srli	a2,a2,0x10
+    1098:	00b89833          	sll	a6,a7,a1
+    109c:	02a6f6b3          	remu	a3,a3,a0
+    10a0:	026608b3          	mul	a7,a2,t1
+    10a4:	01069593          	slli	a1,a3,0x10
+    10a8:	0107d693          	srli	a3,a5,0x10
+    10ac:	00b6e6b3          	or	a3,a3,a1
+    10b0:	00030593          	mv	a1,t1
+    10b4:	0116fe63          	bgeu	a3,a7,10d0 <__udivdi3+0x248>
+    10b8:	00d706b3          	add	a3,a4,a3
+    10bc:	fff30593          	addi	a1,t1,-1
+    10c0:	00e6e863          	bltu	a3,a4,10d0 <__udivdi3+0x248>
+    10c4:	0116f663          	bgeu	a3,a7,10d0 <__udivdi3+0x248>
+    10c8:	ffe30593          	addi	a1,t1,-2
+    10cc:	00e686b3          	add	a3,a3,a4
+    10d0:	411686b3          	sub	a3,a3,a7
+    10d4:	02a6d8b3          	divu	a7,a3,a0
+    10d8:	01079793          	slli	a5,a5,0x10
+    10dc:	0107d793          	srli	a5,a5,0x10
+    10e0:	02a6f6b3          	remu	a3,a3,a0
+    10e4:	03160633          	mul	a2,a2,a7
+    10e8:	01069693          	slli	a3,a3,0x10
+    10ec:	00d7e7b3          	or	a5,a5,a3
+    10f0:	00088693          	mv	a3,a7
+    10f4:	00c7fe63          	bgeu	a5,a2,1110 <__udivdi3+0x288>
+    10f8:	00f707b3          	add	a5,a4,a5
+    10fc:	fff88693          	addi	a3,a7,-1
+    1100:	00e7e863          	bltu	a5,a4,1110 <__udivdi3+0x288>
+    1104:	00c7f663          	bgeu	a5,a2,1110 <__udivdi3+0x288>
+    1108:	ffe88693          	addi	a3,a7,-2
+    110c:	00e787b3          	add	a5,a5,a4
+    1110:	01059593          	slli	a1,a1,0x10
+    1114:	40c787b3          	sub	a5,a5,a2
+    1118:	00d5e5b3          	or	a1,a1,a3
+    111c:	eb9ff06f          	j	fd4 <__udivdi3+0x14c>
+    1120:	18d5e463          	bltu	a1,a3,12a8 <__udivdi3+0x420>
+    1124:	000107b7          	lui	a5,0x10
+    1128:	04f6f463          	bgeu	a3,a5,1170 <__udivdi3+0x2e8>
+    112c:	1006b793          	sltiu	a5,a3,256
+    1130:	0017b793          	seqz	a5,a5
+    1134:	00379793          	slli	a5,a5,0x3
+    1138:	00001737          	lui	a4,0x1
+    113c:	00f6d5b3          	srl	a1,a3,a5
+    1140:	7ec70713          	addi	a4,a4,2028 # 17ec <__clz_tab>
+    1144:	00b70733          	add	a4,a4,a1
+    1148:	00074703          	lbu	a4,0(a4)
+    114c:	00f70733          	add	a4,a4,a5
+    1150:	02000793          	li	a5,32
+    1154:	40e785b3          	sub	a1,a5,a4
+    1158:	02e79663          	bne	a5,a4,1184 <__udivdi3+0x2fc>
+    115c:	00100513          	li	a0,1
+    1160:	e066eee3          	bltu	a3,t1,f7c <__udivdi3+0xf4>
+    1164:	00c8b533          	sltu	a0,a7,a2
+    1168:	00153513          	seqz	a0,a0
+    116c:	00008067          	ret
+    1170:	01000737          	lui	a4,0x1000
+    1174:	01800793          	li	a5,24
+    1178:	fce6f0e3          	bgeu	a3,a4,1138 <__udivdi3+0x2b0>
+    117c:	01000793          	li	a5,16
+    1180:	fb9ff06f          	j	1138 <__udivdi3+0x2b0>
+    1184:	00e65533          	srl	a0,a2,a4
+    1188:	00b696b3          	sll	a3,a3,a1
+    118c:	00e357b3          	srl	a5,t1,a4
+    1190:	00d56533          	or	a0,a0,a3
+    1194:	00b31333          	sll	t1,t1,a1
+    1198:	00e8d733          	srl	a4,a7,a4
+    119c:	00676733          	or	a4,a4,t1
+    11a0:	01055313          	srli	t1,a0,0x10
+    11a4:	0267deb3          	divu	t4,a5,t1
+    11a8:	01051813          	slli	a6,a0,0x10
+    11ac:	01085813          	srli	a6,a6,0x10
+    11b0:	01075693          	srli	a3,a4,0x10
+    11b4:	00b61633          	sll	a2,a2,a1
+    11b8:	0267f7b3          	remu	a5,a5,t1
+    11bc:	03d80e33          	mul	t3,a6,t4
+    11c0:	01079793          	slli	a5,a5,0x10
+    11c4:	00f6e6b3          	or	a3,a3,a5
+    11c8:	000e8793          	mv	a5,t4
+    11cc:	01c6fe63          	bgeu	a3,t3,11e8 <__udivdi3+0x360>
+    11d0:	00d506b3          	add	a3,a0,a3
+    11d4:	fffe8793          	addi	a5,t4,-1
+    11d8:	00a6e863          	bltu	a3,a0,11e8 <__udivdi3+0x360>
+    11dc:	01c6f663          	bgeu	a3,t3,11e8 <__udivdi3+0x360>
+    11e0:	ffee8793          	addi	a5,t4,-2
+    11e4:	00a686b3          	add	a3,a3,a0
+    11e8:	41c686b3          	sub	a3,a3,t3
+    11ec:	0266de33          	divu	t3,a3,t1
+    11f0:	01071713          	slli	a4,a4,0x10
+    11f4:	01075713          	srli	a4,a4,0x10
+    11f8:	0266f6b3          	remu	a3,a3,t1
+    11fc:	03c80833          	mul	a6,a6,t3
+    1200:	01069693          	slli	a3,a3,0x10
+    1204:	00d76733          	or	a4,a4,a3
+    1208:	000e0693          	mv	a3,t3
+    120c:	01077e63          	bgeu	a4,a6,1228 <__udivdi3+0x3a0>
+    1210:	00e50733          	add	a4,a0,a4
+    1214:	fffe0693          	addi	a3,t3,-1
+    1218:	00a76863          	bltu	a4,a0,1228 <__udivdi3+0x3a0>
+    121c:	01077663          	bgeu	a4,a6,1228 <__udivdi3+0x3a0>
+    1220:	ffee0693          	addi	a3,t3,-2
+    1224:	00a70733          	add	a4,a4,a0
+    1228:	01079793          	slli	a5,a5,0x10
+    122c:	00d7e533          	or	a0,a5,a3
+    1230:	01061313          	slli	t1,a2,0x10
+    1234:	01069693          	slli	a3,a3,0x10
+    1238:	0106d693          	srli	a3,a3,0x10
+    123c:	01035313          	srli	t1,t1,0x10
+    1240:	01065613          	srli	a2,a2,0x10
+    1244:	41070733          	sub	a4,a4,a6
+    1248:	01055813          	srli	a6,a0,0x10
+    124c:	02668e33          	mul	t3,a3,t1
+    1250:	02680333          	mul	t1,a6,t1
+    1254:	010e5793          	srli	a5,t3,0x10
+    1258:	02c686b3          	mul	a3,a3,a2
+    125c:	006686b3          	add	a3,a3,t1
+    1260:	00d787b3          	add	a5,a5,a3
+    1264:	02c80833          	mul	a6,a6,a2
+    1268:	0067f663          	bgeu	a5,t1,1274 <__udivdi3+0x3ec>
+    126c:	000106b7          	lui	a3,0x10
+    1270:	00d80833          	add	a6,a6,a3
+    1274:	0107d693          	srli	a3,a5,0x10
+    1278:	010686b3          	add	a3,a3,a6
+    127c:	02d76263          	bltu	a4,a3,12a0 <__udivdi3+0x418>
+    1280:	ced71ce3          	bne	a4,a3,f78 <__udivdi3+0xf0>
+    1284:	010e1e13          	slli	t3,t3,0x10
+    1288:	01079793          	slli	a5,a5,0x10
+    128c:	010e5e13          	srli	t3,t3,0x10
+    1290:	00b898b3          	sll	a7,a7,a1
+    1294:	01c787b3          	add	a5,a5,t3
+    1298:	00000593          	li	a1,0
+    129c:	cef8f0e3          	bgeu	a7,a5,f7c <__udivdi3+0xf4>
+    12a0:	fff50513          	addi	a0,a0,-1 # ffffff <_ZN9Serial_IO6statusE+0xffe70f>
+    12a4:	cd5ff06f          	j	f78 <__udivdi3+0xf0>
+    12a8:	00000593          	li	a1,0
+    12ac:	00000513          	li	a0,0
+    12b0:	00008067          	ret
+
+000012b4 <__umoddi3>:
+    12b4:	00060813          	mv	a6,a2
+    12b8:	00050793          	mv	a5,a0
+    12bc:	00058713          	mv	a4,a1
+    12c0:	20069663          	bnez	a3,14cc <__umoddi3+0x218>
+    12c4:	000018b7          	lui	a7,0x1
+    12c8:	7ec88893          	addi	a7,a7,2028 # 17ec <__clz_tab>
+    12cc:	0cc5fc63          	bgeu	a1,a2,13a4 <__umoddi3+0xf0>
+    12d0:	000106b7          	lui	a3,0x10
+    12d4:	0ad67e63          	bgeu	a2,a3,1390 <__umoddi3+0xdc>
+    12d8:	10063693          	sltiu	a3,a2,256
+    12dc:	0016b693          	seqz	a3,a3
+    12e0:	00369693          	slli	a3,a3,0x3
+    12e4:	00d65333          	srl	t1,a2,a3
+    12e8:	006888b3          	add	a7,a7,t1
+    12ec:	0008c883          	lbu	a7,0(a7)
+    12f0:	02000313          	li	t1,32
+    12f4:	00d886b3          	add	a3,a7,a3
+    12f8:	40d308b3          	sub	a7,t1,a3
+    12fc:	00d30c63          	beq	t1,a3,1314 <__umoddi3+0x60>
+    1300:	01159733          	sll	a4,a1,a7
+    1304:	00d556b3          	srl	a3,a0,a3
+    1308:	01161833          	sll	a6,a2,a7
+    130c:	00e6e733          	or	a4,a3,a4
+    1310:	011517b3          	sll	a5,a0,a7
+    1314:	01085613          	srli	a2,a6,0x10
+    1318:	02c756b3          	divu	a3,a4,a2
+    131c:	01081513          	slli	a0,a6,0x10
+    1320:	01055513          	srli	a0,a0,0x10
+    1324:	02c77733          	remu	a4,a4,a2
+    1328:	02a686b3          	mul	a3,a3,a0
+    132c:	01071593          	slli	a1,a4,0x10
+    1330:	0107d713          	srli	a4,a5,0x10
+    1334:	00b76733          	or	a4,a4,a1
+    1338:	00d77a63          	bgeu	a4,a3,134c <__umoddi3+0x98>
+    133c:	00e80733          	add	a4,a6,a4
+    1340:	01076663          	bltu	a4,a6,134c <__umoddi3+0x98>
+    1344:	00d77463          	bgeu	a4,a3,134c <__umoddi3+0x98>
+    1348:	01070733          	add	a4,a4,a6
+    134c:	40d70733          	sub	a4,a4,a3
+    1350:	02c756b3          	divu	a3,a4,a2
+    1354:	02c77733          	remu	a4,a4,a2
+    1358:	02a686b3          	mul	a3,a3,a0
+    135c:	01079793          	slli	a5,a5,0x10
+    1360:	01071713          	slli	a4,a4,0x10
+    1364:	0107d793          	srli	a5,a5,0x10
+    1368:	00e7e7b3          	or	a5,a5,a4
+    136c:	00d7fa63          	bgeu	a5,a3,1380 <__umoddi3+0xcc>
+    1370:	00f807b3          	add	a5,a6,a5
+    1374:	0107e663          	bltu	a5,a6,1380 <__umoddi3+0xcc>
+    1378:	00d7f463          	bgeu	a5,a3,1380 <__umoddi3+0xcc>
+    137c:	010787b3          	add	a5,a5,a6
+    1380:	40d787b3          	sub	a5,a5,a3
+    1384:	0117d533          	srl	a0,a5,a7
+    1388:	00000593          	li	a1,0
+    138c:	00008067          	ret
+    1390:	01000337          	lui	t1,0x1000
+    1394:	01800693          	li	a3,24
+    1398:	f46676e3          	bgeu	a2,t1,12e4 <__umoddi3+0x30>
+    139c:	01000693          	li	a3,16
+    13a0:	f45ff06f          	j	12e4 <__umoddi3+0x30>
+    13a4:	00000693          	li	a3,0
+    13a8:	00060c63          	beqz	a2,13c0 <__umoddi3+0x10c>
+    13ac:	00010737          	lui	a4,0x10
+    13b0:	06e67e63          	bgeu	a2,a4,142c <__umoddi3+0x178>
+    13b4:	10063693          	sltiu	a3,a2,256
+    13b8:	0016b693          	seqz	a3,a3
+    13bc:	00369693          	slli	a3,a3,0x3
+    13c0:	00d65733          	srl	a4,a2,a3
+    13c4:	00e888b3          	add	a7,a7,a4
+    13c8:	0008c703          	lbu	a4,0(a7)
+    13cc:	00d70733          	add	a4,a4,a3
+    13d0:	02000693          	li	a3,32
+    13d4:	40e688b3          	sub	a7,a3,a4
+    13d8:	06e69463          	bne	a3,a4,1440 <__umoddi3+0x18c>
+    13dc:	40c58733          	sub	a4,a1,a2
+    13e0:	01085593          	srli	a1,a6,0x10
+    13e4:	02b75633          	divu	a2,a4,a1
+    13e8:	01081513          	slli	a0,a6,0x10
+    13ec:	01055513          	srli	a0,a0,0x10
+    13f0:	0107d693          	srli	a3,a5,0x10
+    13f4:	02b77733          	remu	a4,a4,a1
+    13f8:	02a60633          	mul	a2,a2,a0
+    13fc:	01071713          	slli	a4,a4,0x10
+    1400:	00e6e733          	or	a4,a3,a4
+    1404:	00c77a63          	bgeu	a4,a2,1418 <__umoddi3+0x164>
+    1408:	00e80733          	add	a4,a6,a4
+    140c:	01076663          	bltu	a4,a6,1418 <__umoddi3+0x164>
+    1410:	00c77463          	bgeu	a4,a2,1418 <__umoddi3+0x164>
+    1414:	01070733          	add	a4,a4,a6
+    1418:	40c70733          	sub	a4,a4,a2
+    141c:	02b756b3          	divu	a3,a4,a1
+    1420:	02b77733          	remu	a4,a4,a1
+    1424:	02a686b3          	mul	a3,a3,a0
+    1428:	f35ff06f          	j	135c <__umoddi3+0xa8>
+    142c:	01000737          	lui	a4,0x1000
+    1430:	01800693          	li	a3,24
+    1434:	f8e676e3          	bgeu	a2,a4,13c0 <__umoddi3+0x10c>
+    1438:	01000693          	li	a3,16
+    143c:	f85ff06f          	j	13c0 <__umoddi3+0x10c>
+    1440:	01161833          	sll	a6,a2,a7
+    1444:	00e5d6b3          	srl	a3,a1,a4
+    1448:	011517b3          	sll	a5,a0,a7
+    144c:	011595b3          	sll	a1,a1,a7
+    1450:	00e55733          	srl	a4,a0,a4
+    1454:	01085513          	srli	a0,a6,0x10
+    1458:	00b76733          	or	a4,a4,a1
+    145c:	02a6d5b3          	divu	a1,a3,a0
+    1460:	01081313          	slli	t1,a6,0x10
+    1464:	01035313          	srli	t1,t1,0x10
+    1468:	02a6f6b3          	remu	a3,a3,a0
+    146c:	026585b3          	mul	a1,a1,t1
+    1470:	01069613          	slli	a2,a3,0x10
+    1474:	01075693          	srli	a3,a4,0x10
+    1478:	00c6e6b3          	or	a3,a3,a2
+    147c:	00b6fa63          	bgeu	a3,a1,1490 <__umoddi3+0x1dc>
+    1480:	00d806b3          	add	a3,a6,a3
+    1484:	0106e663          	bltu	a3,a6,1490 <__umoddi3+0x1dc>
+    1488:	00b6f463          	bgeu	a3,a1,1490 <__umoddi3+0x1dc>
+    148c:	010686b3          	add	a3,a3,a6
+    1490:	40b686b3          	sub	a3,a3,a1
+    1494:	02a6d633          	divu	a2,a3,a0
+    1498:	01071713          	slli	a4,a4,0x10
+    149c:	01075713          	srli	a4,a4,0x10
+    14a0:	02a6f6b3          	remu	a3,a3,a0
+    14a4:	02660633          	mul	a2,a2,t1
+    14a8:	01069693          	slli	a3,a3,0x10
+    14ac:	00d76733          	or	a4,a4,a3
+    14b0:	00c77a63          	bgeu	a4,a2,14c4 <__umoddi3+0x210>
+    14b4:	00e80733          	add	a4,a6,a4
+    14b8:	01076663          	bltu	a4,a6,14c4 <__umoddi3+0x210>
+    14bc:	00c77463          	bgeu	a4,a2,14c4 <__umoddi3+0x210>
+    14c0:	01070733          	add	a4,a4,a6
+    14c4:	40c70733          	sub	a4,a4,a2
+    14c8:	f19ff06f          	j	13e0 <__umoddi3+0x12c>
+    14cc:	1cd5e263          	bltu	a1,a3,1690 <__umoddi3+0x3dc>
+    14d0:	00010837          	lui	a6,0x10
+    14d4:	0506fe63          	bgeu	a3,a6,1530 <__umoddi3+0x27c>
+    14d8:	1006b813          	sltiu	a6,a3,256
+    14dc:	00183813          	seqz	a6,a6
+    14e0:	00381813          	slli	a6,a6,0x3
+    14e4:	000018b7          	lui	a7,0x1
+    14e8:	0106d333          	srl	t1,a3,a6
+    14ec:	7ec88893          	addi	a7,a7,2028 # 17ec <__clz_tab>
+    14f0:	006888b3          	add	a7,a7,t1
+    14f4:	0008c883          	lbu	a7,0(a7)
+    14f8:	02000313          	li	t1,32
+    14fc:	010888b3          	add	a7,a7,a6
+    1500:	41130833          	sub	a6,t1,a7
+    1504:	05131063          	bne	t1,a7,1544 <__umoddi3+0x290>
+    1508:	00b6e463          	bltu	a3,a1,1510 <__umoddi3+0x25c>
+    150c:	00c56c63          	bltu	a0,a2,1524 <__umoddi3+0x270>
+    1510:	40c50633          	sub	a2,a0,a2
+    1514:	40d586b3          	sub	a3,a1,a3
+    1518:	00c53733          	sltu	a4,a0,a2
+    151c:	00060793          	mv	a5,a2
+    1520:	40e68733          	sub	a4,a3,a4
+    1524:	00078513          	mv	a0,a5
+    1528:	00070593          	mv	a1,a4
+    152c:	00008067          	ret
+    1530:	010008b7          	lui	a7,0x1000
+    1534:	01800813          	li	a6,24
+    1538:	fb16f6e3          	bgeu	a3,a7,14e4 <__umoddi3+0x230>
+    153c:	01000813          	li	a6,16
+    1540:	fa5ff06f          	j	14e4 <__umoddi3+0x230>
+    1544:	011657b3          	srl	a5,a2,a7
+    1548:	010696b3          	sll	a3,a3,a6
+    154c:	00d7e6b3          	or	a3,a5,a3
+    1550:	0115d733          	srl	a4,a1,a7
+    1554:	0106d313          	srli	t1,a3,0x10
+    1558:	02675f33          	divu	t5,a4,t1
+    155c:	01069e13          	slli	t3,a3,0x10
+    1560:	010e5e13          	srli	t3,t3,0x10
+    1564:	010597b3          	sll	a5,a1,a6
+    1568:	011555b3          	srl	a1,a0,a7
+    156c:	00f5e5b3          	or	a1,a1,a5
+    1570:	0105d793          	srli	a5,a1,0x10
+    1574:	01061633          	sll	a2,a2,a6
+    1578:	01051533          	sll	a0,a0,a6
+    157c:	02677733          	remu	a4,a4,t1
+    1580:	03ee0eb3          	mul	t4,t3,t5
+    1584:	01071713          	slli	a4,a4,0x10
+    1588:	00e7e7b3          	or	a5,a5,a4
+    158c:	000f0713          	mv	a4,t5
+    1590:	01d7fe63          	bgeu	a5,t4,15ac <__umoddi3+0x2f8>
+    1594:	00f687b3          	add	a5,a3,a5
+    1598:	ffff0713          	addi	a4,t5,-1
+    159c:	00d7e863          	bltu	a5,a3,15ac <__umoddi3+0x2f8>
+    15a0:	01d7f663          	bgeu	a5,t4,15ac <__umoddi3+0x2f8>
+    15a4:	ffef0713          	addi	a4,t5,-2
+    15a8:	00d787b3          	add	a5,a5,a3
+    15ac:	41d787b3          	sub	a5,a5,t4
+    15b0:	0267deb3          	divu	t4,a5,t1
+    15b4:	01059593          	slli	a1,a1,0x10
+    15b8:	0105d593          	srli	a1,a1,0x10
+    15bc:	0267f7b3          	remu	a5,a5,t1
+    15c0:	000e8313          	mv	t1,t4
+    15c4:	03de0e33          	mul	t3,t3,t4
+    15c8:	01079793          	slli	a5,a5,0x10
+    15cc:	00f5e5b3          	or	a1,a1,a5
+    15d0:	01c5fe63          	bgeu	a1,t3,15ec <__umoddi3+0x338>
+    15d4:	00b685b3          	add	a1,a3,a1
+    15d8:	fffe8313          	addi	t1,t4,-1
+    15dc:	00d5e863          	bltu	a1,a3,15ec <__umoddi3+0x338>
+    15e0:	01c5f663          	bgeu	a1,t3,15ec <__umoddi3+0x338>
+    15e4:	ffee8313          	addi	t1,t4,-2
+    15e8:	00d585b3          	add	a1,a1,a3
+    15ec:	01071793          	slli	a5,a4,0x10
+    15f0:	0067e7b3          	or	a5,a5,t1
+    15f4:	41c585b3          	sub	a1,a1,t3
+    15f8:	01031313          	slli	t1,t1,0x10
+    15fc:	01061e13          	slli	t3,a2,0x10
+    1600:	01065713          	srli	a4,a2,0x10
+    1604:	01035313          	srli	t1,t1,0x10
+    1608:	0107d793          	srli	a5,a5,0x10
+    160c:	010e5e13          	srli	t3,t3,0x10
+    1610:	03c30eb3          	mul	t4,t1,t3
+    1614:	03c78e33          	mul	t3,a5,t3
+    1618:	02e30333          	mul	t1,t1,a4
+    161c:	02e787b3          	mul	a5,a5,a4
+    1620:	01c30333          	add	t1,t1,t3
+    1624:	010ed713          	srli	a4,t4,0x10
+    1628:	00670733          	add	a4,a4,t1
+    162c:	01c77663          	bgeu	a4,t3,1638 <__umoddi3+0x384>
+    1630:	00010337          	lui	t1,0x10
+    1634:	006787b3          	add	a5,a5,t1
+    1638:	01075313          	srli	t1,a4,0x10
+    163c:	010e9e93          	slli	t4,t4,0x10
+    1640:	01071713          	slli	a4,a4,0x10
+    1644:	010ede93          	srli	t4,t4,0x10
+    1648:	00f307b3          	add	a5,t1,a5
+    164c:	01d70733          	add	a4,a4,t4
+    1650:	00f5e663          	bltu	a1,a5,165c <__umoddi3+0x3a8>
+    1654:	00f59e63          	bne	a1,a5,1670 <__umoddi3+0x3bc>
+    1658:	00e57c63          	bgeu	a0,a4,1670 <__umoddi3+0x3bc>
+    165c:	40c70633          	sub	a2,a4,a2
+    1660:	00c73333          	sltu	t1,a4,a2
+    1664:	00d306b3          	add	a3,t1,a3
+    1668:	00060713          	mv	a4,a2
+    166c:	40d787b3          	sub	a5,a5,a3
+    1670:	40e50733          	sub	a4,a0,a4
+    1674:	00e53533          	sltu	a0,a0,a4
+    1678:	40f585b3          	sub	a1,a1,a5
+    167c:	40a585b3          	sub	a1,a1,a0
+    1680:	011598b3          	sll	a7,a1,a7
+    1684:	01075733          	srl	a4,a4,a6
+    1688:	00e8e533          	or	a0,a7,a4
+    168c:	0105d5b3          	srl	a1,a1,a6
+    1690:	00008067          	ret
