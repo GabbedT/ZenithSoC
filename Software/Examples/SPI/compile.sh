@@ -2,7 +2,7 @@ riscv32-unknown-elf-g++ -O1 -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv
 riscv32-unknown-elf-g++ -O1 -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../../Source/SPI.cpp -o SPI.o
 riscv32-unknown-elf-g++ -O1 -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../../Source/Serial_IO.cpp -o Serial_IO.o
 riscv32-unknown-elf-g++ -O2 -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 spi.cpp -o spi.o
-riscv32-unknown-elf-as -c -march=rv32im_zicsr_zfinx_zba_zbb -mabi=ilp32 setup.s -o setup.o
+riscv32-unknown-elf-as -c -march=rv32im_zicsr_zfinx_zba_zbs -mabi=ilp32 setup.s -o setup.o
 
 riscv32-unknown-elf-ld -T linker.ld -o output.elf setup.o spi.o Serial_IO.o Timer.o SPI.o /opt/riscv/lib/gcc/riscv32-unknown-elf/12.2.0/libgcc.a /opt/riscv/riscv64-unknown-elf/lib/rv32im/ilp32/libc.a
 riscv32-unknown-elf-objdump -d -j .boot -j .text output.elf > output.dump
