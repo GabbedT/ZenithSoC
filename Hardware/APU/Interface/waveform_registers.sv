@@ -63,12 +63,13 @@ module waveform_registers (
             if (!rst_n_i) begin
                 control_register <= '0;
             end else if ((write_address_i == WAVE_CONTROL) & write_i) begin
-                control_register <= write_data_i | (control_register & mask);
+                control_register <= (write_data_i & mask) | (control_register & ~mask);
             end else begin
                 control_register.adsr_idle <= adsr_idle_i;
 
                 /* Always reset */
                 control_register.wave_start <= 1'b0;
+                control_register.adsr_start <= 1'b0;
             end
         end
 
@@ -94,7 +95,7 @@ module waveform_registers (
             if (!rst_n_i) begin
                 phase_increment_register <= '0;
             end else if ((write_address_i == WAVE_INCREMENT) & write_i) begin
-                phase_increment_register <= write_data_i | (phase_increment_register & mask);
+                phase_increment_register <= (write_data_i & mask) | (phase_increment_register & ~mask);
             end
         end
 
@@ -111,7 +112,7 @@ module waveform_registers (
             if (!rst_n_i) begin
                 attack_step <= '0;
             end else if ((write_address_i == WAVE_ATTACK_STEP) & write_i) begin
-                attack_step <= write_data_i | (attack_step & mask);
+                attack_step <= (write_data_i & mask) | (attack_step & ~mask);
             end
         end
 
@@ -128,7 +129,7 @@ module waveform_registers (
             if (!rst_n_i) begin
                 decay_step <= '0;
             end else if ((write_address_i == WAVE_DECAY_STEP) & write_i) begin
-                decay_step <= write_data_i | (decay_step & mask);
+                decay_step <= (write_data_i & mask) | (decay_step & ~mask);
             end
         end
 
@@ -145,7 +146,7 @@ module waveform_registers (
             if (!rst_n_i) begin
                 release_step <= '0;
             end else if ((write_address_i == WAVE_RELEASE_STEP) & write_i) begin
-                release_step <= write_data_i | (release_step & mask);
+                release_step <= (write_data_i & mask) | (release_step & ~mask);
             end
         end
 
@@ -162,7 +163,7 @@ module waveform_registers (
             if (!rst_n_i) begin
                 sustain_duration <= '0;
             end else if ((write_address_i == WAVE_SUSTAIN_TIME) & write_i) begin
-                sustain_duration <= write_data_i | (sustain_duration & mask);
+                sustain_duration <= (write_data_i & mask) | (sustain_duration & ~mask);
             end
         end
 
@@ -179,7 +180,7 @@ module waveform_registers (
             if (!rst_n_i) begin
                 attack_level <= '0;
             end else if ((write_address_i == WAVE_ATTACK_LEVEL) & write_i) begin
-                attack_level <= write_data_i | (attack_level & mask);
+                attack_level <= (write_data_i & mask) | (attack_level & ~mask);
             end
         end
 
@@ -196,7 +197,7 @@ module waveform_registers (
             if (!rst_n_i) begin
                 sustain_level <= '0;
             end else if ((write_address_i == WAVE_SUSTAIN_LEVEL) & write_i) begin
-                sustain_level <= write_data_i | (sustain_level & mask);
+                sustain_level <= (write_data_i & mask) | (sustain_level & ~mask);
             end
         end
 
