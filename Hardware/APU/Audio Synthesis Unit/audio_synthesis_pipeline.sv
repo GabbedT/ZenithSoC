@@ -53,13 +53,13 @@ module audio_synthesis_pipeline (
 //      PARAMETERS
 //====================================================================================
 
-    localparam SINE_WAVE = 0;
-
-    localparam SQUARE_WAVE = 1;
+    localparam CUSTOM_WAVE = 0;
+    
+    localparam SINE_WAVE = 1;
 
     localparam TRIANGLE_WAVE = 2;
 
-    localparam CUSTOM_WAVE = 3;
+    localparam SQUARE_WAVE = 3;
 
 
 //====================================================================================
