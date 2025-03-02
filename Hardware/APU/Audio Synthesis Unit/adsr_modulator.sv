@@ -58,7 +58,7 @@ module adsr_modulator (
     fsm_states_t state_CRT, state_NXT;
     
         always_ff @(posedge clk_i) begin
-            if (!rst_n_i) begin 
+            if (!rst_n_i | !enable_i) begin 
                 state_CRT <= IDLE; 
             end else if (enable_i) begin
                 if (start_i) begin
@@ -78,7 +78,7 @@ module adsr_modulator (
 
             case (state_CRT)
                 IDLE: begin
-                    if (enable_i) begin
+                    if (start_i) begin
                         state_NXT = ATTACK;
 
                         sus_time_NXT = '0;
