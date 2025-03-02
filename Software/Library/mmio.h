@@ -1,4 +1,4 @@
-#define MMIO_START 0x00002000
+#define MMIO_START 0x00004000
 
 #define DEVICE_INTERLEAVE (1 << 13)
 
@@ -20,11 +20,8 @@
 /* PRNG base address */
 #define PRNG_BASE (ETHERNET_BASE + DEVICE_INTERLEAVE)
 
-/* Audio Capture Unit base address */
-#define ACU_BASE (PRNG_BASE + DEVICE_INTERLEAVE)
-
-/* Audio Synthesis Unit */
-#define ASU_BASE (ACU_BASE | 1 << 12)
+/* Audio Processing Unit base address */
+#define APU_BASE (PRNG_BASE + DEVICE_INTERLEAVE)
 
 /* Non cachable memory base address */
-#define NC_MEMORY_BASE (PDM2PCM_BASE + DEVICE_INTERLEAVE)
+#define NC_MEMORY_BASE (ACU_BASE + DEVICE_INTERLEAVE)
