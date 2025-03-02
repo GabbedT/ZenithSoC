@@ -15,7 +15,7 @@
 `define OUTPUT_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/output_trace.txt"
 `define PDM_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/PDM/pdm.txt"
 
-`define SIM_TIME 500000ns
+`define SIM_TIME 32ms
 
 /* While RUN_CONDITION is true, simulation will continue */
 `define RUN_CONDITION ($time() < `SIM_TIME) & !`CPU.exception
@@ -64,6 +64,10 @@ module soc_testbench;
     logic pdm_data_i = 0;
     logic pdm_clk_o;
     logic pdm_lrsel_o;
+    
+    /* PWM Interface */
+    wire pwm_o;
+    logic audio_enable_o;
 
     /* SMI interface */
     logic smi_mdc_o;
@@ -187,17 +191,6 @@ module soc_testbench;
         wait(dut.locked);
 
         fork
-
-            begin
-                repeat(33900) @(posedge clk_i);
-                rst_n_i <= 1'b0;
-                repeat(40) @(posedge clk_i);
-                rst_n_i <= 1'b1;
-
-                while (!stopCondition) begin
-                    @(posedge clk_i);
-                end
-            end
 
             begin : pdm_interface
                 /* Feed PDM input from file */
