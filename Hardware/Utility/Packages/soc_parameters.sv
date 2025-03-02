@@ -141,7 +141,7 @@ package soc_parameters;
 //      BOOT MEMORY PARAMETERS
 //====================================================================================
 
-    localparam BOOT_SIZE = 2 ** 13;
+    localparam BOOT_SIZE = 2 ** 14;
     
     /* Number of boot memories (max 1) */
     localparam BOOT_MEMORY_NUMBER = 1;
@@ -173,7 +173,7 @@ package soc_parameters;
     localparam APU_SAMPLE_BUFFER_SIZE = 2**11;
 
     /* Memory mapped registers */
-    localparam APU_DEVICE_SPACE = 2**12;
+    localparam APU_DEVICE_SPACE = 1065;
 
     /* Ethernet MAC MMIO address */
     localparam APU_BASE_ADDRESS = PRNG_BASE_ADDRESS + 2**13;
