@@ -13,15 +13,17 @@ module apu #(
 
     /* Write interface */
     input logic write_i,
-    input logic [11:0] write_address_i,
+    input logic [10:0] write_address_i,
     input logic [3:0][7:0] write_data_i,
     input logic [3:0] write_strobe_i,
+    output logic write_done_o,
     output logic write_error_o,
 
     /* Read interface */
     input logic read_i,
-    input logic [11:0] read_address_i,
+    input logic [10:0] read_address_i,
     output logic [31:0] read_data_o,
+    output logic read_done_o,
     output logic read_error_o,
 
     /* External microphone interface */
@@ -38,13 +40,13 @@ module apu #(
 //      AUDIO CAPTURE UNIT
 //====================================================================================
 
-    localparam ACU_END_ADDRESS = 12'b000000000111;
+    localparam ACU_END_ADDRESS = 8;
 
     logic [31:0] acu_read_data; logic acu_read_done, acu_read_error, acu_write_done, acu_write_error;
-    logic acu_write, acu_read, acu_interrupt;
+    logic acu_write, acu_read;
 
-    assign acu_write = !write_address_i[11] & write_i;
-    assign acu_read = !read_address_i[11] & read_i;
+    assign acu_write = (write_address_i < ACU_END_ADDRESS) & write_i;
+    assign acu_read = (read_address_i < ACU_END_ADDRESS) & read_i;
 
     audio_capture_unit #(
         .BUFFER_SIZE( BUFFER_SIZE )
@@ -81,28 +83,28 @@ module apu #(
 //      AUDIO SYNTHESIS UNIT
 //====================================================================================
 
-    localparam ASU_END_ADDRESS = 12'b110000100001;
+    localparam ASU_END_ADDRESS = ACU_END_ADDRESS + 1057;
 
     logic [31:0] asu_read_data; logic asu_read_done, asu_read_error, asu_write_done, asu_write_error;
     logic asu_write, asu_read;
 
-    assign asu_write = write_address_i[11] & write_i;
-    assign asu_read = read_address_i[11] & read_i;
+    assign asu_write = (write_address_i >= ACU_END_ADDRESS) & (write_address_i < ASU_END_ADDRESS) & write_i;
+    assign asu_read = (read_address_i >= ACU_END_ADDRESS) & (read_address_i < ASU_END_ADDRESS) & read_i;
 
     audio_synthesis_unit ws_unit (
         .clk_i   ( clk_i   ),
         .rst_n_i ( rst_n_i ),
 
-        .write_i         ( asu_write             ),
-        .write_address_i ( write_address_i[10:0] ),
-        .write_data_i    ( write_data_i          ),
-        .write_strobe_i  ( write_strobe_i        ),
-        .write_error_o   ( asu_write_error       ),
+        .write_i         ( asu_write                         ),
+        .write_address_i ( write_address_i - ACU_END_ADDRESS ),
+        .write_data_i    ( write_data_i                      ),
+        .write_strobe_i  ( write_strobe_i                    ),
+        .write_error_o   ( asu_write_error                   ),
 
-        .read_i         ( asu_read             ),
-        .read_address_i ( read_address_i[10:0] ),
-        .read_data_o    ( asu_read_data        ),
-        .read_error_o   ( asu_read_error       ),
+        .read_i         ( asu_read                         ),
+        .read_address_i ( read_address_i - ACU_END_ADDRESS ),
+        .read_data_o    ( asu_read_data                    ),
+        .read_error_o   ( asu_read_error                   ),
 
         .pwm_o          ( pwm_o          ),
         .audio_enable_o ( audio_enable_o )
@@ -114,8 +116,8 @@ module apu #(
 
     logic asu_read_address_error, asu_write_address_error;
 
-    assign asu_write_address_error = (write_address_i > ASU_END_ADDRESS & asu_write);
-    assign asu_read_address_error = (read_address_i > ASU_END_ADDRESS & asu_read);
+    assign asu_write_address_error = (write_address_i >= ASU_END_ADDRESS) & (write_address_i < ACU_END_ADDRESS) & asu_write;
+    assign asu_read_address_error = (read_address_i >= ASU_END_ADDRESS) & (read_address_i < ACU_END_ADDRESS) & asu_read;
     
 
 //====================================================================================
