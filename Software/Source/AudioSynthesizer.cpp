@@ -13,18 +13,18 @@
 
 AudioSynthesizer::AudioSynthesizer() : 
     /* Base MMIO address */
-    baseAddress ( (uint32_t *) (ASU_BASE) ),
+    baseAddress ( (uint32_t *) (APU_BASE + 32) ),
 
     /* Custom wave */
-    customTable        ( (uint32_t *) baseAddress               ),
-    customControl      ( (controlRegister_s*) (customTable + 1) ),
-    customIncrement    ( (uint32_t *) (customTable + 2)         ),
-    customAttackStep   ( (uint32_t *) (customTable + 3)         ),
-    customDecayStep    ( (uint32_t *) (customTable + 4)         ),
-    customReleaseStep  ( (uint32_t *) (customTable + 5)         ),
-    customSustainTime  ( (uint32_t *) (customTable + 6)         ),
-    customAttackLevel  ( (uint32_t *) (customTable + 7)         ),
-    customSustainLevel ( (uint32_t *) (customTable + 8)         ),
+    customTable        ( (uint32_t *) baseAddress                  ),
+    customControl      ( (controlRegister_s*) (customTable + 1024) ),
+    customIncrement    ( (uint32_t *) (customControl + 1)          ),
+    customAttackStep   ( (uint32_t *) (customControl + 2)          ),
+    customDecayStep    ( (uint32_t *) (customControl + 3)          ),
+    customReleaseStep  ( (uint32_t *) (customControl + 4)          ),
+    customSustainTime  ( (uint32_t *) (customControl + 5)          ),
+    customAttackLevel  ( (uint32_t *) (customControl + 6)          ),
+    customSustainLevel ( (uint32_t *) (customControl + 7)          ),
 
     /* Sine wave */
     sineControl      ( (controlRegister_s*) (customSustainLevel + 1) ),
@@ -68,14 +68,22 @@ AudioSynthesizer::AudioSynthesizer() :
 
     squareControl->adsrEnable = false;
     squareControl->waveEnable = false;
+
+    selectedWave = SINE;
 };
 
 //====================================================================================
 //                       WAVE CONTROL FUNCTIONS                 
 //====================================================================================
 
-AudioSynthesizer& AudioSynthesizer::setWave(wave_e type, bool enable) {
-    switch (type) {
+AudioSynthesizer& AudioSynthesizer::selectWave(wave_e type) {
+    selectedWave = type;
+
+    return *this;
+};
+
+AudioSynthesizer& AudioSynthesizer::setWave(bool enable) {
+    switch (selectedWave) {
         case CUSTOM: {
             customControl->waveEnable = enable;
             break;
@@ -100,8 +108,8 @@ AudioSynthesizer& AudioSynthesizer::setWave(wave_e type, bool enable) {
     return *this;
 };
 
-AudioSynthesizer& AudioSynthesizer::restartWave(wave_e type) {
-    switch (type) {
+AudioSynthesizer& AudioSynthesizer::restartWave() {
+    switch (selectedWave) {
         case CUSTOM: {
             customControl->waveStart = true;
             break;
@@ -126,11 +134,11 @@ AudioSynthesizer& AudioSynthesizer::restartWave(wave_e type) {
     return *this;
 };
 
-AudioSynthesizer& AudioSynthesizer::setFrequency(wave_e type, uint32_t frequency) {
-    switch (type) {
+AudioSynthesizer& AudioSynthesizer::setFrequency(uint32_t frequency) {
+    switch (selectedWave) {
         case CUSTOM: {
             /* The phase register needs to arrive to max to complete a cycle */
-            uint64_t tmp = UINT32_MAX * frequency;
+            uint64_t tmp = (uint64_t) UINT32_MAX * frequency;
 
             *customIncrement = tmp / SYSTEM_FREQUENCY;
             break;
@@ -140,7 +148,7 @@ AudioSynthesizer& AudioSynthesizer::setFrequency(wave_e type, uint32_t frequency
             /* The phase register needs to arrive to max to complete a cycle 
              * quarter cycle, that is because the table holds only a quarter
              * of a sine cycle */
-            uint64_t tmp = UINT32_MAX * frequency * 4;
+            uint64_t tmp = (uint64_t) UINT32_MAX * frequency * 4;
 
             *sineIncrement = tmp / SYSTEM_FREQUENCY;
             break;
@@ -149,7 +157,7 @@ AudioSynthesizer& AudioSynthesizer::setFrequency(wave_e type, uint32_t frequency
         case TRIANGLE: {
             /* The phase register needs to arrive to and decrease
              * to minimum, so two times */
-            uint64_t tmp = UINT32_MAX * frequency * 2;
+            uint64_t tmp = (uint64_t) UINT32_MAX * frequency * 2;
 
             *triangleIncrement = tmp / SYSTEM_FREQUENCY;
             break;
@@ -157,7 +165,7 @@ AudioSynthesizer& AudioSynthesizer::setFrequency(wave_e type, uint32_t frequency
 
         case SQUARE: {
             /* The phase register needs to arrive to max to complete a cycle */
-            uint64_t tmp = UINT32_MAX * frequency;
+            uint64_t tmp = (uint64_t) UINT32_MAX * frequency;
 
             *squareIncrement = tmp / SYSTEM_FREQUENCY;
             break;
@@ -167,8 +175,8 @@ AudioSynthesizer& AudioSynthesizer::setFrequency(wave_e type, uint32_t frequency
     return *this;
 };
 
-AudioSynthesizer& AudioSynthesizer::setGain(wave_e type, uint16_t gain) {
-    switch (type) {
+AudioSynthesizer& AudioSynthesizer::setGain(uint16_t gain) {
+    switch (selectedWave) {
         case CUSTOM: {
             customControl->gain = gain;
             break;
@@ -212,7 +220,7 @@ AudioSynthesizer& AudioSynthesizer::setCustomWave(uint16_t *table, uint32_t size
     }
 
     for (int i = 0; i < newSize; ++i) {
-        *customTable = table[i];
+        customTable[i] = table[i];
     }
 
     return *this;
@@ -223,7 +231,7 @@ AudioSynthesizer& AudioSynthesizer::setCustomWave(uint16_t sample, uint32_t inde
     if (index > 1024) {
         *error = ILLEGAL_INDEX;
     } else {
-        *customTable = sample;
+        customTable[index] = sample;
     }
 
     return *this;
@@ -234,8 +242,8 @@ AudioSynthesizer& AudioSynthesizer::setCustomWave(uint16_t sample, uint32_t inde
 //                       ADSR CONTROL FUNCTIONS                
 //====================================================================================
 
-AudioSynthesizer& AudioSynthesizer::setADSR(wave_e type, bool enable) {
-    switch (type) {
+AudioSynthesizer& AudioSynthesizer::setADSR(bool enable) {
+    switch (selectedWave) {
         case CUSTOM: {
             customControl->adsrEnable = enable;
             break;
@@ -260,34 +268,8 @@ AudioSynthesizer& AudioSynthesizer::setADSR(wave_e type, bool enable) {
     return *this;
 };
 
-AudioSynthesizer& AudioSynthesizer::restartADSR(wave_e type) {
-    switch (type) {
-        case CUSTOM: {
-            customControl->adsrStart = true;
-            break;
-        }
-
-        case SINE: {
-            sineControl->adsrStart = true;
-            break;
-        }
-
-        case TRIANGLE: {
-            triangleControl->adsrStart = true;
-            break;
-        }
-
-        case SQUARE: {
-            squareControl->adsrStart = true;
-            break;
-        }
-    }
-
-    return *this;
-}
-
-bool AudioSynthesizer::isIdleADSR(wave_e type) {
-    switch (type) {
+bool AudioSynthesizer::isIdleADSR() {
+    switch (selectedWave) {
         case CUSTOM: return customControl->adsrIdle;
 
         case SINE: return sineControl->adsrIdle;
@@ -296,21 +278,26 @@ bool AudioSynthesizer::isIdleADSR(wave_e type) {
 
         case SQUARE: return squareControl->adsrIdle;
     }
-}
 
-AudioSynthesizer& AudioSynthesizer::setModulation(wave_e type, uint32_t aTime, uint32_t dTime, uint32_t sTime, uint32_t rTime, uint32_t aLevel, uint32_t sLevel) {
+    return false;
+};
+
+AudioSynthesizer& AudioSynthesizer::setModulation(uint32_t aTime, uint32_t dTime, uint32_t sTime, uint32_t rTime, uint16_t aLevel, uint16_t sLevel) {
     /* Number of clock cycles for a single millisecond */
     const uint32_t millis = SYSTEM_FREQUENCY / 1000;
 
+    uint32_t attackLevel = aLevel << 16;
+    uint32_t sustainLevel = sLevel << 16;
+
     /* Frequency increment */
-    uint32_t attackStep = aLevel / (millis * aTime);
-    uint32_t decayStep = (aLevel - sLevel) / (millis * dTime);
-    uint32_t releaseStep = sLevel / (millis * rTime);
+    uint32_t attackStep = attackLevel / (millis * aTime);
+    uint32_t decayStep = (attackLevel - sustainLevel) / (millis * dTime);
+    uint32_t releaseStep = sustainLevel / (millis * rTime);
 
     /* Sustain time */
-    uint32_t sustainDuration = sTime / millis;
+    uint32_t sustainDuration = sTime * millis;
     
-    switch (type) {
+    switch (selectedWave) {
         case CUSTOM: {
             *customAttackStep = attackStep;
             *customDecayStep = decayStep;
@@ -318,8 +305,10 @@ AudioSynthesizer& AudioSynthesizer::setModulation(wave_e type, uint32_t aTime, u
 
             *customSustainTime = sustainDuration;
 
-            *customAttackLevel = aLevel;
-            *customSustainLevel = sLevel;
+            *customAttackLevel = attackLevel;
+            *customSustainLevel = sustainLevel;
+
+            customControl->adsrStart = true;
 
             break;
         }
@@ -331,8 +320,10 @@ AudioSynthesizer& AudioSynthesizer::setModulation(wave_e type, uint32_t aTime, u
 
             *sineSustainTime = sustainDuration;
 
-            *sineAttackLevel = aLevel;
-            *sineSustainLevel = sLevel;
+            *sineAttackLevel = attackLevel;
+            *sineSustainLevel = sustainLevel;
+
+            sineControl->adsrStart = true;
 
             break;
         }
@@ -344,8 +335,10 @@ AudioSynthesizer& AudioSynthesizer::setModulation(wave_e type, uint32_t aTime, u
 
             *triangleSustainTime = sustainDuration;
 
-            *triangleAttackLevel = aLevel;
-            *triangleSustainLevel = sLevel;
+            *triangleAttackLevel = attackLevel;
+            *triangleSustainLevel = sustainLevel;
+
+            triangleControl->adsrStart = true;
 
             break;
         }
@@ -357,14 +350,16 @@ AudioSynthesizer& AudioSynthesizer::setModulation(wave_e type, uint32_t aTime, u
 
             *squareSustainTime = sustainDuration;
 
-            *squareAttackLevel = aLevel;
-            *squareSustainLevel = sLevel;
+            *squareAttackLevel = attackLevel;
+            *squareSustainLevel = sustainLevel;
+
+            squareControl->adsrStart = true;
 
             break;
         }
     }
 
     return *this;
-}
+};
 
 #endif 

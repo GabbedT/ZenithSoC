@@ -36,6 +36,9 @@ public:
 
 private:
 
+    /* Selected wave */
+    uint32_t selectedWave;
+
     /* Base MMIO address */
     uint32_t* const baseAddress;
 
@@ -92,6 +95,8 @@ public:
 //      WAVE CONTROL FUNCTIONS
 //====================================================================================
 
+    AudioSynthesizer& selectWave(wave_e type);
+
     /**
      * @brief Enable or disable a certain wave
      * 
@@ -99,7 +104,7 @@ public:
      * @param enable Enable or Disable
      * @return Pointer to the object to chain functions
      */
-    AudioSynthesizer& setWave(wave_e type, bool enable);
+    AudioSynthesizer& setWave(bool enable);
 
     /**
      * @brief Restart the wave phase register
@@ -107,7 +112,7 @@ public:
      * @param type Type of wave 
      * @return Pointer to the object to chain functions
      */
-    AudioSynthesizer& restartWave(wave_e type);
+    AudioSynthesizer& restartWave();
 
     /**
      * @brief Set the wave frequency
@@ -116,7 +121,7 @@ public:
      * @param frequency Frequency of the wave
      * @return Pointer to the object to chain functions
      */
-    AudioSynthesizer& setFrequency(wave_e type, uint32_t frequency);
+    AudioSynthesizer& setFrequency(uint32_t frequency);
 
     /**
      * @brief Set the wave gain
@@ -125,7 +130,7 @@ public:
      * @param gain Gain of the wave, a Q1.15 value (unsigned)
      * @return Pointer to the object to chain functions
      */
-    AudioSynthesizer& setGain(wave_e type, uint16_t gain);
+    AudioSynthesizer& setGain(uint16_t gain);
 
     /**
      * @brief Set the duty cycle of the square wave
@@ -159,13 +164,36 @@ public:
 //      ADSR CONTROL FUNCTIONS
 //==================================================================================== 
 
-    AudioSynthesizer& setADSR(wave_e type, bool enable);
+    /**
+     * @brief Enable or disable ADSR modulation
+     * 
+     * @param enable Boolean value to enable or disable ADSR modulation
+     * @return Pointer to the object to chain functions
+     */
+    AudioSynthesizer& setADSR(bool enable);
 
-    AudioSynthesizer& restartADSR(wave_e type);
-
-    AudioSynthesizer& setModulation(wave_e type, uint32_t aTime, uint32_t dTime, uint32_t sTime, uint32_t rTime, uint32_t aLevel, uint32_t sLevel);
+    /**
+     * @brief Set ADSR Modulation parameters to modulate 
+     * the wave with attack, decay, sustain and release
+     * modulation. It does not block until the modulation ends!
+     * 
+     * @param aTime Time to arrive to the attack level starting from 0 (in `ms`)
+     * @param dTime Time to arrive to the sustain level starting from the attack level (in `ms`)
+     * @param sTime Sustain time (in `ms`)
+     * @param rTime Time to arrive to 0 gain from the sustain level (in `ms`)
+     * @param aLevel Attack wave gain level, a `Q1.15` number.
+     * @param sLevel Sustain wave gain level, a `Q1.15 number.
+     * 
+     * @return Pointer to the object to chain functions
+     */
+    AudioSynthesizer& setModulation(uint32_t aTime, uint32_t dTime, uint32_t sTime, uint32_t rTime, uint16_t aLevel, uint16_t sLevel);
     
-    bool isIdleADSR(wave_e type);
+    /**
+     * @brief Check idle status
+     * 
+     * @return Boolean value rapresenting the idle status
+     */
+    bool isIdleADSR();
 
 };
 
