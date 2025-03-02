@@ -65,6 +65,7 @@ module audio_mixer (
 //====================================================================================
     
     logic [31:0] temp_mult; assign temp_mult = mixed_audio_wave_ff * 16'hAAAB;
+    
     /* Divide by 4 signals to be in range for PCM16 */
     always_ff @(posedge clk_i) begin
         case ({sine_wave_enable_i, square_wave_enable_i, triangle_wave_enable_i, custom_wave_enable_i})
