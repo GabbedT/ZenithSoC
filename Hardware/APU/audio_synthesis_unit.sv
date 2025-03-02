@@ -78,7 +78,6 @@ module audio_synthesis_unit (
         .read_i         ( read_i         ),
         .read_address_i ( read_address_i ),
         .read_data_o    ( read_data_o    ),
-        .read_error_o   ( read_error_o   ),
 
         /* Start ADSR cycle */
         .adsr_start_o  ( adsr_start  ),
@@ -119,6 +118,7 @@ module audio_synthesis_unit (
     );
 
     assign write_error_o = 1'b0;
+    assign read_error_o = 1'b0;
 
 
 //====================================================================================
