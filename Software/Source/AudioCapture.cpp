@@ -8,7 +8,7 @@
 #include <inttypes.h>
 
 AudioCapture::AudioCapture() :
-    baseAddress( (uint32_t *) ACU_BASE ),
+    baseAddress( (uint32_t *) APU_BASE ),
 
     /* Initialize register addresses based on the base address */
     status         ( (struct statusRegister_s *) (baseAddress)      ),
