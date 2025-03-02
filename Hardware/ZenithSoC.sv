@@ -26,6 +26,12 @@
 `include "System/synchronizer.sv"
 `include "System/clock_source.sv"
 
+/* Comment this define to execute code directly from 
+ * boot memory (useful to speedup testbench since there
+ * is no ddr controller). Remember to comment out the 
+ * DDR2 Memory Model from testbenc */
+`define _DDR_MEMORY_
+
 module ZenithSoC (
     input logic clk_i,
     input logic rst_n_i,
@@ -102,6 +108,11 @@ module ZenithSoC (
         .locked_o ( locked )
     );
 
+    `ifndef _DDR_MEMORY_
+
+    assign ddr_ready = 1'b1;
+
+    `endif
 
     /* System reset syncronizer */
     logic reset_n, rst_sync;
@@ -119,6 +130,7 @@ module ZenithSoC (
             end 
         end 
 
+    `ifdef _DDR_MEMORY_
 
     /* DDR reset syncronizer */
     logic ddr_reset_n, ddr_rst_sync;
@@ -136,6 +148,7 @@ module ZenithSoC (
             end 
         end 
 
+    `endif
 
 //====================================================================================
 //      CPU COMPLEX
@@ -600,7 +613,7 @@ module ZenithSoC (
 
     localparam _BOOT_ = 0;
 
-    on_chip_memory #(BOOT_SIZE, "/home/gabriele/Desktop/Projects/ZenithSoC/Software/Examples/Audio Record/output.hex") boot_memory (
+    on_chip_memory #(BOOT_SIZE, "/home/gabriele/Desktop/Projects/ZenithSoC/Software/Examples/Audio Synthesis/output.hex") boot_memory (
         .clk_i   ( sys_clk ),
         .rst_n_i ( reset_n ),
 
@@ -648,11 +661,13 @@ module ZenithSoC (
         .write_address_i ( write_address[_APU_] >> 2 ),
         .write_data_i    ( write_data[_APU_]         ),
         .write_strobe_i  ( write_strobe[_APU_]       ),
+        .write_done_o    ( write_done[_APU_]         ),
         .write_error_o   ( write_error[_APU_]        ),
         
         .read_i         ( read_request[_APU_]      ),
         .read_address_i ( read_address[_APU_] >> 2 ),
         .read_data_o    ( read_data[_APU_]         ),
+        .read_done_o    ( read_done[_APU_]         ),
         .read_error_o   ( read_error[_APU_]        ),
         
         .pdm_data_i  ( pdm_data_i  ),
@@ -727,6 +742,8 @@ module ZenithSoC (
 //====================================================================================
 //      DDR CONTROLLER
 //====================================================================================
+
+    `ifdef _DDR_MEMORY_
 
     logic [26:0] ddr_address; logic ddr_write, ddr_read, push_trx, pull_trx, ddr_data_valid, ddr_done; 
     logic [63:0] ddr_data_write, ddr_data_read; logic [7:0] ddr_mask; 
@@ -822,6 +839,8 @@ module ZenithSoC (
         .ready_o ( ddr_ready ),
         .start_o (           )
     );
+
+    `endif 
 
 endmodule : ZenithSoC
 
