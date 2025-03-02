@@ -77,7 +77,9 @@ void Serial_IO::write(const char* str, uint32_t size) {
 /****************************************************************/
 
 void Serial_IO::vprintf(const char *format, va_list args) {
-    for (int i = 0; format[i] != '\0'; ++i) {
+    uint32_t precision = 6;
+
+    for (uint32_t i = 0; format[i] != '\0'; ++i) {
         if (format[i] == '%') {
             ++i;
 
@@ -164,7 +166,7 @@ void Serial_IO::vprintf(const char *format, va_list args) {
 
                         /* Write halfword */
                         case 'h': {
-                            uint16_t value = static_cast<uint8_t>(va_arg(args, uint32_t));
+                            uint16_t value = static_cast<uint16_t>(va_arg(args, uint32_t));
 
                             writeB(value);
                             break;
@@ -191,9 +193,60 @@ void Serial_IO::vprintf(const char *format, va_list args) {
 
                     break;
                 }
+
+                /* Floating point precision */
+                case '.': {
+                    i += 1;
+
+                    /* Extract precision */
+                    precision = 0;
+
+                    while (format[i] >= '0' && format[i] <= '9') {
+                        precision = precision * 10 + (format[i] - '0');
+                        i += 1;
+                    }
+                    
+                    if (format[i] == 'f') {
+                        /* Get the value passed as argument */
+                        float value = static_cast<float>(va_arg(args, double));
+                        
+                        /* Print minus sign */
+                        if (value < 0) {
+                            write('-');
+                            value = -value;
+                        }
+                        
+                        /* Extract integer and fractional part */
+                        int integerPart = static_cast<int>(value);
+                        float fractionalPart = value - integerPart;
+
+                        writeD(integerPart, false);
+                        write('.');
+
+                        for (int i = 0; i < precision; ++i) {
+                            /* Bring the most significant digit of the fractional part into the integer part
+                            * EX: 0.15 => 1.50 */
+                            fractionalPart *= 10;
+
+                            /* Extract and print */
+                            int digit = static_cast<int>(fractionalPart);
+                            write('0' + digit);
+
+                            /* Remove the integer part and repeat */
+                            fractionalPart -= digit;
+                        }
+
+                        break;
+                    } else {
+                        write("[PRINT] FORMAT ERROR!\n");
+
+                        break;
+                    }
+                }
+                
                     
                 default: 
-                    write("\n\nFORMAT ERROR!\n\n");
+                    write("[PRINT] FORMAT ERROR!\n");
                 break;
             }
         } else {
@@ -203,7 +256,6 @@ void Serial_IO::vprintf(const char *format, va_list args) {
 
     va_end(args);
 };
-
 
 void Serial_IO::println(const char *format, ...) {
     va_list args;
