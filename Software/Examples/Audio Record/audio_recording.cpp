@@ -1,12 +1,12 @@
 #include "settings.h"
 
-#include "../../Library/Driver/PDM2PCM.h"
+#include "../../Library/Driver/AudioCapture.h"
 #include "../../Library/Driver/Ethernet.h"
 #include "../../Library/Driver/Timer.h"
 #include "../../Library/Serial_IO.h"
 
-uint32_t recordAudio(uint8_t *audioSamples, uint32_t bufferSize, uint32_t recordTime, Timer &timer, PDM2PCM &microphone);
-bool initMicrophone(Timer &timer, PDM2PCM &microphone);
+uint32_t recordAudio(uint8_t *audioSamples, uint32_t bufferSize, uint32_t recordTime, Timer &timer, AudioCapture &microphone);
+bool initMicrophone(Timer &timer, AudioCapture &microphone);
 void getRegister(uint8_t addr, const char *name, Ethernet& ethernet);
 
 extern "C" void audio_recording() {
@@ -19,7 +19,7 @@ extern "C" void audio_recording() {
     ethernet.init(Ethernet::MBPS100, Ethernet::FULL_DUPLEX, false, Ethernet::IEEE_8023);
 
     /* Microphone that converts PDM stream into PCM samples */
-    PDM2PCM microphone;
+    AudioCapture microphone;
 
     /* Timer to keep track of the amount of time the microphone is recording */
     Timer timer(0);
@@ -97,16 +97,16 @@ void getRegister(uint8_t addr, const char *name, Ethernet& ethernet) {
     Serial_IO::writeB(reg);
 };
 
-bool initMicrophone(Timer &timer, PDM2PCM &microphone) {
-    PDM2PCM::error_e error = PDM2PCM::NO_ERROR;
+bool initMicrophone(Timer &timer, AudioCapture &microphone) {
+    AudioCapture::error_e error = AudioCapture::NO_ERROR;
 
-    microphone.init(PDM2PCM::LEFT, false, PDM_CLK_FREQUENCY, SAMPLING_FREQUENCY, &error);
+    microphone.init(AudioCapture::LEFT, false, PDM_CLK_FREQUENCY, SAMPLING_FREQUENCY, &error);
 
-    if (error == PDM2PCM::ILLEGAL_DECIMATION_RATE) {
+    if (error == AudioCapture::ILLEGAL_DECIMATION_RATE) {
         Serial_IO::write("[ERROR] Illegal decimation rate!\n");
 
         return false;
-    } else if (error == PDM2PCM::ILLEGAL_CLOCK) {
+    } else if (error == AudioCapture::ILLEGAL_CLOCK) {
         Serial_IO::write("[ERROR] Illegal clock!\n");
 
         return false;
@@ -119,8 +119,8 @@ bool initMicrophone(Timer &timer, PDM2PCM &microphone) {
 };
 
 
-uint32_t recordAudio(uint8_t *audioSamples, uint32_t bufferSize, uint32_t recordTime, Timer &timer, PDM2PCM &microphone) {
-    PDM2PCM::error_e error = PDM2PCM::NO_ERROR;
+uint32_t recordAudio(uint8_t *audioSamples, uint32_t bufferSize, uint32_t recordTime, Timer &timer, AudioCapture &microphone) {
+    AudioCapture::error_e error = AudioCapture::NO_ERROR;
 
     Serial_IO::write("Entering\n");
 
