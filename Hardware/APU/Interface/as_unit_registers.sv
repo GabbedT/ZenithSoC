@@ -17,7 +17,6 @@ module as_unit_registers (
     input logic read_i,
     input logic [10:0] read_address_i,
     output logic [31:0] read_data_o,
-    output logic read_error_o,
 
     /* Start ADSR cycle */
     output logic [3:0] adsr_start_o,
@@ -58,13 +57,6 @@ module as_unit_registers (
 );
 
 //====================================================================================
-//      ERROR LOGIC
-//====================================================================================
-
-    assign read_error_o = read_i & (read_address_i < 1024);
-
-
-//====================================================================================
 //      CUSTOM TABLE LOGIC
 //====================================================================================
 
@@ -86,8 +78,8 @@ module as_unit_registers (
     generate
         for (i = 0; i < 4; ++i) begin
             /* Each waveform has a common 8 register interface */
-            assign write_register[i] = (write_address_i >= 1024 + (i * 8)) & (write_address_i < 1024 + (i * 8) + 8) * write_i;
-            assign read_register[i] = (read_address_i >= 1024 + (i * 8)) & (read_address_i < 1024 + (i * 8) + 8) * read_i;
+            assign write_register[i] = (write_address_i >= (1024) + (i * 8)) & (write_address_i < (1024) + (i * 8) + 8) * write_i;
+            assign read_register[i] = (read_address_i >= (1024) + (i * 8)) & (read_address_i < (1024) + (i * 8) + 8) * read_i;
 
             waveform_registers registers (
                 .clk_i   ( clk_i   ),
@@ -147,8 +139,8 @@ module as_unit_registers (
         always_ff @(posedge clk_i) begin
             if (!rst_n_i) begin
                 square_wave_duty_cycle <= '0;
-            end else if (write_i & (write_address_i == 1055)) begin
-                square_wave_duty_cycle <= write_data_i | (square_wave_duty_cycle & mask);
+            end else if (write_i & (write_address_i == 1056)) begin
+                square_wave_duty_cycle <= (write_data_i & mask) | (square_wave_duty_cycle & ~mask);
             end
         end
 
@@ -161,7 +153,7 @@ module as_unit_registers (
 
     always_comb begin
         if (read_i) begin
-            read_data_o = ((read_address_i == 1055) ? square_wave_duty_cycle : '0) | read_data_register[0] | 
+            read_data_o = ((read_address_i == 1056) ? square_wave_duty_cycle : '0) | read_data_register[0] | 
                            read_data_register[1] | read_data_register[2] | read_data_register[3];
         end else begin
             read_data_o = '0;
