@@ -7,8 +7,9 @@ module audio_generation_pipeline (
 
     /* Custom table control */
     input logic write_table_i,
-    input logic [9:0] table_addr_i,
+    input logic [10:0] table_addr_i,
     input logic [15:0] pcm_i,
+    output logic active_table_o,
 
     /* Control */
     input logic sine_wave_enable_i,
@@ -83,15 +84,16 @@ module audio_generation_pipeline (
     logic [15:0] custom_wave_out;
 
     custom_wave_generator custom_generator (
-        .clk_i         ( clk_i                   ),
-        .rst_n_i       ( rst_n_i                 ),
-        .write_table_i ( write_table_i           ),
-        .table_addr_i  ( table_addr_i            ),
-        .pcm_i         ( pcm_i                   ),
-        .enable_i      ( custom_wave_enable_i    ),
-        .start_i       ( custom_wave_start_i     ),
-        .inc_step_i    ( custom_wave_frequency_i ),
-        .wave_o        ( custom_wave_out         )
+        .clk_i          ( clk_i                   ),
+        .rst_n_i        ( rst_n_i                 ),
+        .write_table_i  ( write_table_i           ),
+        .table_addr_i   ( table_addr_i            ),
+        .pcm_i          ( pcm_i                   ),
+        .active_table_o ( active_table_o          ),
+        .enable_i       ( custom_wave_enable_i    ),
+        .start_i        ( custom_wave_start_i     ),
+        .inc_step_i     ( custom_wave_frequency_i ),
+        .wave_o         ( custom_wave_out         )
     );
 
 
