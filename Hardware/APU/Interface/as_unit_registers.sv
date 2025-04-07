@@ -9,13 +9,13 @@ module as_unit_registers (
 
     /* Write interface */
     input logic write_i,
-    input logic [10:0] write_address_i,
+    input logic [11:0] write_address_i,
     input logic [3:0][7:0] write_data_i,
     input logic [3:0] write_strobe_i,
 
     /* Read interface */
     input logic read_i,
-    input logic [10:0] read_address_i,
+    input logic [11:0] read_address_i,
     output logic [31:0] read_data_o,
 
     /* Start ADSR cycle */
@@ -36,10 +36,11 @@ module as_unit_registers (
 
     /* Status */
     input logic [3:0] adsr_idle_i,
+    input logic active_table_i,
 
     /* Custom table control */
     output logic write_table_o,
-    output logic [9:0] table_addr_o,
+    output logic [10:0] table_addr_o,
     output logic [15:0] pcm_o,
 
     /* Control */
@@ -62,9 +63,9 @@ module as_unit_registers (
 
     assign pcm_o = write_data_i[1:0];
 
-    assign write_table_o = (write_address_i < 1024) & write_i;
+    assign write_table_o = (write_address_i < 2048) & write_i;
 
-    assign table_addr_o = write_address_i[9:0];
+    assign table_addr_o = write_address_i[10:0];
 
 
 //====================================================================================
@@ -78,8 +79,8 @@ module as_unit_registers (
     generate
         for (i = 0; i < 4; ++i) begin
             /* Each waveform has a common 8 register interface */
-            assign write_register[i] = (write_address_i >= (1024) + (i * 8)) & (write_address_i < (1024) + (i * 8) + 8) * write_i;
-            assign read_register[i] = (read_address_i >= (1024) + (i * 8)) & (read_address_i < (1024) + (i * 8) + 8) * read_i;
+            assign write_register[i] = (write_address_i >= (2048) + (i * 8)) & (write_address_i < (2048) + (i * 8) + 8) * write_i;
+            assign read_register[i] = (read_address_i >= (2048) + (i * 8)) & (read_address_i < (2048) + (i * 8) + 8) * read_i;
 
             waveform_registers registers (
                 .clk_i   ( clk_i   ),
@@ -139,7 +140,7 @@ module as_unit_registers (
         always_ff @(posedge clk_i) begin
             if (!rst_n_i) begin
                 square_wave_duty_cycle <= '0;
-            end else if (write_i & (write_address_i == 1056)) begin
+            end else if (write_i & (write_address_i == 2080)) begin
                 square_wave_duty_cycle <= (write_data_i & mask) | (square_wave_duty_cycle & ~mask);
             end
         end
@@ -151,9 +152,13 @@ module as_unit_registers (
 //      OUTPUT LOGIC
 //====================================================================================
 
+    logic active_table;
+
+    assign active_table = active_table_i & (read_address_i == 2048);
+
     always_comb begin
         if (read_i) begin
-            read_data_o = ((read_address_i == 1056) ? square_wave_duty_cycle : '0) | read_data_register[0] | 
+            read_data_o = ((read_address_i == 2080) ? square_wave_duty_cycle : '0) | (read_data_register[0] | (active_table << 21)) | 
                            read_data_register[1] | read_data_register[2] | read_data_register[3];
         end else begin
             read_data_o = '0;
