@@ -13,7 +13,7 @@ module apu #(
 
     /* Write interface */
     input logic write_i,
-    input logic [10:0] write_address_i,
+    input logic [11:0] write_address_i,
     input logic [3:0][7:0] write_data_i,
     input logic [3:0] write_strobe_i,
     output logic write_done_o,
@@ -21,7 +21,7 @@ module apu #(
 
     /* Read interface */
     input logic read_i,
-    input logic [10:0] read_address_i,
+    input logic [11:0] read_address_i,
     output logic [31:0] read_data_o,
     output logic read_done_o,
     output logic read_error_o,
@@ -83,7 +83,7 @@ module apu #(
 //      AUDIO SYNTHESIS UNIT
 //====================================================================================
 
-    localparam ASU_END_ADDRESS = ACU_END_ADDRESS + 1057;
+    localparam ASU_END_ADDRESS = ACU_END_ADDRESS + 2081;
 
     logic [31:0] asu_read_data; logic asu_read_done, asu_read_error, asu_write_done, asu_write_error;
     logic asu_write, asu_read;
