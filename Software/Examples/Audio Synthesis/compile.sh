@@ -1,11 +1,12 @@
 riscv32-unknown-elf-g++ -O1 -flto -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../../Source/Timer.cpp -o Timer.o
 riscv32-unknown-elf-g++ -O1 -flto -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../../Source/Serial_IO.cpp -o Serial_IO.o
 riscv32-unknown-elf-g++ -O1 -flto -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../../Source/AudioSynthesizer.cpp -o AudioSynthesizer.o
+riscv32-unknown-elf-g++ -O1 -flto -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../../Source/AudioCapture.cpp -o AudioCapture.o
 riscv32-unknown-elf-g++ -O1 -flto -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zfinx_zba_zbs -mabi=ilp32 ../../Source/PRNG.cpp -o PRNG.o
 riscv32-unknown-elf-g++ -O2 -flto -fno-exceptions -mno-fdiv -c -nostartfiles -fno-use-cxa-atexit -march=rv32im_zfinx_zba_zbs -mabi=ilp32 audio_synthesizer.cpp -o audio_synthesizer.o
 riscv32-unknown-elf-as -c -march=rv32im_zicsr_zfinx_zba_zbb -mabi=ilp32 setup.s -o setup.o
 
-riscv32-unknown-elf-g++ -flto -O2 -march=rv32im_zicsr_zfinx_zba_zbs -nostartfiles -T linker.ld -o output.elf setup.o audio_synthesizer.o Serial_IO.o AudioSynthesizer.o PRNG.o Timer.o /opt/riscv/lib/gcc/riscv32-unknown-elf/14.2.0/libgcc.a /opt/riscv/riscv32-unknown-elf/lib/libc.a
+riscv32-unknown-elf-g++ -flto -O2 -march=rv32im_zicsr_zfinx_zba_zbs -nostartfiles -T linker.ld -o output.elf setup.o audio_synthesizer.o Serial_IO.o AudioSynthesizer.o AudioCapture.o PRNG.o Timer.o /opt/riscv/lib/gcc/riscv32-unknown-elf/14.2.0/libgcc.a /opt/riscv/riscv32-unknown-elf/lib/libc.a
 riscv32-unknown-elf-objdump -d -j .boot -j .text output.elf > output.dump
 
 riscv32-unknown-elf-size output.elf

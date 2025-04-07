@@ -1,7 +1,7 @@
 MEMORY
 {
     boot (rx) : ORIGIN = 0x00000000, LENGTH = 16K
-    mmio (rw) : ORIGIN = 0x00002000, LENGTH = 128M
+    mmio (rw) : ORIGIN = 0x00004000, LENGTH = 128M
     text (rw) : ORIGIN = 0x80000000, LENGTH = 128M
 }
 
