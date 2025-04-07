@@ -187,10 +187,10 @@ module load_controller #(
                             state_NXT = invalidate_i ? IDLE : WRITE_BACK;
 
                             /* Read only data */
-                            cache_read_o.data = 1'b1;
+                            cache_read_o.data = !stall_i;
 
                             /* Start from block base */
-                            cache_address_o = {cache_tag_i, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0}; 
+                            cache_address_o = stall_i ? address_i : {cache_tag_i, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0}; 
 
                             /* Increment word counter */
                             word_counter_NXT = 'd1;
