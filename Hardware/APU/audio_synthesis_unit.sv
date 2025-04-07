@@ -11,14 +11,14 @@ module audio_synthesis_unit (
 
     /* Write interface */
     input logic write_i,
-    input logic [10:0] write_address_i,
+    input logic [11:0] write_address_i,
     input logic [3:0][7:0] write_data_i,
     input logic [3:0] write_strobe_i,
     output logic write_error_o,
 
     /* Read interface */
     input logic read_i,
-    input logic [10:0] read_address_i,
+    input logic [11:0] read_address_i,
     output logic [31:0] read_data_o,
     output logic read_error_o,
 
@@ -44,10 +44,10 @@ module audio_synthesis_unit (
     logic [3:0][31:0] attack_level, sustain_level;
 
     /* Status */
-    logic [3:0] adsr_idle;
+    logic [3:0] adsr_idle; logic active_table;
 
     /* Custom table control */
-    logic write_table; logic [9:0] table_addr; logic [15:0] pcm;
+    logic write_table; logic [10:0] table_addr; logic [15:0] pcm;
 
     /* Control */
     logic [3:0] wave_enable, wave_start;
@@ -96,7 +96,8 @@ module audio_synthesis_unit (
         .sustain_level_o ( sustain_level ),
 
         /* Status */
-        .adsr_idle_i ( adsr_idle ),
+        .adsr_idle_i    ( adsr_idle    ),
+        .active_table_i ( active_table ),
 
         /* Custom table control */
         .write_table_o ( write_table ),
@@ -141,7 +142,8 @@ module audio_synthesis_unit (
         .attack_level_i  ( attack_level  ),
         .sustain_level_i ( sustain_level ),
 
-        .adsr_idle_o ( adsr_idle ),
+        .adsr_idle_o    ( adsr_idle    ),
+        .active_table_o ( active_table ),
 
         .write_table_i ( write_table ),
         .table_addr_i  ( table_addr  ),
