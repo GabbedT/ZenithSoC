@@ -173,7 +173,7 @@ package soc_parameters;
     localparam APU_SAMPLE_BUFFER_SIZE = 2**11;
 
     /* Memory mapped registers */
-    localparam APU_DEVICE_SPACE = 1065;
+    localparam APU_DEVICE_SPACE = 2089;
 
     /* Ethernet MAC MMIO address */
     localparam APU_BASE_ADDRESS = PRNG_BASE_ADDRESS + 2**13;
@@ -190,7 +190,7 @@ package soc_parameters;
     localparam NC_MEMORY_NUMBER = 1;
 
     /* Non cachable memory MMIO address */
-    localparam NCMEM_BASE_ADDRESS = APU_BASE_ADDRESS + 2**13;
+    localparam NCMEM_BASE_ADDRESS = APU_BASE_ADDRESS + 2**13 + 2**10;
     localparam NCMEM_END_ADDRESS = NCMEM_BASE_ADDRESS + NC_MEMORY_SIZE;
 
 
