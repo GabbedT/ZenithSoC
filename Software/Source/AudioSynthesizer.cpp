@@ -17,7 +17,7 @@ AudioSynthesizer::AudioSynthesizer() :
 
     /* Custom wave */
     customTable        ( (uint32_t *) baseAddress                  ),
-    customControl      ( (controlRegister_s*) (customTable + 1024) ),
+    customControl      ( (controlRegister_s*) (customTable + 2048) ),
     customIncrement    ( (uint32_t *) (customControl + 1)          ),
     customAttackStep   ( (uint32_t *) (customControl + 2)          ),
     customDecayStep    ( (uint32_t *) (customControl + 3)          ),
@@ -211,16 +211,25 @@ AudioSynthesizer& AudioSynthesizer::setSquareDutyCycle(float dutyCycle, error_e 
     return *this;
 };
 
-AudioSynthesizer& AudioSynthesizer::setCustomWave(uint16_t *table, uint32_t size) {
+AudioSynthesizer& AudioSynthesizer::setCustomWave(uint16_t *table, uint32_t size, uint32_t tableNumber, error_e *error) {
     uint32_t newSize = size;
+
+    /* Illegal table number */
+    if (tableNumber > 1) {
+        *error = ILLEGAL_INDEX;
+
+        return *this;
+    }
 
     /* Custom table size is 1024 */
     if (size > 1024) {
-        newSize = 1024;
+        *error = ILLEGAL_INDEX;
+
+        return *this;
     }
 
     for (int i = 0; i < newSize; ++i) {
-        customTable[i] = table[i];
+        customTable[i + (1024 * tableNumber)] = table[i];
     }
 
     return *this;
@@ -235,6 +244,10 @@ AudioSynthesizer& AudioSynthesizer::setCustomWave(uint16_t sample, uint32_t inde
     }
 
     return *this;
+};
+
+uint32_t AudioSynthesizer::getActiveTable() {
+    return customControl->activeTable;
 };
 
 

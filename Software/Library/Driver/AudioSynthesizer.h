@@ -28,7 +28,10 @@ public:
         /* Gain without ADSR modulation */
         unsigned int gain : 16;
 
-        unsigned int padding : 11;
+        /* Active table for double buffering (VALID ONLY FOR CUSTOM WAVE) */
+        unsigned int activeTable : 1;
+
+        unsigned int padding : 10;
     };
 
     /* Type of wave */
@@ -146,9 +149,10 @@ public:
      * 
      * @param table An array of samples
      * @param size Size of the table
+     * @param tableNumber Select (0 or 1) table to write for double buffering
      * @return Pointer to the object to chain functions
      */
-    AudioSynthesizer& setCustomWave(uint16_t *table, uint32_t size);
+    AudioSynthesizer& setCustomWave(uint16_t *table, uint32_t size, uint32_t tableNumber, error_e *error);
 
     /**
      * @brief Write a single sample in the custom wave table
@@ -158,6 +162,13 @@ public:
      * @return Pointer to the object to chain functions
      */
     AudioSynthesizer& setCustomWave(uint16_t sample, uint32_t index, error_e *error);
+
+    /**
+     * @brief Get the Active Table in custom wave
+     * 
+     * @return 0 or 1 depending on the active table
+     */
+    uint32_t getActiveTable();
 
 
 //====================================================================================
