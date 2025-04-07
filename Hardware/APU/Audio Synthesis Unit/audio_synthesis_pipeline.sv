@@ -26,10 +26,11 @@ module audio_synthesis_pipeline (
 
     /* Status */
     output logic [3:0] adsr_idle_o,
+    output logic active_table_o,
 
     /* Custom table control */
     input logic write_table_i,
-    input logic [9:0] table_addr_i,
+    input logic [10:0] table_addr_i,
     input logic [15:0] pcm_i,
 
     /* Control */
@@ -104,9 +105,10 @@ module audio_synthesis_pipeline (
         .rst_n_i ( rst_n_i ),
 
         /* Custom waveform */
-        .write_table_i ( write_table_i ),
-        .table_addr_i  ( table_addr_i  ),
-        .pcm_i         ( pcm_i         ),
+        .write_table_i  ( write_table_i  ),
+        .table_addr_i   ( table_addr_i   ),
+        .pcm_i          ( pcm_i          ),
+        .active_table_o ( active_table_o ),
 
         /* Control signals for the different waves */
         .sine_wave_enable_i     ( wave_enable_i[SINE_WAVE]     ),
