@@ -19,6 +19,7 @@ module instruction_cache_complex #(
     input logic rst_n_i,
     input logic stall_i,
     input logic region_switch_i,
+    input logic conflict_i,
 
     /* Fetch unit interface */
     fetch_interface.slave fetch_channel,
@@ -78,6 +79,7 @@ module instruction_cache_complex #(
         .rst_n_i         ( rst_n_i         ),
         .stall_i         ( stall_i         ), 
         .region_switch_i ( region_switch_i ),
+        .conflict_i      ( conflict_i      ),
 
         .invalidate_i      ( fetch_channel.invalidate             ),
         .stall_fetch_o     ( fetch_channel.stall                  ),
