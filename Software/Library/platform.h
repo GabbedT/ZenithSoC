@@ -25,4 +25,7 @@
 /* Size of non cachable memory */
 #define NC_MEMORY_SIZE 2048
 
+/* Custom wave buffer size */
+#define CUSTOM_WAVE_SIZE 2048
+
 #define DDR2_MEMORY_SIZE (1 << 27)

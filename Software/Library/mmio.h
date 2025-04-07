@@ -24,4 +24,4 @@
 #define APU_BASE (PRNG_BASE + DEVICE_INTERLEAVE)
 
 /* Non cachable memory base address */
-#define NC_MEMORY_BASE (ACU_BASE + DEVICE_INTERLEAVE)
+#define NC_MEMORY_BASE (APU_BASE + DEVICE_INTERLEAVE + (1 << 10))
