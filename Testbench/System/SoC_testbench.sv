@@ -15,7 +15,7 @@
 `define OUTPUT_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/output_trace.txt"
 `define PDM_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/PDM/pdm.txt"
 
-`define SIM_TIME 32ms
+`define SIM_TIME 1s
 
 /* While RUN_CONDITION is true, simulation will continue */
 `define RUN_CONDITION ($time() < `SIM_TIME) & !`CPU.exception
