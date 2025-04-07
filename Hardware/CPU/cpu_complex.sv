@@ -164,10 +164,11 @@ module cpu_complex #(
     fetch_interface icache_fetch_channel();
 
     instruction_cache_complex #(ICACHE_SIZE, IBLOCK_SIZE_BYTE) icache (
-        .clk_i           ( clk_i         ), 
-        .rst_n_i         ( rst_n_i       ),
-        .stall_i         ( stall_fetch   ),
-        .region_switch_i ( region_switch ),
+        .clk_i           ( clk_i                       ), 
+        .rst_n_i         ( rst_n_i                     ),
+        .stall_i         ( stall_fetch                 ),
+        .region_switch_i ( region_switch               ),
+        .conflict_i      ( dcache_load_channel.request ),
 
         /* Fetch unit interface */
         .fetch_channel ( icache_fetch_channel ),
