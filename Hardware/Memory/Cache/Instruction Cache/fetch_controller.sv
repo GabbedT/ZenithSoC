@@ -22,6 +22,7 @@ module fetch_controller #(
     input logic rst_n_i, 
     input logic stall_i, 
     input logic region_switch_i,
+    input logic conflict_i,
 
     /* Fetch unit interface */
     input logic invalidate_i,
@@ -73,7 +74,7 @@ module fetch_controller #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : counter
             if (!rst_n_i) begin
                 word_counter_CRT <= '0;
-            end else begin
+            end else if (!stall_i) begin
                 word_counter_CRT <= word_counter_NXT;
             end
         end : counter
@@ -90,7 +91,7 @@ module fetch_controller #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : state_register
             if (!rst_n_i) begin
                 state_CRT <= IDLE;
-            end else if ((state_CRT == IDLE) | cache_hit_i) begin
+            end else if ((state_CRT == IDLE) | (cache_hit_i & (state_CRT == OUTCOME))) begin
                 state_CRT <= state_NXT;
             end else if (!stall_i) begin
                 state_CRT <= state_NXT;
@@ -170,11 +171,13 @@ module fetch_controller #(
                         valid_o = !invalidate_i & !invalidate_pending;
                         instruction_o = cache_instruction_i;
                     end else begin
-                        state_NXT = (invalidate_i | invalidate_pending) ? IDLE : ALLOCATION_REQ;
+                        if (!stall_i & !conflict_i) begin
+                            state_NXT = (invalidate_i | invalidate_pending) ? IDLE : ALLOCATION_REQ;
+                        end
 
                         word_counter_NXT = 'd1;
 
-                        load_channel.request = !stall_i & !invalidate_i;
+                        load_channel.request = !stall_i & !(invalidate_i | invalidate_pending) & !conflict_i;
                         load_channel.address = {program_counter.tag, program_counter.index, word_counter_CRT[OFFSET - 1:0], 2'b0};
                     end
                 end
@@ -185,19 +188,21 @@ module fetch_controller #(
                  * Once the requests have been issued, wait for a response,
                  * then allocate */
                 ALLOCATION_REQ: begin
-                    if (!word_counter_CRT[OFFSET] & word_counter_CRT[OFFSET - 1:0] != '0) begin
-                        /* Increment word counter */
-                        word_counter_NXT = word_counter_CRT + 1'b1;
+                    if (!stall_i) begin
+                        if (!word_counter_CRT[OFFSET] & word_counter_CRT[OFFSET - 1:0] != '0) begin
+                            /* Increment word counter */
+                            word_counter_NXT = word_counter_CRT + 1'b1;
 
-                        /* Request a load to memory controller */
-                        load_channel.request = 1'b1; 
-                    end else if (word_counter_CRT[OFFSET]) begin
-                        /* Wait for response */
-                        state_NXT = WAIT_BUNDLE;
-                        
-                        /* Reset word counter */ 
-                        word_counter_NXT = '0; 
-                    end
+                            /* Request a load to memory controller */
+                            load_channel.request = 1'b1; 
+                        end else if (word_counter_CRT[OFFSET]) begin
+                            /* Wait for response */
+                            state_NXT = WAIT_BUNDLE;
+                            
+                            /* Reset word counter */ 
+                            word_counter_NXT = '0; 
+                        end
+                    end 
 
                     /* Load address */
                     load_channel.address = {program_counter.tag, program_counter.index, word_counter_CRT[OFFSET - 1:0], 2'b0}; 
@@ -211,7 +216,7 @@ module fetch_controller #(
                     end
 
                     if (word_counter_CRT[OFFSET] & word_counter_CRT[OFFSET - 1:0] == '0) begin
-                        /* Wait for response */
+                        /* Wait for response, discard everything if the request is invalidated */
                         state_NXT = (invalidate_i | invalidate_pending) ? IDLE : ALLOCATE;
                         
                         /* Reset word counter */ 
