@@ -9,10 +9,20 @@
   * Modify multiplier for the target latency or FPGA/Software in float_multiplier.sv
   * Modify the path of the boot memory in ZenithSoC.sv
 
-* Verify FPU
 * Build I2C device
 * Integrate VGA
 
-SPI add disable RX
 Add write strobe to Eth registers
-Change abs path to sine wave gen 
+
+Change abs path to sine wave gen (user must run python script to generate the table)
+
+Test interrupts
+
+Test wait for interrupt instruction (sleep)
+
+
+OCCHIO AL TIMING TRA READ E BUFFER
+
+TX e RX BUFFER DA 32 BIT PER AIUTARE IL SOFTWARE
+
+GESTIONE DATI PARZIALI NEL CASO DI INTERRUZIONE BURST DELEGATA AL SOFTWARE
