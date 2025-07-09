@@ -25,53 +25,71 @@ extern "C" void audio_synthesizer() {
 
     timer.init(-1, Timer::ONE_SHOT);
 
-    // Serial_IO::write("[TEST] Sine Wave\n");
-    // testWave(AudioSynthesizer::SINE, synth, timer);
+    Serial_IO::write("[TEST] Sine Wave\n");
+    testWave(AudioSynthesizer::SINE, synth, timer);
 
-    // Serial_IO::write("[TEST] Triangle Wave\n");
-    // testWave(AudioSynthesizer::TRIANGLE, synth, timer);
+    Serial_IO::write("[TEST] Triangle Wave\n");
+    testWave(AudioSynthesizer::TRIANGLE, synth, timer);
 
-    // Serial_IO::write("[TEST] Square Wave\n");
-    // testWave(AudioSynthesizer::SQUARE, synth, timer);
+    Serial_IO::write("[TEST] Square Wave\n");
+    testWave(AudioSynthesizer::SQUARE, synth, timer);
 
-    // /* Sawtooth */
-    // for (int i = 0; i < 1024; ++i) {
-    //     synth.setCustomWave((0x8000 / 1024) * i, i, nullptr);
-    // }
+    /* Sawtooth */
+    for (int i = 0; i < 1024; ++i) {
+        synth.setCustomWave((0x8000 / 1024) * i, i, nullptr);
+    }
 
-    // Serial_IO::write("[TEST] Custom Wave\n");
-    // testWave(AudioSynthesizer::CUSTOM, synth, timer);
+    Serial_IO::write("[TEST] Custom Wave\n");
+    testWave(AudioSynthesizer::CUSTOM, synth, timer);
   
-    // for (uint32_t i = 0; i < 5; ++i) {
-    //     Serial_IO::write("[TEST] Coin\n");
-    //     nesCoin(synth, timer); timer.delay(1000);
-    // }
+    for (uint32_t i = 0; i < 5; ++i) {
+        Serial_IO::write("[TEST] Coin\n");
+        nesCoin(synth, timer); timer.delay(1000);
+    }
 
-    // for (uint32_t i = 0; i < 5; ++i) {
-    //     Serial_IO::write("[TEST] Jump\n");
-    //     nesJump(synth, timer); timer.delay(1000);
-    // }
+    for (uint32_t i = 0; i < 5; ++i) {
+        Serial_IO::write("[TEST] Jump\n");
+        nesJump(synth, timer); timer.delay(1000);
+    }
 
-    // for (uint32_t i = 0; i < 5; ++i) {
-    //     Serial_IO::write("[TEST] Bass\n");
-    //     nesBass(synth, timer); timer.delay(1000);
-    // }
+    for (uint32_t i = 0; i < 5; ++i) {
+        Serial_IO::write("[TEST] Bass\n");
+        nesBass(synth, timer); timer.delay(1000);
+    }
  
-    // for (uint32_t i = 0; i < 5; ++i) {
-    //     Serial_IO::write("[TEST] Laser\n");
-    //     nesLaser(synth, timer); timer.delay(1000);
-    // }
+    for (uint32_t i = 0; i < 5; ++i) {
+        Serial_IO::write("[TEST] Laser\n");
+        nesLaser(synth, timer); timer.delay(1000);
+    }
 
-    // for (uint32_t i = 0; i < 5; ++i) {
-    //     Serial_IO::write("[TEST] Power Up\n");
-    //     nesPowerUp(synth, timer); timer.delay(1000);
-    // }
+    for (uint32_t i = 0; i < 5; ++i) {
+        Serial_IO::write("[TEST] Power Up\n");
+        nesPowerUp(synth, timer); timer.delay(1000);
+    }
  
-    // for (uint32_t i = 0; i < 5; ++i) {
-    //     Serial_IO::write("[TEST] Game Over\n");
-    //     nesGameOver(synth, timer); timer.delay(1000);
-    // }
+    for (uint32_t i = 0; i < 5; ++i) {
+        Serial_IO::write("[TEST] Game Over\n");
+        nesGameOver(synth, timer); timer.delay(1000);
+    }
 
+    /* Test multiple simultaneous waves */
+    synth.selectWave(AudioSynthesizer::SINE)
+         .setFrequency(440)
+         .setGain(0x8000)
+         .setWave(true);
+
+    synth.selectWave(AudioSynthesizer::SQUARE)
+         .setFrequency(640)
+         .setSquareDutyCycle(0.5f, nullptr)
+         .setGain(0x8000)
+         .setWave(true);
+
+    timer.delay(5000);
+
+    synth.selectWave(AudioSynthesizer::SQUARE).setWave(false);
+    synth.selectWave(AudioSynthesizer::SINE).setWave(false);
+
+    
     /* Test microphone and replay the recorded audio */
     AudioCapture mic; mic.init(AudioCapture::LEFT, false, PDM_CLK_FREQUENCY, SAMPLING_FREQUENCY, nullptr);
     Serial_IO::write("[TEST] Recording 10 seconds...\n");
