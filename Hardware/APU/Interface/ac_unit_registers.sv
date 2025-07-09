@@ -43,6 +43,18 @@ module ac_unit_registers #(
     output logic read_error_o
 );
 
+//====================================================================================
+//      MASK GENERATION
+//====================================================================================
+
+    logic [3:0][7:0] mask;
+
+        always_comb begin
+            for (int i = 0; i < 4; ++i) begin
+                /* Mask certain bytes */
+                mask[i] = write_strobe_i[i] ? '1 : '0;
+            end
+        end
 
 //====================================================================================
 //      ERROR CHECK
@@ -77,21 +89,7 @@ module ac_unit_registers #(
                 control_register.interrupt_enable <= 5'b0;
             end else begin 
                 if ((write_address_i == CAPTURE_UNIT_CONTROL) & write_i) begin 
-                    if (write_strobe_i[0]) begin
-                        control_register.clock_divisor <= write_data_i[0][6:0];
-                        control_register.interrupt_enable[0] <= write_data_i[0][7];
-                    end
-
-                    if (write_strobe_i[1]) begin
-                        control_register.interrupt_enable[5:1] <= write_data_i[1][4:0];
-                        control_register.channel <= write_data_i[1][5];
-                        control_register.dual_channel <= write_data_i[1][6];
-                        control_register.buffer_enable <= write_data_i[1][7];
-                    end
-
-                    if (write_strobe_i[2]) begin
-                        control_register.interface_enable <= write_data_i[2][0];
-                    end
+                    control_register <= (write_data_i & mask) | (control_register & ~mask);
                 end
             end 
         end 
@@ -157,21 +155,7 @@ module ac_unit_registers #(
             if (!rst_n_i) begin 
                 normalizer_register <= '0;
             end else if ((write_address_i == CAPTURE_UNIT_NORMALIZER) & write_i) begin 
-                if (write_strobe_i[0]) begin
-                    normalizer_register[7:0] <= write_data_i[0];
-                end
-
-                if (write_strobe_i[1]) begin
-                    normalizer_register[15:8] <= write_data_i[1];
-                end
-
-                if (write_strobe_i[2]) begin
-                    normalizer_register[23:16] <= write_data_i[2];
-                end
-
-                if (write_strobe_i[3]) begin
-                    normalizer_register[31:24] <= write_data_i[3];
-                end
+                normalizer_register <= (write_data_i & mask) | (normalizer_register & ~mask);
             end 
         end 
 
@@ -225,25 +209,7 @@ module ac_unit_registers #(
             if (!rst_n_i) begin 
                 threshold_register <= '0;
             end else if ((write_address_i == CAPTURE_UNIT_THRESHOLD) & write_i) begin 
-                if (write_strobe_i[0]) begin
-                    /* Right low byte */
-                    threshold_register[0][7:0] <= write_data_i[0];
-                end
-
-                if (write_strobe_i[1]) begin
-                    /* Right high byte */
-                    threshold_register[0][15:8] <= write_data_i[1];
-                end
-
-                if (write_strobe_i[2]) begin
-                    /* Left low byte */
-                    threshold_register[1][7:0] <= write_data_i[2];
-                end
-
-                if (write_strobe_i[3]) begin
-                    /* Left high byte */
-                    threshold_register[1][15:8] <= write_data_i[3];
-                end
+                threshold_register <= (write_data_i & mask) | (threshold_register & ~mask);
             end 
         end 
 
