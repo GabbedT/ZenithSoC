@@ -20,7 +20,6 @@ module sd_command_controller (
 
     /* Status */
     output logic idle_o,
-    output logic status_valid_o,
     output logic crc_error_o,
     output logic timeout_o,
 
@@ -177,7 +176,6 @@ module sd_command_controller (
             resp_valid_o = 1'b0;
             resp_type_o = 1'b0;
 
-            status_valid_o = 1'b0;
             crc_error_o = 1'b0;
             timeout_o = 1'b0;
             
@@ -340,10 +338,9 @@ module sd_command_controller (
                     /* Increment timeout counter */
                     timeout_increment = 1'b1;
 
-                    if (timeout_counter == 'd100_000_000) begin
+                    if (timeout_counter == 'd50_000_000) begin
                         /* Timeout activated */
                         timeout_o = 1'b1;
-                        status_valid_o = 1'b1;
                         resp_valid_o = 1'b0;
 
                         state_NXT = RECOVERY;
@@ -470,7 +467,6 @@ module sd_command_controller (
                         crc_error_o = 1'b1;
                     end
 
-                    status_valid_o = 1'b1;
                     bit_reset = 1'b1;
 
                     state_NXT = RECOVERY;
