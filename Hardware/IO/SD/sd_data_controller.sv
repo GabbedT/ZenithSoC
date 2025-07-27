@@ -10,8 +10,9 @@ module sd_data_controller (
 
     /* Data Interface */
     input logic [7:0] tx_data_i,
-    input logic tx_empty_i,
     output logic tx_read_o,
+    
+    input logic rx_full_i,
     output logic [7:0] rx_data_o,
     output logic rx_valid_o,
 
@@ -24,7 +25,8 @@ module sd_data_controller (
 
     /* Status */
     output logic idle_o,
-    output logic status_valid_o,
+    output logic timeout_o,
+    output logic token_valid_o,
     output logic crc_error_o, 
     output logic [7:0] token_o,
 
@@ -119,7 +121,7 @@ module sd_data_controller (
     localparam WRITE_ERROR_RESP = 8'h0D;
     localparam WRITE_CRC_ERROR_RESP = 8'h0B;
 
-    typedef enum logic [3:0] {IDLE, WAIT_RX, WAIT_TX, START_BIT, RCV_DATA, RCV_CRC, CHECK_CRC, SEND_DATA, SEND_CRC, STOP_BIT, WAIT_RESP, CARD_RESPONSE, RECOVERY_CYCLE} data_states_t;
+    typedef enum logic [3:0] {IDLE, WAIT_RX, WAIT_TX, START_BIT, RCV_DATA, RCV_CRC, CHECK_CRC, SEND_DATA, SEND_CRC, STOP_BIT, WAIT_END, CARD_RESPONSE, RECOVERY_CYCLE} data_states_t;
 
     data_states_t state_CRT, state_NXT; 
 
@@ -156,7 +158,11 @@ module sd_data_controller (
             tx_read_o = 1'b0;
             rx_valid = 1'b0;
 
-            status_valid_o = 1'b0;
+            timeout_o = 1'b0;
+            timeout_increment = 1'b0;
+            timeout_reset = 1'b0;
+
+            token_valid_o = 1'b0;
             crc_error_o = 1'b0;
             token_o = '0;
 
@@ -239,7 +245,7 @@ module sd_data_controller (
                             /* Check if 8 bits have been received with modulo 8 operator and
                              * assert that the counter is not zero (to not have a false data) */
                             if ((bit_counter[0] == '1) && (bit_counter != '0)) begin
-                                rx_valid = 1'b1;
+                                rx_valid = !rx_full_i;
                             end
                         end else begin
                             /* Shift bit in */
@@ -253,7 +259,7 @@ module sd_data_controller (
 
                             /* A byte has been received */
                             if (bit_counter[2:0] == '1) begin
-                                rx_valid = sample_i;
+                                rx_valid = !rx_full_i;
                             end
                         end
 
@@ -297,8 +303,6 @@ module sd_data_controller (
                 CHECK_CRC: begin
                     /* Check CRC */
                     crc_error_o = wide_bus_i ? (crc16_wide_out != crc16_wide_CRT) : (crc16_out != crc16_CRT);
-
-                    status_valid_o = 1'b1;
 
                     state_NXT = burst_i ? WAIT_RX : IDLE;
 
@@ -355,7 +359,8 @@ module sd_data_controller (
                             /* Check if 8 bits have been transmitted, then request another packet.
                              * Consider that the FIFO will take 1 cycle to output the data */
                             if (bit_counter[0] == 'b1) begin
-                                tx_read_o = !tx_empty_i & shift_i;
+                                /* Don't read the last data to avoid FIFO problem */
+                                tx_read_o = bit_counter != ((DATA_LENGTH / 4) - 1);
                             end
 
                             if (bit_counter == ((DATA_LENGTH / 4) - 1)) begin
@@ -372,7 +377,8 @@ module sd_data_controller (
                         if (shift_i) begin
                             /* A byte has been transmitted */
                             if (bit_counter[2:0] == '1) begin
-                                tx_read_o = !tx_empty_i;
+                                /* Don't read the last data to avoid FIFO problem */
+                                tx_read_o = bit_counter != (DATA_LENGTH - 1);
                             end
 
                             if (bit_counter == (DATA_LENGTH - 1)) begin
@@ -472,7 +478,7 @@ module sd_data_controller (
                         end
 
                         /* Reset the state machine */
-                        state_NXT = WAIT_RESP;
+                        state_NXT = CARD_RESPONSE;
 
                         bit_reset = 1'b1;
                     end
@@ -481,16 +487,41 @@ module sd_data_controller (
                     tristate_enable = 1'b1;
                 end
 
-                WAIT_RESP: begin
+                CARD_RESPONSE: begin
+                    /* Wait for the card to respond */
+                    if (sample_i) begin
+                        bit_increment = bit_counter != 'd8;
+
+                        /* Shift bit in */
+                        data_NXT = {data_CRT[6:0], sd_data_io[0]};
+
+                        if (bit_counter == 'd8) begin
+                            token_valid_o = 1'b1;
+                            token_o = data_CRT;
+
+                            /* Wait until the card is not busy anymore (bit is high) */
+                            state_NXT = WAIT_END;
+
+                            timeout_reset = 1'b1;
+                        end else begin
+                            bit_increment = 1'b1;
+                        end
+                    end
+
+                    /* Keep high impedence */
+                    tristate_enable = 1'b0;
+                end
+
+                WAIT_END: begin
                     /* Wait for the card to send stop bit */
                     if (sample_i) begin
-                        if (sd_data_io[0] == 1'b0) begin
-                            state_NXT = CARD_RESPONSE;
+                        /* Wait until the card is not busy anymore (bit is high) */
+                        if (sd_data_io[0] == 1'b1) begin
+                            state_NXT = burst_i ? RECOVERY_CYCLE : IDLE;
 
-                            bit_increment = 1'b1;
-
-                            /* Shift bit in */
-                            data_NXT = {data_CRT[6:0], sd_data_io[0]};
+                            timeout_reset = 1'b1;
+                            bit_reset = 1'b1;
+                            crc16_initialize = 1'b1;
                         end
                     end
 
@@ -499,35 +530,8 @@ module sd_data_controller (
                     if (timeout_counter == 'd10_000) begin
                         /* Timeout, reset the state machine */
                         state_NXT = IDLE;
-                    end
 
-                    /* Keep high impedence */
-                    tristate_enable = 1'b0;
-                end
-
-                CARD_RESPONSE: begin
-                    /* Wait for the card to respond */
-                    if (sample_i) begin
-                        bit_increment = 1'b1;
-
-                        /* Shift bit in */
-                        data_NXT = {data_CRT[6:0], sd_data_io[0]};
-
-                        if (bit_counter == 'd8) begin
-                            status_valid_o = 1'b1;
-                            token_o = data_CRT;
-
-                            /* Wait until the card is not busy anymore (bit is high) */
-                            if (sd_data_io[0] == 1'b1) begin
-                                state_NXT = burst_i ? RECOVERY_CYCLE : IDLE;
-
-                                timeout_reset = 1'b1;
-                                bit_reset = 1'b1;
-                                crc16_initialize = 1'b1;
-                            end
-                        end else begin
-                            bit_increment = 1'b1;
-                        end
+                        timeout_o = 1'b1;
                     end
 
                     /* Keep high impedence */
