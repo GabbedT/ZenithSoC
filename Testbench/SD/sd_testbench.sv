@@ -108,7 +108,6 @@ module sd_testbench;
       .resp_valid_o  ( resp_valid_o ),
       .resp_o        ( resp_o       ),
       .resp_type_o   ( resp_type_o  ),
-      .status_valid_o  ( status_valid_o  ),
 
       /* Status */
       .idle_o        ( idle_o      ),
@@ -143,6 +142,7 @@ module sd_testbench;
         .tx_empty_i ( tx_empty    ),
         .tx_read_o  ( tx_read     ),
 
+        .rx_full_i   ( rx_full ),
         .rx_data_o   ( rx_data   ),
         .rx_valid_o  ( rx_valid  ),
 
@@ -152,6 +152,7 @@ module sd_testbench;
         .burst_i       ( burst_o      ),
         .transfer_en_i ( transfer_en ),
 
+        .timeout_o     (  ),
         .idle_o         ( data_idle ),
         .crc_error_o    ( crc_error ),
         .token_o       ( token     ),
