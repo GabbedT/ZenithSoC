@@ -141,6 +141,7 @@ package soc_parameters;
 //      BOOT MEMORY PARAMETERS
 //====================================================================================
 
+    /* Boot memory size */
     localparam BOOT_SIZE = 2 ** 14;
     
     /* Number of boot memories (max 1) */
@@ -163,7 +164,7 @@ package soc_parameters;
 
 
 //====================================================================================
-//      PDM TO PCM CONVERTER
+//      AUDIO PROCESSING UNIT PARAMETERS
 //====================================================================================
 
     /* Number of PRNGs */
@@ -184,6 +185,7 @@ package soc_parameters;
 //      NON CACHABLE MEMORY PARAMETERS
 //====================================================================================
 
+    /* Non cachable memory size */
     localparam NC_MEMORY_SIZE = 2 ** 11;
     
     /* Number of boot memories (max 1) */
@@ -195,6 +197,21 @@ package soc_parameters;
 
 
 //====================================================================================
+//      SD CONTROLLER PARAMETERS
+//====================================================================================
+
+    /* Number of SD controllers */
+    localparam SD_DEVICE_NUMBER = 1;
+
+    /* Memory mapped registers */
+    localparam SD_DEVICE_SPACE = 8;
+
+    /* SD controller MMIO address */
+    localparam SD_BASE_ADDRESS = NCMEM_BASE_ADDRESS + 2**13;
+    localparam SD_END_ADDRESS = SD_BASE_ADDRESS + ((SD_DEVICE_SPACE - 1) * 4);
+    
+
+//====================================================================================
 //      MMIO PARAMETERS
 //====================================================================================
 
@@ -202,7 +219,7 @@ package soc_parameters;
     localparam BYTES_INTERLEAVE = 'd128;
 
     /* CPU interrupts */
-    localparam INTERRUPT_SOURCES = 7;
+    localparam INTERRUPT_SOURCES = 8;
 
     /* Devices connected to AXI network */
     localparam NETWORK_DEVICES = UART_DEVICE_NUMBER + 
@@ -213,7 +230,8 @@ package soc_parameters;
                                  BOOT_MEMORY_NUMBER + 
                                  PRNG_NUMBER +
                                  APU_NUMBER +
-                                 NC_MEMORY_NUMBER;
+                                 NC_MEMORY_NUMBER + 
+                                 SD_DEVICE_NUMBER;
 
 
     /* To add more than 1 device, increase the parameter and add the device address into 
@@ -237,7 +255,9 @@ package soc_parameters;
 
         APU_BASE_ADDRESS,
 
-        NCMEM_BASE_ADDRESS
+        NCMEM_BASE_ADDRESS,
+
+        SD_BASE_ADDRESS
     };
 
     localparam int HIGH_SLAVE_ADDRESS [NETWORK_DEVICES] = '{
@@ -257,7 +277,9 @@ package soc_parameters;
 
         APU_END_ADDRESS,
 
-        NCMEM_END_ADDRESS
+        NCMEM_END_ADDRESS,
+
+        SD_END_ADDRESS
     };
 
 endpackage : soc_parameters

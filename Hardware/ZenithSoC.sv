@@ -17,6 +17,7 @@
 `include "IO/SPI/spi.sv"
 `include "IO/Ethernet/ethernet.sv"
 `include "IO/PRNG/prng.sv"
+`include "IO/SD/sd.sv"
 
 `include "APU/apu.sv"
 
@@ -29,7 +30,7 @@
 /* Comment this define to execute code directly from 
  * boot memory (useful to speedup testbench since there
  * is no ddr controller). Remember to comment out the 
- * DDR2 Memory Model from testbenc */
+ * DDR2 Memory Model from testbench */
 `define _DDR_MEMORY_
 
 module ZenithSoC (
@@ -72,6 +73,13 @@ module ZenithSoC (
     /* PWM Interface */
     inout logic pwm_o,
     output logic audio_enable_o,
+
+    /* SD Interface */
+    input logic sd_cd_n_i,
+    inout logic sd_cmd_io,
+    inout logic [3:0] sd_data_io,
+    output logic sd_reset_n_o,
+    output logic sd_clk_o,
 
     /* DDR Interface */
     inout logic [15:0] ddr2_dq,
@@ -737,7 +745,40 @@ module ZenithSoC (
                 read_data[_NC_MEM_] <= on_chip_ram[read_address[_NC_MEM_][$clog2(NC_MEMORY_SIZE) - 1:2]];
             end
         end
- 
+
+
+//====================================================================================
+//      SD CONTROLLER
+//====================================================================================
+
+    localparam _SD_ = _NC_MEM_ + 1;
+
+    sd sd_controller (
+        .clk_i   ( sys_clk ),
+        .rst_n_i ( reset_n ),
+
+        .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 8] ),
+
+        .write_i         ( write_request[_SD_]      ),
+        .write_address_i ( write_address[_SD_] >> 2 ),
+        .write_data_i    ( write_data[_SD_]         ),
+        .write_strobe_i  ( write_strobe[_SD_]       ),
+        .write_done_o    ( write_done[_SD_]         ),
+        .write_error_o   ( write_error[_SD_]        ),
+        
+        .read_i         ( read_request[_SD_]      ),
+        .read_address_i ( read_address[_SD_] >> 2 ),
+        .read_data_o    ( read_data[_SD_]         ),
+        .read_done_o    ( read_done[_SD_]         ),
+        .read_error_o   ( read_error[_SD_]        ),
+
+        .sd_cd_n_i    ( sd_cd_n_i    ),
+        .sd_cmd_io    ( sd_cmd_io    ),
+        .sd_data_io   ( sd_data_io   ),
+        .sd_reset_n_o ( sd_reset_n_o ),
+        .sd_clk_o     ( sd_clk_o     ) 
+    );
+
 
 //====================================================================================
 //      DDR CONTROLLER
