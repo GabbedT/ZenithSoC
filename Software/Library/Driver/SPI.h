@@ -44,8 +44,6 @@ public:
 
     
 
-private:
-
     /* Base memory address */
     uint32_t* const spiBaseAddress;
 
@@ -63,7 +61,6 @@ private:
     volatile uint32_t* const slaveSelect;
 
 
-public: 
 
     SPI(uint32_t spiNumber = 0);
 

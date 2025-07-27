@@ -60,7 +60,6 @@ public:
         ERROR  = 1 << 5
     };
 
-private: 
 
     /* Base MMIO address */
     uint32_t* const baseAddress;
@@ -89,7 +88,6 @@ private:
     /* Event register */
     volatile uint8_t* const event;
 
-public: 
 
     AudioCapture();
 

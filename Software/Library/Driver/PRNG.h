@@ -13,13 +13,11 @@ public:
     static uint64_t currentSeed;
 
 
-private: 
 
     /* Pointer to LFSR register */
     static volatile uint64_t* const lfsr;
 
 
-public:
 
     static void init(uint64_t seed = 0xDEADBEEFBEEFDEAD);
 

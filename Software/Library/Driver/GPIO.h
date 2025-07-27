@@ -14,7 +14,6 @@ public:
     enum triggerLevel_e { HIGH2LOW, LOW2HIGH };
 
 
-private: 
 
     /* Base memory address */
     uint32_t* const gpioBaseAddress;
@@ -32,7 +31,6 @@ private:
     volatile uint8_t* const triggerLevel;
 
 
-public:
 
     /**
      * The GPIO constructor initializes the base address and register addresses for a GPIO device, disables

@@ -37,7 +37,6 @@ public:
     /* Type of wave */
     typedef enum {CUSTOM, SINE, TRIANGLE, SQUARE} wave_e;
 
-private:
 
     /* Selected wave */
     uint32_t selectedWave;
@@ -88,7 +87,6 @@ private:
     volatile uint32_t* const squareDutyCycle;
 
 
-public:
 
     /* Constructor */
     AudioSynthesizer();

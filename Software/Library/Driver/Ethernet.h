@@ -406,7 +406,6 @@ public:
     static const uint32_t MAX_PAYLOAD_LENGTH = 1500;
     static const uint32_t MIN_PAYLOAD_LENGTH = 42;
 
-private: 
 
     /* Base memory address */
     volatile uint32_t* const ethBaseAddress;
@@ -430,7 +429,6 @@ private:
     volatile uint32_t* const macInterrupt;
 
 
-public:
 
     inline uint16_t readPHYRegister(uint8_t regAddr) {
         return (volatile uint16_t) *(ethBaseAddress + regAddr);

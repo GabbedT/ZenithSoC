@@ -67,7 +67,6 @@ public:
     };
 
 
-private: 
 
     /* Base memory address */
     uint32_t* const uartBaseAddress;
@@ -83,7 +82,6 @@ private:
     volatile uint32_t* const event;
 
 
-public: 
 
     /**
      * @brief Construct a new UART::UART object, disable all functions, the user will

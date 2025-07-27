@@ -26,7 +26,6 @@ public:
     };
 
 
-private:
 
     /* Base memory address */
     uint32_t* const baseAddress;
@@ -43,7 +42,6 @@ private:
     volatile struct timerConfig_s* volatile const configuration;
 
 
-public:
 
     /**
      * The Timer constructor initializes the timer with default values and disables counting and interrupt
