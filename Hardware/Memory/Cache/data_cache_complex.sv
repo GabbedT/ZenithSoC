@@ -51,6 +51,14 @@ module data_cache_complex #(
     localparam INDEX = $clog2(CACHE_SIZE / BLOCK_SIZE);
 
     localparam TAG = 32 - (2 + OFFSET + INDEX);
+
+
+    typedef struct packed {
+        logic [TAG - 1:0] tag; 
+        logic [INDEX - 1:0] index; 
+        logic [OFFSET - 1:0] bank_select; 
+        logic [1:0] byte_offset;
+    } cache_address_t;
     
 
 //====================================================================================
@@ -132,15 +140,19 @@ module data_cache_complex #(
 //====================================================================================
 
     status_packet_t lctrl_status_packet;
-    logic [31:0] lctrl_store_data, lctrl_cache_address, lctrl_load_data; logic lctrl_valid_data;
+    logic [31:0] lctrl_store_data, lctrl_cache_address, lctrl_load_data; logic lctrl_valid_data, lctrl_stall, ld_lock, ld_lock_request;
     data_enable_t lctrl_cache_store; 
 
     store_interface lctrl_store_channel(); assign lctrl_store_channel.done = ddr_store_channel.done;
 
     load_controller #(OFFSET, TAG, INDEX) load_cache_controller (
-        .clk_i   ( clk_i   ),
-        .rst_n_i ( rst_n_i ), 
-        .stall_i ( stall_i ),
+        .clk_i   ( clk_i       ),
+        .rst_n_i ( rst_n_i     ), 
+        .stall_i ( stall_i     ),
+
+        .lock_i         ( ld_lock         ),
+        .lock_status_i  ( lctrl_stall     ),
+        .lock_request_o ( ld_lock_request ),
 
         .invalidate_i ( ldu_channel.invalidate                 ),
         .request_i    ( ldu_channel.request & !io_load_request ),
@@ -169,7 +181,7 @@ module data_cache_complex #(
 //      STORE CONTROLLER
 //====================================================================================
 
-    logic sctrl_halt, sctrl_port_halt, sctrl_memory_halt, sctrl_store_done; 
+    logic sctrl_halt, sctrl_port_halt, sctrl_memory_halt, sctrl_store_done, sctrl_stall, st_lock, st_lock_request; 
     status_packet_t sctrl_status_packet;
     data_word_t sctrl_store_data, sctrl_cache_address;
     data_enable_t sctrl_cache_store; logic [3:0] store_byte_write;
@@ -179,10 +191,14 @@ module data_cache_complex #(
     assign sctrl_halt = sctrl_port_halt | sctrl_memory_halt;
 
     store_controller store_cache_controller (
-        .clk_i   ( clk_i      ),
-        .rst_n_i ( rst_n_i    ), 
-        .halt_i  ( sctrl_halt ),
-        .stall_i ( stall_i    ),
+        .clk_i   ( clk_i       ),
+        .rst_n_i ( rst_n_i     ), 
+        .halt_i  ( sctrl_halt  ),
+        .stall_i ( stall_i     ),
+
+        .lock_i         ( st_lock         ),
+        .lock_status_i  ( sctrl_stall     ),
+        .lock_request_o ( st_lock_request ),
 
         .request_i      ( stu_channel.request & !io_store_request                    ),
         .buffer_entry_i ( {stu_channel.data, stu_channel.address, stu_channel.width} ),
@@ -248,7 +264,6 @@ module data_cache_complex #(
             single_trx_o = 1'b0;
 
             case ({sctrl_store_channel.request, lctrl_store_channel.request})
-
                 2'b11, 2'b01: begin
                     ddr_store_channel.data = lctrl_store_channel.data;
                     ddr_store_channel.address = lctrl_store_channel.address;
@@ -270,6 +285,78 @@ module data_cache_complex #(
         end : arbiter
 
     assign ddr_store_channel.request = sctrl_store_channel.request | lctrl_store_channel.request;
+
+
+    /* Lock acquisition on the address to eliminate the possibility of out of order transactions on addresses
+     * that maps on the same cache address. Example:
+     *  1) Load to address A (Miss, request to main memory)
+     *  2) Store to address B while data from A is being retrived (Hit, write on cache)
+     *  3) Data from address A arrives and write on cache, but address B is now on the same cache line,
+     *     so data from A overwrites data from B.
+     *  4) Subsequent load to address B retrieves data from A instead of B.
+     */
+    logic ld_lock_acquired, st_lock_acquired; cache_address_t lock_address;
+
+        always_ff @(posedge clk_i) begin
+            if (st_lock_request) begin
+                st_lock_acquired <= 1'b1;
+                lock_address <= sctrl_cache_address;
+            end
+
+            if (ld_lock_request) begin
+                ld_lock_acquired <= 1'b1;
+                lock_address <= lctrl_cache_address;
+            end
+
+            case ({stu_channel.request, ldu_channel.request})
+                2'b11, 2'b01: begin
+                    ld_lock_acquired <= !st_lock_acquired;
+                    lock_address <= ldu_channel.address;
+                end
+
+                2'b10: begin
+                    st_lock_acquired <= !ld_lock_acquired;
+                    lock_address <= stu_channel.address;
+                end
+            endcase
+
+            if (ldu_channel.valid | ldu_channel.invalidate) begin
+                ld_lock_acquired <= 1'b0;
+            end
+
+            if (stu_channel.done) begin
+                st_lock_acquired <= 1'b0;
+            end
+        end
+
+
+    /* Generate lock signals to hold one FSM when the other is using the cache on the same cache address */
+    cache_address_t ldu_address_check, stu_address_check;
+
+    assign ldu_address_check = ldu_channel.address;
+    assign stu_address_check = stu_channel.address;
+        
+    assign ld_lock = (ldu_channel.request & !io_load_request) & ((ldu_address_check.index == lock_address.index) & st_lock_acquired);
+    assign st_lock = (stu_channel.request & !io_store_request) & ((stu_address_check.index == lock_address.index) & ld_lock_acquired);
+
+        always_ff @(posedge clk_i) begin
+            if (!rst_n_i) begin
+                lctrl_stall <= 1'b0;
+                sctrl_stall <= 1'b0;
+            end else begin
+                if (ld_lock) begin 
+                    lctrl_stall <= 1'b1;
+                end else if (stu_channel.done) begin
+                    lctrl_stall <= 1'b0;
+                end
+
+                if (st_lock) begin 
+                    sctrl_stall <= 1'b1;
+                end else if (ldu_channel.valid) begin
+                    sctrl_stall <= 1'b0;
+                end
+            end
+        end
 
 
         /* Route signals correctly */
