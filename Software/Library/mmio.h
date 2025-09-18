@@ -25,3 +25,6 @@
 
 /* Non cachable memory base address */
 #define NC_MEMORY_BASE (APU_BASE + DEVICE_INTERLEAVE + (1 << 10))
+
+/* SD Controller base address */
+#define SD_BASE (NC_MEMORY_BASE + DEVICE_INTERLEAVE)
