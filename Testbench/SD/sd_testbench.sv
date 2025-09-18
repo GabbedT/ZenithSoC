@@ -208,7 +208,7 @@ module sd_testbench;
 //      SD CARD MEMORY
 //====================================================================================
 
-wishbone_ram ram_inst (
+bram_whishbone ram_inst (
     .clk ( wbm_clk_o ),
     .rst ( rst_n_i   ),
 
