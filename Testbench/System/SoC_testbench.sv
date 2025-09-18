@@ -3,18 +3,36 @@
 
 `include "../../Hardware/Utility/Packages/soc_parameters.sv"
 
+// `include "../SD/Model/sd_top.v"
+// `include "../SD/bram_whishbone.sv"
+
+`include "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/SD/Model/sd_top.v"
+`include "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/SD/bram_whishbone.sv"
+
 `define CPU dut.ApogeoRV.system_cpu
 
-/* Enable or disable tracing */
+
+// ============================================
+//      TESTBENCH SETTINGS 
+// ============================================
+
+/* Enable or disable cpu instruction tracing */
 `define TRACE_CPU
+
+/* Enable or disable memory accesses tracing */
 // `define TRACE_MEMORY
+
+/* Enable or disable STDOUT output tracing */
 `define TRACE_OUTPUT
 
-`define CPU_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/cpu_trace.txt"
-`define MEMORY_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/memory_trace.txt"
-`define OUTPUT_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/output_trace.txt"
-`define PDM_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/PDM/pdm.txt"
+/* Enable or disable PDM file read */
+// `define AUDIO_PDM
 
+/* Enable or disable SD model, this is used to simulate the SD card interface */
+`define SD_MODEL
+
+/* Simulation time, this is the maximum simulation time, if the RUN_CONDITION is true
+ * simulation will continue until this time is reached */
 `define SIM_TIME 1s
 
 /* While RUN_CONDITION is true, simulation will continue */
@@ -24,6 +42,16 @@
  * output write, if this define is removed, the writes to UART device are considered
  * as output to be written into the output_trace.txt */
 `define FAST_OUTPUT
+
+
+// ============================================
+//      TESTBENCH FILE PATHS 
+// ============================================
+
+`define CPU_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/cpu_trace.txt"
+`define MEMORY_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/memory_trace.txt"
+`define OUTPUT_TRACE_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/System/output_trace.txt"
+`define PDM_FILE "/home/gabriele/Desktop/Projects/ZenithSoC/Testbench/PDM/pdm.txt"
 
 
 module soc_testbench;
@@ -89,8 +117,24 @@ module soc_testbench;
     wire        ddr2_cs_n;
     wire        ddr2_odt;
 
+    /* SD Interface */
+    logic sd_cd_n_i = 1'b1; // Card Detect, active low
+    wire sd_cmd_io;
+    wire [3:0] sd_data_io;
+    logic sd_reset_n_o;
+    logic sd_clk_o;
 
+
+    /* Top level SoC */
     ZenithSoC dut (.*);
+
+    /* Ethernet SMI Interface */
+    assign smi_mdio_io = dut.ethernet_mac.mac2phy.enable ? 1'bZ : 1'b0;
+
+
+//====================================================================================
+//      MEMORY DDR2 MODEL
+//====================================================================================
 
     ddr2_model ddr2 (
         .ck      ( ddr2_ck_p  ),
@@ -110,8 +154,114 @@ module soc_testbench;
         .odt     ( ddr2_odt   )
     );
 
-    assign smi_mdio_io = dut.ethernet_mac.mac2phy.enable ? 1'bZ : 1'b0;
 
+//====================================================================================
+//      SD CARD MODEL
+//====================================================================================
+
+    `ifdef SD_MODEL
+
+    /* Wishbone Interface */
+    logic        wbm_clk_o;
+    logic [31:0] wbm_adr_o;
+    logic [31:0] wbm_dat_i = 32'h0;
+    logic [31:0] wbm_dat_o;
+    logic [3:0]  wbm_sel_o;
+    logic        wbm_cyc_o;
+    logic        wbm_stb_o;
+    logic        wbm_we_o;
+    logic        wbm_ack_i = 1'b0;
+    logic [2:0]  wbm_cti_o;
+    logic [1:0]  wbm_bte_o;
+        
+    bram_whishbone SD_memory (
+        .clk ( wbm_clk_o ),
+        .rst ( rst_n_i   ),
+
+        .wbm_adr_i  ( wbm_adr_o[11:2] ),
+        .wbm_dat_i  ( wbm_dat_o       ),
+        .wbm_dat_o  ( wbm_dat_i       ),
+        .wbm_we_i   ( wbm_we_o        ),
+        .wbm_stb_i  ( wbm_stb_o       ),
+        .wbm_cyc_i  ( wbm_cyc_o       ),
+        .wbm_sel_i  ( wbm_sel_o       ),
+        .wbm_ack_o  ( wbm_ack_i       ),
+        .wbm_cti_i  ( wbm_cti_o       ),
+        .wbm_bte_i  ( wbm_bte_o       )
+    );
+
+
+    /* Clocks for the SD Card */
+    logic clk_50MHz = 0;
+    logic clk_100MHz = 0;
+    logic clk_200MHz = 0;
+    
+    /* Clock generation */
+    always #10ns clk_50MHz  <= ~clk_50MHz;
+    always #5ns  clk_100MHz <= ~clk_100MHz;
+    always #2.5ns clk_200MHz <= ~clk_200MHz; 
+
+    /* Card SD Interface */
+    logic sd_cmd_i, sd_cmd_o, sd_cmd_t;
+    logic [3:0] sd_dat_i, sd_dat_o, sd_dat_t;
+
+    wire sd_cmd_wire; wire [3:0] sd_dat_wire;
+
+    sd_top sd_model (
+        .clk_50      ( clk_50MHz  ),
+        .clk_100     ( clk_100MHz ),
+        .clk_200     ( clk_200MHz ),
+        .reset_n     ( rst_n_i    ),
+
+        .sd_clk      ( sd_clk_o ),
+
+        .sd_cmd_i    ( sd_cmd_i ),
+        .sd_cmd_o    ( sd_cmd_o ),
+        .sd_cmd_t    ( sd_cmd_t ),
+
+        .sd_dat_i    ( sd_dat_i ),
+        .sd_dat_o    ( sd_dat_o ),
+        .sd_dat_t    ( sd_dat_t ),
+
+        .wbm_clk_o ( wbm_clk_o ),
+        .wbm_adr_o ( wbm_adr_o ),
+        .wbm_dat_i ( wbm_dat_i ),
+        .wbm_dat_o ( wbm_dat_o ),
+        .wbm_sel_o ( wbm_sel_o ),
+        .wbm_cyc_o ( wbm_cyc_o ),
+        .wbm_stb_o ( wbm_stb_o ),
+        .wbm_we_o  ( wbm_we_o  ),
+        .wbm_ack_i ( wbm_ack_i ),
+        .wbm_cti_o ( wbm_cti_o ),
+        .wbm_bte_o ( wbm_bte_o ),
+
+        .opt_enable_hs ( '0 )
+    );
+
+    /* SD Connection Command to DUT  */
+    assign sd_cmd = sd_cmd_t ? dut.sd_controller.command_controller.cmd_bit_flop : sd_cmd_o;
+    assign sd_cmd_io = sd_cmd;
+
+    /* SD Connection Data to DUT */
+    assign sd_data = (sd_dat_t == '1) ? dut.sd_controller.data_controller.data_line_flop : sd_dat_o;
+    assign sd_data_io = sd_data;
+
+    assign sd_cmd_wire = (sd_cmd_t == 1'b0) ? sd_cmd_o :  
+                         (dut.sd_controller.command_controller.tristate_enable_flop) ? dut.sd_controller.command_controller.cmd_bit_flop : 1'bz;
+    
+    assign sd_cmd_i = sd_cmd_wire;
+
+    assign sd_dat_wire = (sd_dat_t == '0) ? sd_dat_o :  
+                         (dut.sd_controller.data_controller.tristate_enable_flop) ? dut.sd_controller.data_controller.data_line_flop : 4'bz;
+
+    assign sd_dat_i = sd_dat_wire;
+
+    `endif // SD_MODEL
+
+    
+//====================================================================================
+//      TRACE OBJECTS
+//====================================================================================
 
     /* Trace */
     typedef struct packed {
@@ -174,6 +324,10 @@ module soc_testbench;
         end 
 
 
+//====================================================================================
+//      TESTBENCH
+//====================================================================================
+
     initial begin
         pdm_file = $fopen(`PDM_FILE, "r"); $display("%d", pdm_file);
         cpuFile = $fopen(`CPU_TRACE_FILE, "w"); $display("%d", cpuFile);
@@ -186,11 +340,17 @@ module soc_testbench;
         repeat(40) @(posedge clk_i);
         rst_n_i <= 1'b1;
 
+        `ifdef SD_MODEL
+            sd_cd_n_i = 1'b0; // Simulate SD card present
+        `endif // SD_MODEL
+
         stopCondition = 0;
 
         wait(dut.locked);
 
         fork
+
+            `ifdef AUDIO_PDM
 
             begin : pdm_interface
                 /* Feed PDM input from file */
@@ -210,6 +370,8 @@ module soc_testbench;
                     @(posedge clk_i);
                 end
             end : pdm_interface
+
+            `endif // AUDIO_PDM
 
 
             `ifdef TRACE_MEMORY
@@ -352,7 +514,7 @@ module soc_testbench;
                     `ifdef FAST_OUTPUT
 
                         if (dut.write_request[dut._NC_MEM_]) begin
-                            $fwrite(outputFile, "%h\n", dut.write_data[dut._NC_MEM_]);
+                            $fwrite(outputFile, "%c", dut.write_data[dut._NC_MEM_][7:0]);
                         end
 
                     `else 
