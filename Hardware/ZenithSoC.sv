@@ -621,7 +621,7 @@ module ZenithSoC (
 
     localparam _BOOT_ = 0;
 
-    on_chip_memory #(BOOT_SIZE, "/home/gabriele/Desktop/Projects/ZenithSoC/Software/Examples/Audio Synthesis/output.hex") boot_memory (
+    on_chip_memory #(BOOT_SIZE, "/home/gabriele/Desktop/Projects/ZenithSoC/Software/Examples/SD/output.hex") boot_memory (
         .clk_i   ( sys_clk ),
         .rst_n_i ( reset_n ),
 
@@ -778,6 +778,12 @@ module ZenithSoC (
         .sd_reset_n_o ( sd_reset_n_o ),
         .sd_clk_o     ( sd_clk_o     ) 
     );
+
+    assign write_busy[_SD_] = 1'b0;
+    assign write_ready[_SD_] = 1'b1;
+
+    assign read_busy[_SD_] = 1'b0;
+    assign read_ready[_SD_] = 1'b1;
 
 
 //====================================================================================
