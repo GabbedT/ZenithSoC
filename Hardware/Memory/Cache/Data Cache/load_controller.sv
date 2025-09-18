@@ -19,6 +19,11 @@ module load_controller #(
     input logic rst_n_i, 
     input logic stall_i, 
 
+    /* Lock logic */
+    input logic lock_status_i,
+    input logic lock_i,
+    output logic lock_request_o,
+
     /* Load unit interface */
     input logic invalidate_i,
     input logic request_i,
@@ -84,12 +89,21 @@ module load_controller #(
             end
         end : counter
 
+    
+    logic [31:0] saved_address; 
+
+        always_ff @(posedge clk_i) begin
+            if (request_i) begin
+                saved_address <= address_i;
+            end
+        end
+
 
 //====================================================================================
 //      FSM LOGIC
 //====================================================================================
 
-    typedef enum logic [2:0] {IDLE, OUTCOME, ALLOCATION_REQ, ALLOCATE, WRITE_BACK} fsm_states_t;
+    typedef enum logic [2:0] {IDLE, WAIT_LOCK, OUTCOME, ALLOCATION_REQ, ALLOCATE, WRITE_BACK} fsm_states_t;
 
     fsm_states_t state_CRT, state_NXT; logic force_state;
 
@@ -145,16 +159,23 @@ module load_controller #(
             data_o = '0;
             valid_o = '0;
 
+            lock_request_o = 1'b0;
+
             force_state = 1'b0;
 
             case (state_CRT)
 
-                /* FSM waits for LDU request, and sends a cache read *
-                 * command as soon as the request arrives. Data,     *
-                 * status bits and tag are requested from cache to   *
-                 * determine if the read was an hit or a miss.       */
+                /* FSM waits for LDU request, and sends a cache read  *
+                 * command as soon as the request arrives. Data,      *
+                 * status bits and tag are requested from cache to    *
+                 * determine if the read was an hit or a miss.        *
+                 * If the other FSM is currently executing operations *
+                 * on the same cache address there is a lock, wait    *
+                 * until the lock is released                         */
                 IDLE: begin
-                    if (request_i) begin
+                    if (lock_i) begin
+                        state_NXT = WAIT_LOCK;
+                    end else if (request_i) begin
                         state_NXT = OUTCOME;
 
                         /* Read cache */
@@ -165,6 +186,28 @@ module load_controller #(
 
                     /* Save address for later use */
                     word_counter_NXT = '0; 
+                end
+
+                /* Wait until the other FSM releases the lock, then  *
+                 * read from cache                                   */
+                WAIT_LOCK: begin
+                    /* Exit lock state if an invalidate is requested */
+                    force_state = invalidate_i;
+                    
+                    if (invalidate_i) begin
+                        state_NXT = IDLE;
+                    end else if (!lock_status_i) begin
+                        state_NXT = OUTCOME;
+
+                        /* Request lock on that address to avoid other
+                         * operations on the same block */
+                        lock_request_o = 1'b1;
+
+                        /* Read cache */
+                        cache_read_o = '1;
+                    end
+
+                    cache_address_o = saved_address; 
                 end
 
                 /* Cache now has output the outcome of the previous    *
