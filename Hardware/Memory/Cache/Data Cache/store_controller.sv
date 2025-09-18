@@ -12,6 +12,11 @@ module store_controller (
     input logic halt_i,
     input logic stall_i,
 
+    /* Lock logic */
+    input logic lock_status_i,
+    input logic lock_i,
+    output logic lock_request_o,
+
     /* Store unit interface */
     input logic request_i,
     input store_buffer_entry_t buffer_entry_i,
@@ -50,7 +55,7 @@ module store_controller (
         end
 
 
-    typedef enum logic [1:0] {IDLE, OUTCOME, WRITE_THROUGH, WAIT} fsm_states_t;
+    typedef enum logic [2:0] {IDLE, WAIT_LOCK, OUTCOME, WRITE_THROUGH, WAIT} fsm_states_t;
 
     fsm_states_t state_CRT, state_NXT;
 
@@ -76,17 +81,38 @@ module store_controller (
             cache_byte_o = '0; 
             cache_data_o = '0;
 
+            lock_request_o = 1'b0;
+
             valid_o = '0; 
 
             case (state_CRT)
 
-                /* FSM waits for STU request, and sends a cache read *
-                 * command as soon as the request arrives. Data,     *
-                 * status bits and tag are requested from cache to   *
-                 * determine if the read was an hit or a miss.       */
+                /* FSM waits for STU request, and sends a cache read  *
+                 * command as soon as the request arrives. Data,      *
+                 * status bits and tag are requested from cache to    *
+                 * determine if the read was an hit or a miss.        *
+                 * If the other FSM is currently executing operations *
+                 * on the same cache address there is a lock, wait    *
+                 * until the lock is released                         */
                 IDLE: begin
-                    if (request_i) begin
+                    if (lock_i) begin
+                        state_NXT = WAIT_LOCK;
+                    end else if (request_i) begin
                         state_NXT = OUTCOME;
+
+                        /* Read cache */
+                        cache_read_o = '1; 
+                    end
+                end
+
+                /* Wait until the lock is released, then execute operations */
+                WAIT_LOCK: begin
+                    if (!lock_status_i) begin
+                        state_NXT = OUTCOME;
+
+                        /* Request lock on that address to avoid other
+                         * operations on the same block */
+                        lock_request_o = 1'b1;
 
                         /* Read cache */
                         cache_read_o = '1; 
