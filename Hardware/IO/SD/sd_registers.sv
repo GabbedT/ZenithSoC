@@ -32,6 +32,7 @@ module sd_registers #(
 
     /* General Control */
     input logic card_detect_i,
+    input logic reset_done_i,
     output logic reset_card_o,
     output logic enable_o,
     output logic clock_speed_o,
@@ -99,6 +100,7 @@ module sd_registers #(
                 control_register.bus_width <= 1'b0;
 
                 control_register.send_command <= 1'b0;
+                control_register.reset_card <= 1'b0;
 
                 /* Interrupts */
                 control_register.interrupt_enable <= '0;
@@ -107,7 +109,10 @@ module sd_registers #(
                     control_register <= (write_data_i & mask) | (control_register & ~mask);
                 end else begin
                     control_register.send_command <= 1'b0;
-                    control_register.reset_card <= 1'b0;
+
+                    if (reset_done_i) begin 
+                        control_register.reset_card <= 1'b0;
+                    end
                 end
             end 
         end 
