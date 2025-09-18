@@ -49,6 +49,7 @@ module sd (
     logic enable;
     logic clock_speed;
     logic bus_width;
+    logic reset_done;
 
     /* Command signals */
     logic [5:0] cmd_number;
@@ -111,6 +112,7 @@ module sd (
         .card_detect_i ( sd_card_detect ),
         .reset_card_o  ( sd_reset       ),
         .enable_o      ( enable         ),
+        .reset_done_i  ( reset_done     ),
 
         .clock_speed_o ( clock_speed ),
         .bus_width_o   ( bus_width   ),
@@ -166,11 +168,18 @@ module sd (
         always_ff @(posedge clk_i) begin
             if (!rst_n_i) begin
                 active <= 1'b0;
+                reset_done <= 1'b0;
             end else begin
                 if (reset_counter == (RESET_CYCLES - 1)) begin
                     active <= 1'b0;
-                end else if (sd_reset) begin
-                    active <= 1'b1;
+
+                    reset_done <= 1'b1;
+                end else begin
+                    if (sd_reset) begin
+                        active <= 1'b1;
+                    end
+
+                    reset_done <= 1'b0;
                 end
             end
         end
@@ -252,7 +261,7 @@ module sd (
 
     always_ff @(posedge clk_i) begin
         if (data_rx_write) begin
-            data_rx <= {data_received ,data_rx[3:1]};
+            data_rx <= {data_rx[2:0], data_received};
         end
     end
 
