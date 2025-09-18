@@ -23,18 +23,6 @@ public:
     /* SD Clock speed */
     enum clockSpeed_e { CLK_400KHZ, CLK_25MHZ };
 
-    /* Interrupt Sources */
-    enum intSources_e { 
-        DATA_TIMEOUT, 
-        DATA_CRC_ERROR,
-        DATA_DONE,
-        CMD_TIMEOUT,
-        CMD_CRC_ERROR,
-        CMD_DONE,
-        RX_BUFFER_FULL,
-        TX_BUFFER_EMPTY,
-        CARD_DETECTED 
-    };
 
     /* Configuration Register bitmap */
     struct sdControl_s {
@@ -119,6 +107,19 @@ public:
     };
 
 
+public:
+
+    /* Relative Card Address */
+    uint16_t cardRCA = 0;
+
+    /* */
+    uint32_t cardOCR = 0;
+
+    uint64_t cardSCR = 0;
+
+    uint64_t cardCSD[2] = {0};
+    uint64_t cardCID[2] = {0};
+
     /* Base memory address */
     uint32_t* const sdBaseAddress;
 
@@ -129,8 +130,8 @@ public:
     volatile struct sdStatus_s* volatile const status;
 
     /* Command info registers */
-    volatile int32_t* const commandNumber;
-    volatile int32_t* const commandArgument;
+    volatile uint32_t* const commandNumber;
+    volatile uint32_t* const commandArgument;
 
     /* Interrupt event register*/
     volatile struct sdInterruptStatus_s* volatile const event;
@@ -156,7 +157,7 @@ public:
 /*                         CONFIGURATION                         */
 /*****************************************************************/
 
-    SD& init();
+    SD& init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool& timeout, bool& isHighCapacity);
 
     SD& reset();
 
@@ -166,20 +167,54 @@ public:
 
     SD& setInterruptEnable(bool enable, uint32_t position);
 
-    SD& clearInterrupt(uint32_t position);
+
+/*****************************************************************/
+/*                            STATUS                             */
+/*****************************************************************/
+
+    inline uint8_t getDataError();
+
+    inline uint8_t getCommandError();
+
+    inline bool isCardInserted();
 
 
 /*****************************************************************/
 /*                         DATA TRANSFER                         */
 /*****************************************************************/
 
-    SD& readBlock(uint32_t blockAddress, uint32_t* blockRead);
+    SD& sendCommand(uint32_t commandNumber, uint32_t argument);
 
-    SD& writeBlock(uint32_t blockAddress, uint32_t* blockRead);
+    SD& sendCommand(uint32_t commandNumber, uint32_t argument, uint8_t* responseBuffer, bool& timeout);
 
-    SD& readBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstRead);
+    /* Get all the bytes from the response, from the byte that has been received first (MSB) (which is placed on the first position of the buffer)
+     * to the last */
+    SD& readResponse(uint8_t* responseBuffer, bool& timeout);
 
-    SD& writeBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstWrite);
+    SD& readBlock(uint32_t blockAddress, uint32_t* blockRead, uint8_t* responseBuffer, bool& timeout);
+
+    SD& writeBlock(uint32_t blockAddress, uint32_t* blockRead, uint8_t* responseBuffer, uint8_t& responseToken, bool& timeout);
+
+    SD& readBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstRead, uint8_t* responseBuffer, bool& timeout);
+
+    SD& writeBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstWrite, uint8_t* responseBuffer, uint8_t* tokenBuffer, bool& timeout);
+
+    SD& flushResponseBuffer();
+
+    SD& flushDataBuffer();
+
+/*****************************************************************/
+/*                           CARD INFO                           */
+/*****************************************************************/
+
+    SD& readCID(uint8_t* cidBuffer, bool& timeout);    // 16 bytes
+
+    SD& readCSD(uint8_t* csdBuffer, bool& timeout);    // 16 bytes  
+
+    SD& readSCR(uint8_t* scrBuffer);    // 8 bytes
+
+    SD& readOCR(uint8_t* ocrBuffer, bool& timeout);    // 4 bytes
+
 };
 
 #endif 
