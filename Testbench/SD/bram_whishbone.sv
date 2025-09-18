@@ -1,4 +1,4 @@
-module wishbone_ram #(
+module bram_whishbone #(
     parameter ADDR_WIDTH = 10,
     parameter DATA_WIDTH = 32
 )(
