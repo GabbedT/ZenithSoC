@@ -410,7 +410,7 @@ module sd_command_controller (
                         end
 
                         /* Count one less bit since the first one is not counted in WAIT_RESP */
-                        if (bit_counter == 'd46) begin
+                        if (bit_counter == 'd47) begin
                             /* Don't check CRC7 */
                             state_NXT = (cmd_number_i == 'd41 & card_app_cmd_CRT) ? RECOVERY : CHECK_CRC;
 
