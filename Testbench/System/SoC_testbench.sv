@@ -41,7 +41,7 @@
 /* The program can write into the Non Cachable Memory, each write is considered as an
  * output write, if this define is removed, the writes to UART device are considered
  * as output to be written into the output_trace.txt */
-`define FAST_OUTPUT
+// `define FAST_OUTPUT
 
 
 // ============================================
