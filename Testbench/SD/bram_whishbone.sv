@@ -22,6 +22,14 @@ module bram_whishbone #(
 
     reg [DATA_WIDTH-1:0] mem [0:DEPTH-1];
 
+    initial begin
+        integer i;
+
+        for (i = 0; i < DEPTH; i = i + 1) begin
+            mem[i] = 32'hAABB_CCDD;
+        end
+    end
+
     always @(posedge clk) begin
         if (!rst) begin
             wbm_ack_o <= 0;
