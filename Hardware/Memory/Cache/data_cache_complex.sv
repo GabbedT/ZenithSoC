@@ -287,6 +287,10 @@ module data_cache_complex #(
     assign ddr_store_channel.request = sctrl_store_channel.request | lctrl_store_channel.request;
 
 
+//====================================================================================
+//      LOCK LOGIC
+//====================================================================================
+
     /* Lock acquisition on the address to eliminate the possibility of out of order transactions on addresses
      * that maps on the same cache address. Example:
      *  1) Load to address A (Miss, request to main memory)
@@ -298,34 +302,41 @@ module data_cache_complex #(
     logic ld_lock_acquired, st_lock_acquired; cache_address_t lock_address;
 
         always_ff @(posedge clk_i) begin
-            if (st_lock_request) begin
-                st_lock_acquired <= 1'b1;
-                lock_address <= sctrl_cache_address;
-            end
-
-            if (ld_lock_request) begin
-                ld_lock_acquired <= 1'b1;
-                lock_address <= lctrl_cache_address;
-            end
-
-            case ({stu_channel.request, ldu_channel.request})
-                2'b11, 2'b01: begin
-                    ld_lock_acquired <= !st_lock_acquired;
-                    lock_address <= ldu_channel.address;
-                end
-
-                2'b10: begin
-                    st_lock_acquired <= !ld_lock_acquired;
-                    lock_address <= stu_channel.address;
-                end
-            endcase
-
-            if (ldu_channel.valid | ldu_channel.invalidate) begin
+            if (!rst_n_i) begin
                 ld_lock_acquired <= 1'b0;
-            end
-
-            if (stu_channel.done) begin
                 st_lock_acquired <= 1'b0;
+                
+                lock_address <= '0;
+            end else begin
+                if (st_lock_request) begin
+                    st_lock_acquired <= 1'b1;
+                    lock_address <= sctrl_cache_address;
+                end
+
+                if (ld_lock_request) begin
+                    ld_lock_acquired <= 1'b1;
+                    lock_address <= lctrl_cache_address;
+                end
+
+                case ({stu_channel.request, ldu_channel.request})
+                    2'b11, 2'b01: begin
+                        ld_lock_acquired <= !st_lock_acquired;
+                        lock_address <= ldu_channel.address;
+                    end
+
+                    2'b10: begin
+                        st_lock_acquired <= !ld_lock_acquired;
+                        lock_address <= stu_channel.address;
+                    end
+                endcase
+
+                if (ldu_channel.valid | ldu_channel.invalidate) begin
+                    ld_lock_acquired <= 1'b0;
+                end
+
+                if (stu_channel.done) begin
+                    st_lock_acquired <= 1'b0;
+                end
             end
         end
 
@@ -344,13 +355,13 @@ module data_cache_complex #(
                 lctrl_stall <= 1'b0;
                 sctrl_stall <= 1'b0;
             end else begin
-                if (ld_lock) begin 
+                if (ld_lock & !stu_channel.done) begin 
                     lctrl_stall <= 1'b1;
                 end else if (stu_channel.done) begin
                     lctrl_stall <= 1'b0;
                 end
 
-                if (st_lock) begin 
+                if (st_lock & !ldu_channel.valid) begin 
                     sctrl_stall <= 1'b1;
                 end else if (ldu_channel.valid) begin
                     sctrl_stall <= 1'b0;
@@ -358,6 +369,10 @@ module data_cache_complex #(
             end
         end
 
+
+//====================================================================================
+//      ROUTING LOGIC
+//====================================================================================
 
         /* Route signals correctly */
         always_comb begin
