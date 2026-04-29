@@ -177,6 +177,9 @@ module ZenithSoC (
     logic interrupt, nmsk_interrupt, timer_interrupt, interrupt_ackn;
     logic [7:0] int_vector;
 
+    /* CPU Halt */
+    logic halt_core;
+
     cpu_complex #(
         .PREDICTOR_SIZE          ( PREDICTOR_SIZE          ),
         .BTB_SIZE                ( BTB_SIZE                ),
@@ -188,8 +191,9 @@ module ZenithSoC (
         .ICACHE_SIZE             ( ICACHE_SIZE             ),
         .IBLOCK_SIZE_BYTE        ( IBLOCK_SIZE_BYTE        )
     ) ApogeoRV (
-        .clk_i   ( sys_clk ),
-        .rst_n_i ( reset_n ),
+        .clk_i   ( sys_clk   ),
+        .rst_n_i ( reset_n   ),
+        .halt_i  ( halt_core ),
 
         /* ROM channel */
         .rom_fetch_channel ( rom_fetch_channel ),
@@ -345,7 +349,10 @@ module ZenithSoC (
 
     localparam _UART_ = 1;
 
-    genvar i; logic [UART_DEVICE_NUMBER - 1:0] uart_interrupt;
+    logic [UART_DEVICE_NUMBER - 1:0] uart_interrupt;
+    logic uart_tx_full;
+
+    genvar i;
 
     generate 
         for (i = 0; i < UART_DEVICE_NUMBER; ++i) begin
@@ -357,6 +364,8 @@ module ZenithSoC (
                 .rst_n_i     ( reset_n ),
 
                 .interrupt_o ( uart_interrupt[i] ),
+
+                .uart_tx_full_i ( uart_tx_full ),
 
                 .uart_rx_i  ( uart_rx_i[i]  ),
                 .uart_tx_o  ( uart_tx_o[i]  ),
