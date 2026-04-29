@@ -234,6 +234,7 @@ Timer& Timer::restart() {
 
     /* Start incrementing again */
     configuration->halted = false;
+    configuration->enableTimer = true;
 
     return *this;
 }
