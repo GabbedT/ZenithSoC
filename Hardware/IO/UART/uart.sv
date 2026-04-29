@@ -20,6 +20,9 @@ module uart #(
     input logic rst_n_i,
     output logic interrupt_o,
 
+    /* To Trace Unit */
+    output logic tx_full_o,
+
     /* UART interface */
     input logic uart_rx_i,
     output logic uart_tx_o,
@@ -65,11 +68,12 @@ module uart #(
         .rst_n_i     ( rst_n_i     ),
         .interrupt_o ( interrupt_o ),
 
-        .rx_data_i  ( rx_data  ),
-        .tx_data_o  ( tx_data  ),
-        .tx_cts_i   ( transmit ),
-        .rx_rts_o   ( uart_rts ),
-        .tx_empty_o ( tx_empty ),
+        .rx_data_i  ( rx_data   ),
+        .tx_data_o  ( tx_data   ),
+        .tx_cts_i   ( transmit  ),
+        .rx_rts_o   ( uart_rts  ),
+        .tx_empty_o ( tx_empty  ),
+        .tx_full_o  ( tx_full_o ),
 
         .tx_done_i  ( tx_done      ),
         .rx_done_i  ( rx_done      ),

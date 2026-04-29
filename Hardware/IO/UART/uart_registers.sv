@@ -22,6 +22,7 @@ module uart_registers #(
     input logic tx_cts_i,
     output logic rx_rts_o,
     output logic tx_empty_o,
+    output logic tx_full_o,
 
     /* FSMs signals */
     input logic tx_done_i,
@@ -159,6 +160,7 @@ module uart_registers #(
     );
     
     assign tx_empty_o = tx_empty;
+    assign tx_full_o = tx_full;
 
     assign status_register.TX_empty = tx_empty;
     assign status_register.TX_full = tx_full;
