@@ -93,8 +93,16 @@ module trace_unit #(
         .read_error_o   ( read_error_o   )
     );
 
-    assign write_done_o = write_i;
-    assign read_done_o = read_i;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                write_done_o <= 1'b0;
+                read_done_o <= 1'b0;
+            end else begin
+                write_done_o <= write_i;
+                read_done_o <= read_i;
+            end
+        end
 
 
 //====================================================================================
