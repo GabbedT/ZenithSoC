@@ -365,7 +365,7 @@ module ZenithSoC (
 
                 .interrupt_o ( uart_interrupt[i] ),
 
-                .uart_tx_full_i ( uart_tx_full ),
+                .uart_tx_full_o ( uart_tx_full ),
 
                 .uart_rx_i  ( uart_rx_i[i]  ),
                 .uart_tx_o  ( uart_tx_o[i]  ),
