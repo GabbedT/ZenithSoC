@@ -6,6 +6,7 @@
 `include "sd_command_controller.sv"
 
 `include "../../System/edge_detector.sv"
+`include "../../System/synchronizer.sv"
 
 `include "../../Utility/Packages/sd_pkg.sv"
 
@@ -38,6 +39,26 @@ module sd (
     output logic sd_reset_n_o,
     output logic sd_clk_o
 );
+
+//====================================================================================
+//      SYNCHRONIZATION
+//====================================================================================
+
+    logic cd_n_sync;
+
+    synchronizer #(
+        .FLOP_NUMBER   ( 2 ),
+        .INITIAL_VALUE ( 0 )
+    ) card_detect_synchronizer (
+        /* Global signals */
+        .clk_i   ( clk_i   ),
+        .rst_n_i ( rst_n_i ),
+
+        /* Sync signal */
+        .signal_i ( sd_cd_n_i ),
+        .sync_o   ( cd_n_sync )
+    );
+
 
 //====================================================================================
 //      REGISTER INTERFACE
@@ -88,7 +109,7 @@ module sd (
         cmd_timeout_ff <= cmd_timeout;
         cmd_crc_error_ff <= cmd_crc_error;
 
-        sd_card_detect <= !sd_cd_n_i;
+        sd_card_detect <= !cd_n_sync;
     end
 
     sd_registers register_interface (
@@ -202,7 +223,7 @@ module sd (
 
             clk_previous <= 1'b0;
             sd_clk <= 1'b0;
-        end else begin
+        end else if (enable) begin
             counter <= counter + 1;
             clk_previous <= sd_clk;
 
@@ -285,7 +306,7 @@ module sd (
     assign buffer_rx_write = write_selector[3];
 
         edge_detector #(1, 0) data_rx_write_detector (
-            .clk_i   ( clk_i  ),
+            .clk_i   ( clk_i   ),
             .rst_n_i ( rst_n_i ),
 
             .signal_i ( buffer_rx_write      ),
@@ -298,9 +319,9 @@ module sd (
 //====================================================================================
     
     sd_command_controller command_controller (
-        .clk_i    (clk_i   ),
-        .rst_n_i  (rst_n_i ),
-        .enable_i (enable  ),
+        .clk_i    ( clk_i   ),
+        .rst_n_i  ( rst_n_i ),
+        .enable_i ( enable  ),
 
         .shift_i  ( shift  ),
         .sample_i ( sample ),
