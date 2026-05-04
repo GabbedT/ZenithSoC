@@ -250,42 +250,42 @@ module sd_registers #(
             event_register <= '0;
         end else begin 
             if ((write_address_i == SD_EVENT) & write_i) begin
-                event_register <= (write_data_i & mask) | (control_register & ~mask);
+                event_register <= (write_data_i & mask) | (event_register & ~mask);
             end else begin
                 if (tx_buffer_empty) begin
-                    event_register.tx_buffer_empty <= control_register.interrupt_enable[0];
+                    event_register.tx_buffer_empty <= event_register.interrupt_enable[0];
                 end
 
                 if (rx_buffer_full) begin
-                    event_register.rx_buffer_full <= control_register.interrupt_enable[1];
+                    event_register.rx_buffer_full <= event_register.interrupt_enable[1];
                 end
 
                 if (cmd_done) begin
-                    event_register.cmd_done <= control_register.interrupt_enable[2];
+                    event_register.cmd_done <= event_register.interrupt_enable[2];
                 end
 
                 if (cmd_crc_error_i) begin
-                    event_register.cmd_crc_error <= control_register.interrupt_enable[3];
+                    event_register.cmd_crc_error <= event_register.interrupt_enable[3];
                 end
 
                 if (cmd_timeout_i) begin
-                    event_register.cmd_timeout <= control_register.interrupt_enable[4];
+                    event_register.cmd_timeout <= event_register.interrupt_enable[4];
                 end
 
                 if (data_done) begin
-                    event_register.data_done <= control_register.interrupt_enable[5];
+                    event_register.data_done <= event_register.interrupt_enable[5];
                 end
 
                 if (data_crc_error_i) begin
-                    event_register.data_crc_error <= control_register.interrupt_enable[6];
+                    event_register.data_crc_error <= event_register.interrupt_enable[6];
                 end
 
                 if (data_timeout_i) begin
-                    event_register.data_timeout <= control_register.interrupt_enable[7];
+                    event_register.data_timeout <= event_register.interrupt_enable[7];
                 end
 
                 if (card_detect_i) begin
-                    event_register.card_detected <= control_register.interrupt_enable[8];
+                    event_register.card_detected <= event_register.interrupt_enable[8];
                 end
             end
         end 
@@ -327,8 +327,8 @@ module sd_registers #(
         .write_i      ( write_tx_buffer ),
         .write_data_i ( write_data_i    ),
 
-        .read_i      ( data_tx_read_i ),
-        .read_data_o ( data_tx_data_o ),
+        .read_i      ( data_tx_read_i & !tx_buffer_empty ),
+        .read_data_o ( data_tx_data_o                    ),
 
         .empty_o ( tx_buffer_empty ),
         .full_o  ( tx_buffer_full  )
