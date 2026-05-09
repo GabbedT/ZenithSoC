@@ -1,0 +1,730 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audio Synthesis Unit (ASU) &mdash; ZenithSoC Documentation 04/05/2026 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6a8dd3d6"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="GPIO - General Purpose Input/Output" href="../IO%20Devices/gpio.html" />
+    <link rel="prev" title="Audio Capture Unit" href="audio_capture_unit.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            ZenithSoC Documentation
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">System Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../CPU%20Complex/cpu_complex.html">CPU Complex</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../CPU%20Complex/instruction_cache.html">Instruction Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../CPU%20Complex/data_cache.html">Data Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../axi_bus.html">AXI Bus</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Audio Processing Unit (APU)</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="apu.html">Audio Processing Unit (APU)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="audio_capture_unit.html">Audio Capture Unit</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Audio Synthesis Unit (ASU)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#features">Features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#address-space">Address Space</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#architecture">Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#waveform-generators">Waveform Generators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#sine-wave-generator">Sine Wave Generator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#square-wave-generator">Square Wave Generator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#triangle-wave-generator">Triangle Wave Generator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#custom-wave-generator">Custom Wave Generator</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#adsr-envelope-modulator">ADSR Envelope Modulator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fsm-states">FSM States</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#audio-mixer">Audio Mixer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#mixing-pipeline">Mixing Pipeline</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#pcm-to-pdm-converter">PCM to PDM Converter</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#register-interface">Register Interface</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#channel-register-map">Channel Register Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#wave-control-register-offset-0x00">WAVE_CONTROL Register (Offset 0x00)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#wave-increment-register-offset-0x01">WAVE_INCREMENT Register (Offset 0x01)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#wave-attack-step-register-offset-0x02">WAVE_ATTACK_STEP Register (Offset 0x02)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#wave-decay-step-register-offset-0x03">WAVE_DECAY_STEP Register (Offset 0x03)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#wave-release-step-register-offset-0x04">WAVE_RELEASE_STEP Register (Offset 0x04)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#wave-sustain-time-register-offset-0x05">WAVE_SUSTAIN_TIME Register (Offset 0x05)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#wave-attack-level-register-offset-0x06">WAVE_ATTACK_LEVEL Register (Offset 0x06)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#wave-sustain-level-register-offset-0x07">WAVE_SUSTAIN_LEVEL Register (Offset 0x07)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#square-wave-duty-cycle-register-offset-0x0820">Square Wave Duty Cycle Register (Offset 0x0820)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#custom-waveform-table">Custom Waveform Table</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">IO Devices</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/gpio.html">GPIO - General Purpose Input/Output</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/uart.html">UART - Universal Asynchronous Receiver/Transmitter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/spi.html">SPI - Serial Peripheral Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/timer.html">Timer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/ethernet.html">Ethernet MAC Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/sd.html">SD - Secure Digital Card Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/prng.html">PRNG - Pseudo Random Number Generator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/trace_unit.html">Trace Unit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Legal</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">ZenithSoC Documentation</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Audio Synthesis Unit (ASU)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/APU/audio_synthesis_unit.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="audio-synthesis-unit-asu">
+<h1>Audio Synthesis Unit (ASU)<a class="headerlink" href="#audio-synthesis-unit-asu" title="Link to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The Audio Synthesis Unit is a versatile waveform generation and audio synthesis subsystem capable of producing four simultaneous audio channels with independent frequency, amplitude, and envelope control. Each channel supports sine, square, triangle, or custom waveform generation with ADSR (Attack-Decay-Sustain-Release) envelope modulation. The synthesized audio is mixed, gain-adjusted, and converted to PDM (Pulse Density Modulation) for external audio output.</p>
+</section>
+<section id="features">
+<h2>Features<a class="headerlink" href="#features" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>4 Independent Audio Channels</strong>: Each channel can generate a different waveform simultaneously</p></li>
+<li><p><strong>Multiple Waveform Types</strong>:</p>
+<ul>
+<li><p><strong>Sine Wave</strong>: Quarter-period lookup table with phase interpolation</p></li>
+<li><p><strong>Square Wave</strong>: Programmable duty cycle (0-100%)</p></li>
+<li><p><strong>Triangle Wave</strong>: Linear ramp up/down generation</p></li>
+<li><p><strong>Custom Waveform</strong>: 1024-sample double-buffered arbitrary waveform playback</p></li>
+</ul>
+</li>
+<li><p><strong>ADSR Envelope Modulation</strong>: Independent ADSR modulator per channel with configurable attack, decay, sustain, and release parameters</p></li>
+<li><p><strong>Audio Mixer</strong>: Four-channel mixer with independent gain control per channel</p></li>
+<li><p><strong>PCM to PDM Conversion</strong>: First-order delta-sigma modulator for class-D amplifier output</p></li>
+<li><p><strong>Fixed-Point Arithmetic</strong>: Q1.15 format for gain and Q0.32 format for phase accumulation</p></li>
+</ul>
+</section>
+<section id="address-space">
+<h2>Address Space<a class="headerlink" href="#address-space" title="Link to this heading"></a></h2>
+<p>The Audio Synthesis Unit occupies addresses <strong>ACU_END_ADDRESS</strong> to <strong>ASU_END_ADDRESS</strong> (ACU_END_ADDRESS + 2081).</p>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Address Map</span><a class="headerlink" href="#id1" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 20.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Address Range</p></th>
+<th class="head"><p>Region</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0x0000 - 0x07FF</p></td>
+<td><p>Custom Waveform Table</p></td>
+<td><p>2048 entries for custom waveform data (double-buffered)</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x0800 - 0x0807</p></td>
+<td><p>Channel 0 Registers</p></td>
+<td><p>Control, frequency, ADSR parameters for channel 0</p></td>
+</tr>
+<tr class="row-even"><td><p>0x0808 - 0x080F</p></td>
+<td><p>Channel 1 Registers</p></td>
+<td><p>Control, frequency, ADSR parameters for channel 1</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x0810 - 0x0817</p></td>
+<td><p>Channel 2 Registers</p></td>
+<td><p>Control, frequency, ADSR parameters for channel 2</p></td>
+</tr>
+<tr class="row-even"><td><p>0x0818 - 0x081F</p></td>
+<td><p>Channel 3 Registers</p></td>
+<td><p>Control, frequency, ADSR parameters for channel 3</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x0820</p></td>
+<td><p>Square Wave Duty Cycle</p></td>
+<td><p>Global duty cycle register for square wave generator</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Link to this heading"></a></h2>
+<p>The Audio Synthesis Unit consists of three main processing stages:</p>
+<ol class="arabic simple">
+<li><p><strong>Waveform Generation Pipeline</strong>: Four independent waveform generators with ADSR envelope modulation</p></li>
+<li><p><strong>Audio Mixer</strong>: Combines four channels with independent gain control and normalization</p></li>
+<li><p><strong>PCM to PDM Converter</strong>: Converts mixed PCM output to PDM for external audio interface</p></li>
+</ol>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>┌─────────────────────────────────────────────────────────────────┐
+│                    Audio Synthesis Pipeline                     │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────┐    ┌────────────────┐    ┌──────────────┐   │
+│  │ Sine Wave    │───▶│ ADSR Modulator │───▶│              │   │
+│  │ Generator    │    │  (Channel 0)   │    │              │   │
+│  └──────────────┘    └────────────────┘    │              │   │
+│                                              │              │   │
+│  ┌──────────────┐    ┌────────────────┐    │              │   │
+│  │ Square Wave  │───▶│ ADSR Modulator │───▶│              │   │
+│  │ Generator    │    │  (Channel 1)   │    │  Audio       │   │
+│  └──────────────┘    └────────────────┘    │  Mixer       │   │
+│                                              │              │   │
+│  ┌──────────────┐    ┌────────────────┐    │  (4-channel) │   │
+│  │ Triangle Wave│───▶│ ADSR Modulator │───▶│              │   │
+│  │ Generator    │    │  (Channel 2)   │    │              │   │
+│  └──────────────┘    └────────────────┘    │              │   │
+│                                              │              │   │
+│  ┌──────────────┐    ┌────────────────┐    │              │   │
+│  │ Custom Wave  │───▶│ ADSR Modulator │───▶│              │   │
+│  │ Generator    │    │  (Channel 3)   │    │              │   │
+│  └──────────────┘    └────────────────┘    └──────┬───────┘   │
+│                                                     │           │
+└─────────────────────────────────────────────────────┼───────────┘
+                                                      │ 16-bit PCM
+                                                      ▼
+                                              ┌───────────────┐
+                                              │  PCM to PDM   │
+                                              │  Converter    │
+                                              └───────┬───────┘
+                                                      │ PDM
+                                                      ▼
+                                                 PWM Output
+</pre></div>
+</div>
+</section>
+<section id="waveform-generators">
+<h2>Waveform Generators<a class="headerlink" href="#waveform-generators" title="Link to this heading"></a></h2>
+<section id="sine-wave-generator">
+<h3>Sine Wave Generator<a class="headerlink" href="#sine-wave-generator" title="Link to this heading"></a></h3>
+<p>The sine wave generator uses a 512-entry quarter-period lookup table stored in <code class="docutils literal notranslate"><span class="pre">sine_quarter.hex</span></code>. The generator employs a 4-state FSM to traverse the full sine period:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>FIRST_π/4 → SECOND_π/4 → THIRD_π/4 → FOURTH_π/4 → FIRST_π/4
+   (inc)      (dec)        (inc)        (dec)
+</pre></div>
+</div>
+<p><strong>Phase Accumulator</strong>:</p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="n">phase_register</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">phase_register</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">phase_increment</span>
+</pre></div>
+</div>
+<p>Where <code class="docutils literal notranslate"><span class="pre">phase_increment</span></code> controls the frequency:</p>
+<div class="math notranslate nohighlight">
+\[phase\_increment = \frac{f_{desired} \times 2^{32}}{f_{clk}}\]</div>
+<p><strong>FSM States</strong>:</p>
+<ul class="simple">
+<li><p><strong>FIRST_π/4</strong>: Phase increments, offset = 0, output = <code class="docutils literal notranslate"><span class="pre">sine_table[index]</span></code></p></li>
+<li><p><strong>SECOND_π/4</strong>: Phase decrements, offset = 0, output = <code class="docutils literal notranslate"><span class="pre">sine_table[index]</span></code></p></li>
+<li><p><strong>THIRD_π/4</strong>: Phase increments, offset = 0xFFFF, output = <code class="docutils literal notranslate"><span class="pre">offset</span> <span class="pre">-</span> <span class="pre">sine_table[index]</span></code></p></li>
+<li><p><strong>FOURTH_π/4</strong>: Phase decrements, offset = 0xFFFF, output = <code class="docutils literal notranslate"><span class="pre">offset</span> <span class="pre">-</span> <span class="pre">sine_table[index]</span></code></p></li>
+</ul>
+<p>The FSM transitions when the phase accumulator overflows (bit 32 = 1).</p>
+</section>
+<section id="square-wave-generator">
+<h3>Square Wave Generator<a class="headerlink" href="#square-wave-generator" title="Link to this heading"></a></h3>
+<p>The square wave generator produces a pulse with programmable duty cycle.</p>
+<p><strong>Operation</strong>:</p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="n">counter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">counter</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">phase_increment</span>
+<span class="n">square_wave</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">counter</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">duty_cycle</span><span class="p">)</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="mi">0</span><span class="n">x0000</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="mi">0</span><span class="n">xFFFF</span>
+</pre></div>
+</div>
+<p><strong>Duty Cycle Range</strong>: 0x00000000 (0%) to 0xFFFFFFFF (100%)</p>
+<p><strong>Frequency Calculation</strong>: Same as sine wave generator</p>
+</section>
+<section id="triangle-wave-generator">
+<h3>Triangle Wave Generator<a class="headerlink" href="#triangle-wave-generator" title="Link to this heading"></a></h3>
+<p>The triangle wave generator produces a linear ramp that alternates between ascending and descending.</p>
+<p><strong>Operation</strong>:</p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">up_down</span><span class="p">)</span><span class="w"> </span><span class="k">begin</span>
+<span class="w">    </span><span class="n">counter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">counter</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">phase_increment</span>
+<span class="k">end</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">begin</span>
+<span class="w">    </span><span class="n">counter</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">counter</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">phase_increment</span>
+<span class="k">end</span>
+</pre></div>
+</div>
+<p><strong>Output</strong>:</p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="n">triangle_wave</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">counter</span><span class="p">[</span><span class="mi">31</span><span class="o">:</span><span class="mi">16</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>The direction inverts when the counter overflows, producing a symmetric triangle waveform.</p>
+</section>
+<section id="custom-wave-generator">
+<h3>Custom Wave Generator<a class="headerlink" href="#custom-wave-generator" title="Link to this heading"></a></h3>
+<p>The custom wave generator supports arbitrary waveform playback from a 1024-sample double-buffered memory.</p>
+<p><strong>Double Buffering</strong>:</p>
+<ul class="simple">
+<li><p><strong>Buffer 0</strong>: <code class="docutils literal notranslate"><span class="pre">audio_table_1[1023:0]</span></code> (addresses 0x0000 - 0x03FF)</p></li>
+<li><p><strong>Buffer 1</strong>: <code class="docutils literal notranslate"><span class="pre">audio_table_2[1023:0]</span></code> (addresses 0x0400 - 0x07FF)</p></li>
+</ul>
+<p><strong>Operation</strong>:</p>
+<ol class="arabic simple">
+<li><p>Software writes samples to inactive buffer via write interface</p></li>
+<li><p>Active buffer plays continuously using phase accumulator indexing</p></li>
+<li><p>When phase accumulator wraps (overflow detected), buffers swap</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">active_table</span></code> status bit indicates which buffer is currently playing</p></li>
+</ol>
+<p><strong>Phase Accumulator</strong>:</p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="n">phase_register</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">phase_register</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">phase_increment</span>
+<span class="n">table_index</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">phase_register</span><span class="p">[</span><span class="mi">31</span><span class="o">:</span><span class="mi">22</span><span class="p">]</span><span class="w">  </span><span class="c1">// Top 10 bits index 1024 samples</span>
+<span class="n">wave_output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">active_table</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">audio_table_2</span><span class="p">[</span><span class="n">table_index</span><span class="p">]</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">audio_table_1</span><span class="p">[</span><span class="n">table_index</span><span class="p">]</span>
+</pre></div>
+</div>
+<p><strong>Buffer Swap Detection</strong>:</p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">table_index</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">table_index_prev</span><span class="p">)</span><span class="w"> </span><span class="k">begin</span>
+<span class="w">    </span><span class="c1">// Overflow detected</span>
+<span class="w">    </span><span class="n">active_table</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">!</span><span class="n">active_table</span>
+<span class="k">end</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="adsr-envelope-modulator">
+<h2>ADSR Envelope Modulator<a class="headerlink" href="#adsr-envelope-modulator" title="Link to this heading"></a></h2>
+<p>Each channel has an independent ADSR modulator that shapes the amplitude envelope of the generated waveform.</p>
+<section id="fsm-states">
+<h3>FSM States<a class="headerlink" href="#fsm-states" title="Link to this heading"></a></h3>
+<p>The ADSR modulator implements a 5-state FSM:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>IDLE → ATTACK → DECAY → SUSTAIN → RELEASE → IDLE
+</pre></div>
+</div>
+<table class="docutils align-default" id="id2">
+<caption><span class="caption-text">ADSR FSM States</span><a class="headerlink" href="#id2" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 80.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>State</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>IDLE</strong></p></td>
+<td><p>Modulator is inactive, envelope = 0. Transitions to ATTACK on <code class="docutils literal notranslate"><span class="pre">adsr_start</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>ATTACK</strong></p></td>
+<td><p>Envelope increases by <code class="docutils literal notranslate"><span class="pre">attack_step</span></code> each cycle until reaching <code class="docutils literal notranslate"><span class="pre">attack_level</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><strong>DECAY</strong></p></td>
+<td><p>Envelope decreases by <code class="docutils literal notranslate"><span class="pre">decay_step</span></code> each cycle until reaching <code class="docutils literal notranslate"><span class="pre">sustain_level</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>SUSTAIN</strong></p></td>
+<td><p>Envelope held constant at <code class="docutils literal notranslate"><span class="pre">sustain_level</span></code> for <code class="docutils literal notranslate"><span class="pre">sustain_duration</span></code> cycles</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>RELEASE</strong></p></td>
+<td><p>Envelope decreases by <code class="docutils literal notranslate"><span class="pre">release_step</span></code> each cycle until reaching zero</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Envelope Calculation</strong>:</p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="c1">// ATTACK phase</span>
+<span class="n">modulator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">modulator</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">attack_step</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">modulator</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="n">attack_level</span><span class="p">)</span><span class="w"> </span><span class="k">begin</span>
+<span class="w">    </span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">DECAY</span>
+<span class="w">    </span><span class="n">modulator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">attack_level</span>
+<span class="k">end</span>
+
+<span class="c1">// DECAY phase</span>
+<span class="n">modulator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">modulator</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">decay_step</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">modulator</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">sustain_level</span><span class="p">)</span><span class="w"> </span><span class="k">begin</span>
+<span class="w">    </span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">SUSTAIN</span>
+<span class="w">    </span><span class="n">modulator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sustain_level</span>
+<span class="k">end</span>
+
+<span class="c1">// SUSTAIN phase</span>
+<span class="n">sustain_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sustain_time</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">sustain_time</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">sustain_duration</span><span class="p">)</span><span class="w"> </span><span class="k">begin</span>
+<span class="w">    </span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">RELEASE</span>
+<span class="k">end</span>
+
+<span class="c1">// RELEASE phase</span>
+<span class="n">modulator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">modulator</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">release_step</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">modulator</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="n">release_step</span><span class="p">)</span><span class="w"> </span><span class="k">begin</span>
+<span class="w">    </span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IDLE</span>
+<span class="w">    </span><span class="n">modulator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="k">end</span>
+</pre></div>
+</div>
+<p><strong>Gain Selection</strong>:</p>
+<p>Each channel can use either:</p>
+<ul class="simple">
+<li><p><strong>Static Gain</strong>: Fixed gain value from <code class="docutils literal notranslate"><span class="pre">wave_gain</span></code> register (when <code class="docutils literal notranslate"><span class="pre">adsr_enable</span> <span class="pre">=</span> <span class="pre">0</span></code>)</p></li>
+<li><p><strong>Dynamic Gain</strong>: ADSR envelope output (when <code class="docutils literal notranslate"><span class="pre">adsr_enable</span> <span class="pre">=</span> <span class="pre">1</span></code>)</p></li>
+</ul>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="n">effective_gain</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">adsr_enable</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="n">adsr_modulator</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">wave_gain</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="audio-mixer">
+<h2>Audio Mixer<a class="headerlink" href="#audio-mixer" title="Link to this heading"></a></h2>
+<p>The audio mixer combines four channels with independent gain control and automatic normalization.</p>
+<section id="mixing-pipeline">
+<h3>Mixing Pipeline<a class="headerlink" href="#mixing-pipeline" title="Link to this heading"></a></h3>
+<p><strong>Stage 1: Gain Application</strong></p>
+<p>Each channel’s waveform is multiplied by its gain (Q1.15 format):</p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="c1">// 16-bit waveform × 16-bit gain = 32-bit result</span>
+<span class="n">sine_wave_scaled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sine_wave</span><span class="w"> </span><span class="err">×</span><span class="w"> </span><span class="n">sine_wave_gain</span><span class="w">       </span><span class="c1">// Q0.15 × Q1.15 = Q1.30</span>
+<span class="n">square_wave_scaled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">square_wave</span><span class="w"> </span><span class="err">×</span><span class="w"> </span><span class="n">square_wave_gain</span>
+<span class="n">triangle_wave_scaled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">triangle_wave</span><span class="w"> </span><span class="err">×</span><span class="w"> </span><span class="n">triangle_wave_gain</span>
+<span class="n">custom_wave_scaled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">custom_wave</span><span class="w"> </span><span class="err">×</span><span class="w"> </span><span class="n">custom_wave_gain</span>
+</pre></div>
+</div>
+<p>Extract Q1.15 result: <code class="docutils literal notranslate"><span class="pre">scaled_wave[30:15]</span></code></p>
+<p><strong>Stage 2: Pairwise Addition</strong></p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="n">intermediate_1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sine_wave_scaled</span><span class="p">[</span><span class="mi">30</span><span class="o">:</span><span class="mi">15</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">square_wave_scaled</span><span class="p">[</span><span class="mi">30</span><span class="o">:</span><span class="mi">15</span><span class="p">]</span><span class="w">     </span><span class="c1">// 17-bit</span>
+<span class="n">intermediate_2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">triangle_wave_scaled</span><span class="p">[</span><span class="mi">30</span><span class="o">:</span><span class="mi">15</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">custom_wave_scaled</span><span class="p">[</span><span class="mi">30</span><span class="o">:</span><span class="mi">15</span><span class="p">]</span><span class="w"> </span><span class="c1">// 17-bit</span>
+</pre></div>
+</div>
+<p><strong>Stage 3: Final Summation</strong></p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="n">mixed_wave</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">intermediate_1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">intermediate_2</span><span class="w">  </span><span class="c1">// 18-bit</span>
+</pre></div>
+</div>
+<p><strong>Stage 4: Normalization</strong></p>
+<p>Automatic division based on number of active channels to prevent clipping:</p>
+<table class="docutils align-default" id="id3">
+<caption><span class="caption-text">Normalization Logic</span><a class="headerlink" href="#id3" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 20.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Active Channels</p></th>
+<th class="head"><p>Division</p></th>
+<th class="head"><p>Implementation</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0 channels</p></td>
+<td><p>N/A</p></td>
+<td><p>Output = 0</p></td>
+</tr>
+<tr class="row-odd"><td><p>1 channel</p></td>
+<td><p>÷1</p></td>
+<td><p>Output = mixed_wave</p></td>
+</tr>
+<tr class="row-even"><td><p>2 channels</p></td>
+<td><p>÷2</p></td>
+<td><p>Output = mixed_wave &gt;&gt; 1</p></td>
+</tr>
+<tr class="row-odd"><td><p>3 channels</p></td>
+<td><p>÷3</p></td>
+<td><p>Output = (mixed_wave × 0xAAAB) &gt;&gt; 17</p></td>
+</tr>
+<tr class="row-even"><td><p>4 channels</p></td>
+<td><p>÷4</p></td>
+<td><p>Output = mixed_wave &gt;&gt; 2</p></td>
+</tr>
+</tbody>
+</table>
+<p>The division by 3 uses a multiplication by the reciprocal:</p>
+<div class="math notranslate nohighlight">
+\[\frac{1}{3} \approx \frac{0xAAAB}{2^{17}} = \frac{43691}{131072} \approx 0.33333\]</div>
+</section>
+</section>
+<section id="pcm-to-pdm-converter">
+<h2>PCM to PDM Converter<a class="headerlink" href="#pcm-to-pdm-converter" title="Link to this heading"></a></h2>
+<p>The PCM to PDM converter implements a first-order delta-sigma modulator using error feedback.</p>
+<p><strong>Algorithm</strong>:</p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="c1">// 1. Convert unsigned PCM to signed</span>
+<span class="n">sample_scaled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kt">signed</span><span class="p">(</span><span class="n">pcm_input</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">32768</span>
+
+<span class="c1">// 2. Add bias (center around half-scale)</span>
+<span class="n">sample_biased</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sample_scaled</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">32768</span><span class="w">  </span><span class="c1">// BIAS = 2^15</span>
+
+<span class="c1">// 3. Accumulate with feedback</span>
+<span class="n">accumulator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">accumulator</span><span class="p">[</span><span class="mi">15</span><span class="o">:</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">sample_biased</span>
+
+<span class="c1">// 4. PDM output is MSB</span>
+<span class="n">pdm_output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">accumulator</span><span class="p">[</span><span class="mi">16</span><span class="p">]</span>
+</pre></div>
+</div>
+<p><strong>Oversampling</strong>: The PDM output updates at the system clock rate, providing high oversampling ratio for noise shaping.</p>
+<p><strong>Output Interface</strong>: The <code class="docutils literal notranslate"><span class="pre">pwm_o</span></code> signal is driven as tri-state:</p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="n">pwm_o</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pdm_signal</span><span class="w"> </span><span class="o">?</span><span class="w"> </span><span class="mb">1&#39;bZ</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="mb">1&#39;b0</span>
+</pre></div>
+</div>
+<p>This allows direct connection to class-D amplifier input with pull-up resistor.</p>
+</section>
+<section id="register-interface">
+<h2>Register Interface<a class="headerlink" href="#register-interface" title="Link to this heading"></a></h2>
+<p>Each of the 4 audio channels has an identical 8-register interface.</p>
+<section id="channel-register-map">
+<h3>Channel Register Map<a class="headerlink" href="#channel-register-map" title="Link to this heading"></a></h3>
+<table class="docutils align-default" id="id4">
+<caption><span class="caption-text">Per-Channel Registers (8 registers × 4 channels)</span><a class="headerlink" href="#id4" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 15.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Register</p></th>
+<th class="head"><p>Offset</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>WAVE_CONTROL</p></td>
+<td><p>0x00</p></td>
+<td><p>Wave and ADSR control bits, gain</p></td>
+</tr>
+<tr class="row-odd"><td><p>WAVE_INCREMENT</p></td>
+<td><p>0x01</p></td>
+<td><p>Phase increment (frequency control)</p></td>
+</tr>
+<tr class="row-even"><td><p>WAVE_ATTACK_STEP</p></td>
+<td><p>0x02</p></td>
+<td><p>ADSR attack increment per cycle</p></td>
+</tr>
+<tr class="row-odd"><td><p>WAVE_DECAY_STEP</p></td>
+<td><p>0x03</p></td>
+<td><p>ADSR decay decrement per cycle</p></td>
+</tr>
+<tr class="row-even"><td><p>WAVE_RELEASE_STEP</p></td>
+<td><p>0x04</p></td>
+<td><p>ADSR release decrement per cycle</p></td>
+</tr>
+<tr class="row-odd"><td><p>WAVE_SUSTAIN_TIME</p></td>
+<td><p>0x05</p></td>
+<td><p>ADSR sustain duration in clock cycles</p></td>
+</tr>
+<tr class="row-even"><td><p>WAVE_ATTACK_LEVEL</p></td>
+<td><p>0x06</p></td>
+<td><p>ADSR maximum attack level</p></td>
+</tr>
+<tr class="row-odd"><td><p>WAVE_SUSTAIN_LEVEL</p></td>
+<td><p>0x07</p></td>
+<td><p>ADSR sustain level</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="wave-control-register-offset-0x00">
+<h3>WAVE_CONTROL Register (Offset 0x00)<a class="headerlink" href="#wave-control-register-offset-0x00" title="Link to this heading"></a></h3>
+<table class="docutils align-default" id="id5">
+<caption><span class="caption-text">WAVE_CONTROL Bit Fields</span><a class="headerlink" href="#id5" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 15.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Bits</p></th>
+<th class="head"><p>Field</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>[31:16]</p></td>
+<td><p>wave_gain</p></td>
+<td><p>Q1.15 fixed-point gain (0.0 to 1.99998). Used when <code class="docutils literal notranslate"><span class="pre">adsr_enable</span> <span class="pre">=</span> <span class="pre">0</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>[21]</p></td>
+<td><p>adsr_idle</p></td>
+<td><p>Read-only. <code class="docutils literal notranslate"><span class="pre">1</span></code> = ADSR FSM is in IDLE state, <code class="docutils literal notranslate"><span class="pre">0</span></code> = ADSR active</p></td>
+</tr>
+<tr class="row-even"><td><p>[4]</p></td>
+<td><p>adsr_enable</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code> = Use ADSR envelope for gain, <code class="docutils literal notranslate"><span class="pre">0</span></code> = Use static <code class="docutils literal notranslate"><span class="pre">wave_gain</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>[3]</p></td>
+<td><p>adsr_start</p></td>
+<td><p>Write <code class="docutils literal notranslate"><span class="pre">1</span></code> to start ADSR cycle and reset to ATTACK state. Self-clearing</p></td>
+</tr>
+<tr class="row-even"><td><p>[1]</p></td>
+<td><p>wave_enable</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code> = Enable waveform output, <code class="docutils literal notranslate"><span class="pre">0</span></code> = Waveform muted (output = 0)</p></td>
+</tr>
+<tr class="row-odd"><td><p>[0]</p></td>
+<td><p>wave_start</p></td>
+<td><p>Write <code class="docutils literal notranslate"><span class="pre">1</span></code> to reset phase accumulator. Self-clearing</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="wave-increment-register-offset-0x01">
+<h3>WAVE_INCREMENT Register (Offset 0x01)<a class="headerlink" href="#wave-increment-register-offset-0x01" title="Link to this heading"></a></h3>
+<p><strong>32-bit phase increment value</strong>. Determines waveform frequency:</p>
+<div class="math notranslate nohighlight">
+\[f_{output} = \frac{phase\_increment \times f_{clk}}{2^{32}}\]</div>
+<p><strong>Example</strong>: For 440 Hz output at 100 MHz clock:</p>
+<div class="math notranslate nohighlight">
+\[phase\_increment = \frac{440 \times 2^{32}}{100000000} = 18,908,481 = 0x01207BA1\]</div>
+</section>
+<section id="wave-attack-step-register-offset-0x02">
+<h3>WAVE_ATTACK_STEP Register (Offset 0x02)<a class="headerlink" href="#wave-attack-step-register-offset-0x02" title="Link to this heading"></a></h3>
+<p><strong>32-bit increment value</strong> for ATTACK phase. Envelope increases by this value each cycle.</p>
+<p><strong>Time Calculation</strong>:</p>
+<div class="math notranslate nohighlight">
+\[t_{attack} = \frac{attack\_level - 0}{attack\_step} \times \frac{1}{f_{clk}}\]</div>
+<p><strong>Example</strong>: 10ms attack to full scale (0xFFFFFFFF) at 100 MHz:</p>
+<div class="math notranslate nohighlight">
+\[attack\_step = \frac{0xFFFFFFFF}{0.01 \times 100000000} = 4294\]</div>
+</section>
+<section id="wave-decay-step-register-offset-0x03">
+<h3>WAVE_DECAY_STEP Register (Offset 0x03)<a class="headerlink" href="#wave-decay-step-register-offset-0x03" title="Link to this heading"></a></h3>
+<p><strong>32-bit decrement value</strong> for DECAY phase. Envelope decreases by this value each cycle.</p>
+<p><strong>Time Calculation</strong>:</p>
+<div class="math notranslate nohighlight">
+\[t_{decay} = \frac{attack\_level - sustain\_level}{decay\_step} \times \frac{1}{f_{clk}}\]</div>
+</section>
+<section id="wave-release-step-register-offset-0x04">
+<h3>WAVE_RELEASE_STEP Register (Offset 0x04)<a class="headerlink" href="#wave-release-step-register-offset-0x04" title="Link to this heading"></a></h3>
+<p><strong>32-bit decrement value</strong> for RELEASE phase. Envelope decreases by this value each cycle.</p>
+<p><strong>Time Calculation</strong>:</p>
+<div class="math notranslate nohighlight">
+\[t_{release} = \frac{sustain\_level - 0}{release\_step} \times \frac{1}{f_{clk}}\]</div>
+</section>
+<section id="wave-sustain-time-register-offset-0x05">
+<h3>WAVE_SUSTAIN_TIME Register (Offset 0x05)<a class="headerlink" href="#wave-sustain-time-register-offset-0x05" title="Link to this heading"></a></h3>
+<p><strong>32-bit duration</strong> in clock cycles for SUSTAIN phase.</p>
+<p><strong>Time Calculation</strong>:</p>
+<div class="math notranslate nohighlight">
+\[t_{sustain} = \frac{sustain\_duration}{f_{clk}}\]</div>
+<p><strong>Example</strong>: 500ms sustain at 100 MHz:</p>
+<div class="math notranslate nohighlight">
+\[sustain\_duration = 0.5 \times 100000000 = 50,000,000\]</div>
+</section>
+<section id="wave-attack-level-register-offset-0x06">
+<h3>WAVE_ATTACK_LEVEL Register (Offset 0x06)<a class="headerlink" href="#wave-attack-level-register-offset-0x06" title="Link to this heading"></a></h3>
+<p><strong>32-bit maximum envelope level</strong> during ATTACK phase. Typical value: <code class="docutils literal notranslate"><span class="pre">0xFFFFFFFF</span></code> (full scale).</p>
+</section>
+<section id="wave-sustain-level-register-offset-0x07">
+<h3>WAVE_SUSTAIN_LEVEL Register (Offset 0x07)<a class="headerlink" href="#wave-sustain-level-register-offset-0x07" title="Link to this heading"></a></h3>
+<p><strong>32-bit envelope level</strong> maintained during SUSTAIN phase. Range: <code class="docutils literal notranslate"><span class="pre">0x00000000</span></code> to <code class="docutils literal notranslate"><span class="pre">attack_level</span></code>.</p>
+</section>
+<section id="square-wave-duty-cycle-register-offset-0x0820">
+<h3>Square Wave Duty Cycle Register (Offset 0x0820)<a class="headerlink" href="#square-wave-duty-cycle-register-offset-0x0820" title="Link to this heading"></a></h3>
+<p><strong>Global 32-bit duty cycle</strong> for the square wave generator (channel 1).</p>
+<table class="docutils align-default" id="id6">
+<caption><span class="caption-text">Duty Cycle Values</span><a class="headerlink" href="#id6" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 30.0%" />
+<col style="width: 40.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>Duty Cycle</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0x00000000</p></td>
+<td><p>0%</p></td>
+<td><p>Always low</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x80000000</p></td>
+<td><p>50%</p></td>
+<td><p>Symmetric square wave</p></td>
+</tr>
+<tr class="row-even"><td><p>0xFFFFFFFF</p></td>
+<td><p>100%</p></td>
+<td><p>Always high</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="custom-waveform-table">
+<h3>Custom Waveform Table<a class="headerlink" href="#custom-waveform-table" title="Link to this heading"></a></h3>
+<p><strong>Address Range</strong>: 0x0000 - 0x07FF (2048 entries, 16-bit each)</p>
+<p><strong>Double Buffer Organization</strong>:</p>
+<ul class="simple">
+<li><p><strong>Buffer 0</strong>: Addresses 0x0000 - 0x03FF (1024 samples)</p></li>
+<li><p><strong>Buffer 1</strong>: Addresses 0x0400 - 0x07FF (1024 samples)</p></li>
+</ul>
+<p><strong>Write Procedure</strong>:</p>
+<ol class="arabic simple">
+<li><p>Write 1024 samples to inactive buffer</p></li>
+<li><p>Enable custom wave channel</p></li>
+<li><p>Hardware automatically swaps buffers when active buffer completes playback</p></li>
+<li><p>Monitor <code class="docutils literal notranslate"><span class="pre">active_table</span></code> status bit (WAVE_CONTROL[21] of channel 3) to determine which buffer is playing</p></li>
+</ol>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="audio_capture_unit.html" class="btn btn-neutral float-left" title="Audio Capture Unit" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../IO%20Devices/gpio.html" class="btn btn-neutral float-right" title="GPIO - General Purpose Input/Output" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Tripi Gabriele.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,630 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trace Unit &mdash; ZenithSoC Documentation 04/05/2026 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6a8dd3d6"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="License" href="../license.html" />
+    <link rel="prev" title="PRNG - Pseudo Random Number Generator" href="prng.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            ZenithSoC Documentation
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">System Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../CPU%20Complex/cpu_complex.html">CPU Complex</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../CPU%20Complex/instruction_cache.html">Instruction Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../CPU%20Complex/data_cache.html">Data Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../axi_bus.html">AXI Bus</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Audio Processing Unit (APU)</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../APU/apu.html">Audio Processing Unit (APU)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../APU/audio_capture_unit.html">Audio Capture Unit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../APU/audio_synthesis_unit.html">Audio Synthesis Unit (ASU)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">IO Devices</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="gpio.html">GPIO - General Purpose Input/Output</a></li>
+<li class="toctree-l1"><a class="reference internal" href="uart.html">UART - Universal Asynchronous Receiver/Transmitter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spi.html">SPI - Serial Peripheral Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="timer.html">Timer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ethernet.html">Ethernet MAC Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sd.html">SD - Secure Digital Card Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="prng.html">PRNG - Pseudo Random Number Generator</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Trace Unit</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#features">Features</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#signal-interface">Signal Interface</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#operation">Operation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#packet-types">Packet Types</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#event-tracing">Event Tracing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#branch-tracing">Branch Tracing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#timestamp">Timestamp</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#trigger-pc">Trigger PC</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#core-halting">Core Halting</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#serializer-fsm">Serializer FSM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#register-map">Register Map</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#register-descriptions">Register Descriptions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#timing-characteristics">Timing Characteristics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#integration-guidelines">Integration Guidelines</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#uart-connection">UART Connection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#id1">Core Halting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#buffer-sizing">Buffer Sizing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#packet-parsing">Packet Parsing</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#limitations">Limitations</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Legal</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">ZenithSoC Documentation</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Trace Unit</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/IO Devices/trace_unit.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="trace-unit">
+<h1>Trace Unit<a class="headerlink" href="#trace-unit" title="Link to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The Trace Unit is a hardware module for real-time debugging and profiling of the RISC-V processor core. It monitors core execution by capturing events (exceptions, system calls, memory operations) and branch divergence (jumps, branches, calls), generating trace packets transmitted via UART for offline analysis.</p>
+<p>The module operates non-intrusively with minimal overhead on core execution, supporting 24-bit timestamps, PC-based triggers, and configurable buffering to handle event bursts.</p>
+<section id="features">
+<h3>Features<a class="headerlink" href="#features" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>CPU event tracing (exceptions, interrupts, system calls, memory operations)</p></li>
+<li><p>Branch divergence tracing (non-sequential control flow)</p></li>
+<li><p>24-bit timestamp for temporal correlation</p></li>
+<li><p>Program Counter trigger for selective tracing start</p></li>
+<li><p>Configurable FIFO buffer (default 512 packets)</p></li>
+<li><p>Automatic serialization to UART</p></li>
+<li><p>Core halting on buffer full to prevent data loss</p></li>
+<li><p>Interrupt on buffer full/empty</p></li>
+</ul>
+</section>
+</section>
+<section id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Link to this heading"></a></h2>
+<p>The Trace Unit consists of three main modules:</p>
+<ul class="simple">
+<li><p><strong>Registers</strong>: Manages configuration, control and status registers</p></li>
+<li><p><strong>Packetizer</strong>: Generates trace packets from CPU events and divergence detection</p></li>
+<li><p><strong>Serializer</strong>: Serializes packets into byte stream to UART</p></li>
+</ul>
+<section id="signal-interface">
+<h3>Signal Interface<a class="headerlink" href="#signal-interface" title="Link to this heading"></a></h3>
+<p><strong>Global Signals:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">clk_i</span></code>: System clock</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">rst_n_i</span></code>: Active-low reset</p></li>
+</ul>
+<p><strong>CPU Interface:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">interrupt_o</span></code>: Interrupt to CPU</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">halt_core_o</span></code>: Halt signal when buffer is full</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trace_interface_i</span></code>: Trace interface from RISC-V core</p></li>
+</ul>
+<p><strong>UART Interface:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">uart_tx_full_i</span></code>: UART TX buffer full status</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trace_chunk_o[7:0]</span></code>: Byte to transmit</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">write_chunk_o</span></code>: Write strobe</p></li>
+</ul>
+<p><strong>Register Interface:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">write_i</span></code>, <code class="docutils literal notranslate"><span class="pre">write_address_i[1:0]</span></code>, <code class="docutils literal notranslate"><span class="pre">write_data_i[31:0]</span></code>, <code class="docutils literal notranslate"><span class="pre">write_strobe_i[3:0]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">read_i</span></code>, <code class="docutils literal notranslate"><span class="pre">read_address_i[1:0]</span></code>, <code class="docutils literal notranslate"><span class="pre">read_data_o[31:0]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">write_error_o</span></code>, <code class="docutils literal notranslate"><span class="pre">read_error_o</span></code>, <code class="docutils literal notranslate"><span class="pre">write_done_o</span></code>, <code class="docutils literal notranslate"><span class="pre">read_done_o</span></code></p></li>
+</ul>
+</section>
+</section>
+<section id="operation">
+<h2>Operation<a class="headerlink" href="#operation" title="Link to this heading"></a></h2>
+<section id="packet-types">
+<h3>Packet Types<a class="headerlink" href="#packet-types" title="Link to this heading"></a></h3>
+<p>The Trace Unit generates three packet types:</p>
+<p><strong>Event Packet (2 or 5 bytes):</strong></p>
+<ul class="simple">
+<li><p>SYNC (1 byte): 0xAA</p></li>
+<li><p>TYPE + EVENT_NUMBER (1 byte): EVENT_PACKET type + event number (6 bits)</p></li>
+<li><p>TIMESTAMP (3 bytes, optional): timestamp if enabled</p></li>
+</ul>
+<p><strong>Divergence Packet (10 or 13 bytes):</strong></p>
+<ul class="simple">
+<li><p>SYNC (1 byte): 0xAA</p></li>
+<li><p>TYPE (1 byte): DIVERGENCE_PACKET type</p></li>
+<li><p>START_PC (4 bytes): PC before branch</p></li>
+<li><p>END_PC (4 bytes): PC after branch</p></li>
+<li><p>TIMESTAMP (3 bytes, optional): timestamp if enabled</p></li>
+</ul>
+<p><strong>Overflow Packet (2 bytes):</strong></p>
+<ul class="simple">
+<li><p>SYNC (1 byte): 0xAA</p></li>
+<li><p>TYPE (1 byte): OVERFLOW_PACKET type (24-bit timestamp overflow)</p></li>
+</ul>
+</section>
+<section id="event-tracing">
+<h3>Event Tracing<a class="headerlink" href="#event-tracing" title="Link to this heading"></a></h3>
+<p>When enabled, the Trace Unit captures configurable events from the core:</p>
+<ul class="simple">
+<li><p><strong>Instruction faults</strong>: Misaligned, access fault, illegal instruction</p></li>
+<li><p><strong>Breakpoint</strong>: Debug breakpoint</p></li>
+<li><p><strong>Load/Store operations</strong>: Memory operations and related faults</p></li>
+<li><p><strong>System calls</strong>: User-mode and machine-mode ecall</p></li>
+<li><p><strong>Handler return</strong>: MRET instruction</p></li>
+<li><p><strong>Sleep</strong>: WFI instruction</p></li>
+<li><p><strong>Branch/Jump</strong>: Control flow operations</p></li>
+<li><p><strong>CSR operations</strong>: Control Status Register accesses</p></li>
+</ul>
+</section>
+<section id="branch-tracing">
+<h3>Branch Tracing<a class="headerlink" href="#branch-tracing" title="Link to this heading"></a></h3>
+<p>The module compares the current PC with the previous one. If different from PC+4 or PC+2 (compressed), it generates a Divergence Packet containing start PC and end PC to reconstruct the control flow.</p>
+<p>Divergence detection activates after the first valid PC (or after trigger PC if enabled) to avoid initial false positives.</p>
+</section>
+<section id="timestamp">
+<h3>Timestamp<a class="headerlink" href="#timestamp" title="Link to this heading"></a></h3>
+<p>The 24-bit counter increments every cycle when timestamping is enabled. Upon reaching 0xFFFFFF, it generates an Overflow Packet and continues from 0.</p>
+</section>
+<section id="trigger-pc">
+<h3>Trigger PC<a class="headerlink" href="#trigger-pc" title="Link to this heading"></a></h3>
+<p>When enabled, branch tracing starts only when the core reaches the specified PC. Useful for tracing specific code sections.</p>
+</section>
+<section id="core-halting">
+<h3>Core Halting<a class="headerlink" href="#core-halting" title="Link to this heading"></a></h3>
+<p>When the buffer is full, the <code class="docutils literal notranslate"><span class="pre">halt_core_o</span></code> signal is asserted to stop the core and prevent packet loss. The core resumes when buffer space becomes available.</p>
+</section>
+</section>
+<section id="serializer-fsm">
+<h2>Serializer FSM<a class="headerlink" href="#serializer-fsm" title="Link to this heading"></a></h2>
+<p>The serializer manages packet transmission to UART through a 3-state FSM:</p>
+<p><strong>IDLE</strong></p>
+<ul class="simple">
+<li><p>Waits for packets in buffer and UART not full</p></li>
+<li><p>Reads packet from buffer</p></li>
+<li><p>Transition to SYNC</p></li>
+</ul>
+<p><strong>SYNC</strong></p>
+<ul class="simple">
+<li><p>Transmits SYNC byte (0xAA)</p></li>
+<li><p>Extracts packet type from packet</p></li>
+<li><p>Transition to DATA</p></li>
+</ul>
+<p><strong>DATA</strong></p>
+<ul class="simple">
+<li><p>Transmits payload bytes sequentially</p></li>
+<li><p>Byte count depends on packet type and timestamp enable:</p>
+<ul>
+<li><p>OVERFLOW: 1 byte</p></li>
+<li><p>EVENT: 1 byte (no timestamp) or 4 bytes (with timestamp)</p></li>
+<li><p>DIVERGENCE: 9 bytes (no timestamp) or 12 bytes (with timestamp)</p></li>
+</ul>
+</li>
+<li><p>Returns to IDLE after last byte</p></li>
+</ul>
+</section>
+<section id="register-map">
+<h2>Register Map<a class="headerlink" href="#register-map" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Offset</p></th>
+<th class="head"><p>Register</p></th>
+<th class="head"><p>R/W</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0x00</p></td>
+<td><p>STATUS</p></td>
+<td><p>R</p></td>
+<td><p>Status register (buffer full/empty)</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x04</p></td>
+<td><p>CONTROL</p></td>
+<td><p>R/W</p></td>
+<td><p>Control register (enable tracing, interrupts)</p></td>
+</tr>
+<tr class="row-even"><td><p>0x08</p></td>
+<td><p>EVENT_ENABLE</p></td>
+<td><p>R/W</p></td>
+<td><p>Event enable mask</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x0C</p></td>
+<td><p>PC_TRIGGER</p></td>
+<td><p>R/W</p></td>
+<td><p>Trigger PC value</p></td>
+</tr>
+</tbody>
+</table>
+<section id="register-descriptions">
+<h3>Register Descriptions<a class="headerlink" href="#register-descriptions" title="Link to this heading"></a></h3>
+<p><strong>STATUS (Offset: 0x00)</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Bit</p></th>
+<th class="head"><p>Field</p></th>
+<th class="head"><p>R/W</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>BUFFER_EMPTY</p></td>
+<td><p>R</p></td>
+<td><p>Buffer empty (1 = empty, 0 = data present)</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>BUFFER_FULL</p></td>
+<td><p>R</p></td>
+<td><p>Buffer full (1 = full, 0 = space available)</p></td>
+</tr>
+<tr class="row-even"><td><p>31:2</p></td>
+<td><p>Reserved</p></td>
+<td><p>R</p></td>
+<td><p>Reserved (read as 0)</p></td>
+</tr>
+</tbody>
+</table>
+<p><em>Reset Value:</em> 0x00000001 (buffer empty)</p>
+<p><strong>CONTROL (Offset: 0x04)</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Bit</p></th>
+<th class="head"><p>Field</p></th>
+<th class="head"><p>R/W</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>ENABLE_EVENT_TRACING</p></td>
+<td><p>R/W</p></td>
+<td><p>Enable event tracing</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>ENABLE_BRANCH_TRACING</p></td>
+<td><p>R/W</p></td>
+<td><p>Enable branch divergence tracing</p></td>
+</tr>
+<tr class="row-even"><td><p>2</p></td>
+<td><p>ENABLE_TIMESTAMP_EVENT</p></td>
+<td><p>R/W</p></td>
+<td><p>Include timestamp in event packets</p></td>
+</tr>
+<tr class="row-odd"><td><p>3</p></td>
+<td><p>ENABLE_TIMESTAMP_BRANCH</p></td>
+<td><p>R/W</p></td>
+<td><p>Include timestamp in divergence packets</p></td>
+</tr>
+<tr class="row-even"><td><p>4</p></td>
+<td><p>ENABLE_TRIGGER</p></td>
+<td><p>R/W</p></td>
+<td><p>Enable PC trigger for branch tracing</p></td>
+</tr>
+<tr class="row-odd"><td><p>5</p></td>
+<td><p>CLEAR_TIMESTAMP</p></td>
+<td><p>W</p></td>
+<td><p>Clear timestamp counter (self-clearing)</p></td>
+</tr>
+<tr class="row-even"><td><p>6</p></td>
+<td><p>ENABLE_INT_FULL</p></td>
+<td><p>R/W</p></td>
+<td><p>Enable interrupt on buffer full</p></td>
+</tr>
+<tr class="row-odd"><td><p>7</p></td>
+<td><p>ENABLE_INT_EMPTY</p></td>
+<td><p>R/W</p></td>
+<td><p>Enable interrupt on buffer empty</p></td>
+</tr>
+<tr class="row-even"><td><p>31:8</p></td>
+<td><p>Reserved</p></td>
+<td><p>R</p></td>
+<td><p>Reserved (read as 0)</p></td>
+</tr>
+</tbody>
+</table>
+<p><em>Reset Value:</em> 0x00000000</p>
+<p><strong>EVENT_ENABLE (Offset: 0x08)</strong></p>
+<p>18-bit mask to enable specific events. Each bit corresponds to an event:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Bit</p></th>
+<th class="head"><p>Event</p></th>
+<th class="head"><p>R/W</p></th>
+<th class="head"><p>Event Number</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>INSTR_MISALIGNED</p></td>
+<td><p>R/W</p></td>
+<td><p>0</p></td>
+<td><p>Instruction address misaligned</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>INSTR_ACCESS_FAULT</p></td>
+<td><p>R/W</p></td>
+<td><p>1</p></td>
+<td><p>Instruction access fault</p></td>
+</tr>
+<tr class="row-even"><td><p>2</p></td>
+<td><p>INSTR_ILLEGAL</p></td>
+<td><p>R/W</p></td>
+<td><p>2</p></td>
+<td><p>Illegal instruction</p></td>
+</tr>
+<tr class="row-odd"><td><p>3</p></td>
+<td><p>BREAKPOINT</p></td>
+<td><p>R/W</p></td>
+<td><p>3</p></td>
+<td><p>Breakpoint exception</p></td>
+</tr>
+<tr class="row-even"><td><p>4</p></td>
+<td><p>LOAD_OPERATION</p></td>
+<td><p>R/W</p></td>
+<td><p>19</p></td>
+<td><p>Load operation executed</p></td>
+</tr>
+<tr class="row-odd"><td><p>5</p></td>
+<td><p>LOAD_MISALIGNED</p></td>
+<td><p>R/W</p></td>
+<td><p>4</p></td>
+<td><p>Load address misaligned</p></td>
+</tr>
+<tr class="row-even"><td><p>6</p></td>
+<td><p>LOAD_ACCESS_FAULT</p></td>
+<td><p>R/W</p></td>
+<td><p>5</p></td>
+<td><p>Load access fault</p></td>
+</tr>
+<tr class="row-odd"><td><p>7</p></td>
+<td><p>STORE_OPERATION</p></td>
+<td><p>R/W</p></td>
+<td><p>18</p></td>
+<td><p>Store operation executed</p></td>
+</tr>
+<tr class="row-even"><td><p>8</p></td>
+<td><p>STORE_MISALIGNED</p></td>
+<td><p>R/W</p></td>
+<td><p>6</p></td>
+<td><p>Store address misaligned</p></td>
+</tr>
+<tr class="row-odd"><td><p>9</p></td>
+<td><p>STORE_ACCESS_FAULT</p></td>
+<td><p>R/W</p></td>
+<td><p>7</p></td>
+<td><p>Store access fault</p></td>
+</tr>
+<tr class="row-even"><td><p>10</p></td>
+<td><p>U_SYSTEM_CALL</p></td>
+<td><p>R/W</p></td>
+<td><p>8</p></td>
+<td><p>User-mode system call (ecall)</p></td>
+</tr>
+<tr class="row-odd"><td><p>11</p></td>
+<td><p>M_SYSTEM_CALL</p></td>
+<td><p>R/W</p></td>
+<td><p>11</p></td>
+<td><p>Machine-mode system call (ecall)</p></td>
+</tr>
+<tr class="row-even"><td><p>12</p></td>
+<td><p>HANDLER_RETURN</p></td>
+<td><p>R/W</p></td>
+<td><p>17</p></td>
+<td><p>Interrupt handler return (mret)</p></td>
+</tr>
+<tr class="row-odd"><td><p>13</p></td>
+<td><p>SLEEP</p></td>
+<td><p>R/W</p></td>
+<td><p>16</p></td>
+<td><p>Core sleep (WFI)</p></td>
+</tr>
+<tr class="row-even"><td><p>14</p></td>
+<td><p>BRANCH</p></td>
+<td><p>R/W</p></td>
+<td><p>20</p></td>
+<td><p>Branch instruction executed</p></td>
+</tr>
+<tr class="row-odd"><td><p>15</p></td>
+<td><p>JUMP</p></td>
+<td><p>R/W</p></td>
+<td><p>21</p></td>
+<td><p>Jump instruction executed</p></td>
+</tr>
+<tr class="row-even"><td><p>16</p></td>
+<td><p>CSR</p></td>
+<td><p>R/W</p></td>
+<td><p>22</p></td>
+<td><p>CSR operation</p></td>
+</tr>
+<tr class="row-odd"><td><p>31:17</p></td>
+<td><p>Reserved</p></td>
+<td><p>R</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Reserved (read as 0)</p></td>
+</tr>
+</tbody>
+</table>
+<p><em>Reset Value:</em> 0x00000000</p>
+<p><strong>PC_TRIGGER (Offset: 0x0C)</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Bit</p></th>
+<th class="head"><p>Field</p></th>
+<th class="head"><p>R/W</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>31:0</p></td>
+<td><p>VALUE</p></td>
+<td><p>R/W</p></td>
+<td><p>Program Counter trigger value</p></td>
+</tr>
+</tbody>
+</table>
+<p><em>Reset Value:</em> 0x00000000</p>
+</section>
+</section>
+<section id="timing-characteristics">
+<h2>Timing Characteristics<a class="headerlink" href="#timing-characteristics" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Timestamp resolution</strong>: 1 clock cycle</p></li>
+<li><p><strong>Timestamp range</strong>: 0 to 16,777,215 cycles (24-bit)</p></li>
+<li><p><strong>Packet generation latency</strong>: 1 clock cycle</p></li>
+<li><p><strong>Serialization rate</strong>: Limited by UART TX speed</p></li>
+<li><p><strong>Buffer depth</strong>: Configurable (default 512 packets)</p></li>
+</ul>
+<p>For a 50 MHz clock:</p>
+<ul class="simple">
+<li><p><strong>Timestamp resolution</strong>: 20 ns</p></li>
+<li><p><strong>Timestamp overflow</strong>: ~335 ms</p></li>
+<li><p><strong>Max sustained event rate</strong>: Depends on UART baud rate</p></li>
+</ul>
+</section>
+<section id="integration-guidelines">
+<h2>Integration Guidelines<a class="headerlink" href="#integration-guidelines" title="Link to this heading"></a></h2>
+<section id="uart-connection">
+<h3>UART Connection<a class="headerlink" href="#uart-connection" title="Link to this heading"></a></h3>
+<p>The Trace Unit connects directly to the UART TX buffer. The <code class="docutils literal notranslate"><span class="pre">uart_tx_full_i</span></code> signal handles backpressure when UART cannot accept data.</p>
+</section>
+<section id="id1">
+<h3>Core Halting<a class="headerlink" href="#id1" title="Link to this heading"></a></h3>
+<p>When the buffer is full, <code class="docutils literal notranslate"><span class="pre">halt_core_o</span></code> stops the core to prevent packet loss. Ensure the core supports halting via this signal.</p>
+</section>
+<section id="buffer-sizing">
+<h3>Buffer Sizing<a class="headerlink" href="#buffer-sizing" title="Link to this heading"></a></h3>
+<p>Buffer size must be chosen based on:</p>
+<ul class="simple">
+<li><p>Expected event rate</p></li>
+<li><p>UART baud rate</p></li>
+<li><p>Core halting tolerance</p></li>
+</ul>
+<p>A larger buffer reduces core halt probability but increases latency and area.</p>
+</section>
+<section id="packet-parsing">
+<h3>Packet Parsing<a class="headerlink" href="#packet-parsing" title="Link to this heading"></a></h3>
+<p>Packets transmitted via UART must be parsed offline:</p>
+<ol class="arabic simple">
+<li><p>Identify SYNC byte (0xAA)</p></li>
+<li><p>Read packet type from 2 MSB bits of next byte</p></li>
+<li><p>Extract payload based on packet type and timestamp enable</p></li>
+<li><p>Reconstruct control flow from divergence packets</p></li>
+<li><p>Correlate events via timestamp</p></li>
+</ol>
+</section>
+</section>
+<section id="limitations">
+<h2>Limitations<a class="headerlink" href="#limitations" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>24-bit timestamp (overflow after ~335 ms at 50 MHz)</p></li>
+<li><p>Fixed buffer size at synthesis time</p></li>
+<li><p>No packet compression</p></li>
+<li><p>Single trace interface (only one core supported)</p></li>
+<li><p>Requires dedicated UART for trace output</p></li>
+<li><p>Core halting on buffer full may impact real-time timing</p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="prng.html" class="btn btn-neutral float-left" title="PRNG - Pseudo Random Number Generator" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../license.html" class="btn btn-neutral float-right" title="License" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Tripi Gabriele.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

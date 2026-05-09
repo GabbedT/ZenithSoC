@@ -1,0 +1,632 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Instruction Cache &mdash; ZenithSoC Documentation 04/05/2026 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6a8dd3d6"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Data Cache" href="data_cache.html" />
+    <link rel="prev" title="CPU Complex" href="cpu_complex.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            ZenithSoC Documentation
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">System Architecture</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="cpu_complex.html">CPU Complex</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Instruction Cache</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#features">Features</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#cache-organization">Cache Organization</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#cache-memory-structure">Cache Memory Structure</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#data-storage">Data Storage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#tag-comparison">Tag Comparison</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#fetch-controller-fsm">Fetch Controller FSM</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#states">States</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fsm-diagram">FSM Diagram</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#instruction-sequencer">Instruction Sequencer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#operation">Operation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#non-sequential-access">Non-Sequential Access</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#pipeline-integration">Pipeline Integration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fetch-interface">Fetch Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#memory-interface">Memory Interface</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#special-conditions">Special Conditions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#region-switching">Region Switching</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cache-conflicts">Cache Conflicts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pipeline-invalidation">Pipeline Invalidation</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#software-considerations">Software Considerations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="data_cache.html">Data Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../axi_bus.html">AXI Bus</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Audio Processing Unit (APU)</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../APU/apu.html">Audio Processing Unit (APU)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../APU/audio_capture_unit.html">Audio Capture Unit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../APU/audio_synthesis_unit.html">Audio Synthesis Unit (ASU)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">IO Devices</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/gpio.html">GPIO - General Purpose Input/Output</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/uart.html">UART - Universal Asynchronous Receiver/Transmitter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/spi.html">SPI - Serial Peripheral Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/timer.html">Timer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/ethernet.html">Ethernet MAC Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/sd.html">SD - Secure Digital Card Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/prng.html">PRNG - Pseudo Random Number Generator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/trace_unit.html">Trace Unit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Legal</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">ZenithSoC Documentation</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Instruction Cache</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/CPU Complex/instruction_cache.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="instruction-cache">
+<h1>Instruction Cache<a class="headerlink" href="#instruction-cache" title="Link to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The Instruction Cache provides low-latency instruction fetch from DDR memory to the ApogeoRV core. It implements a direct-mapped cache with configurable size and block dimensions, coupled with a fetch controller FSM that manages cache misses, memory refills, and instruction sequencing.</p>
+<p>The cache design prioritizes sequential instruction access patterns with an integrated instruction sequencer that buffers cache blocks, enabling single-cycle fetch throughput on cache hits and sequential access within blocks.</p>
+<section id="features">
+<h3>Features<a class="headerlink" href="#features" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p>Direct-mapped cache architecture</p></li>
+<li><p>Configurable cache size (default 4KB - 16KB)</p></li>
+<li><p>Configurable block size (default 16-32 bytes)</p></li>
+<li><p>Single-cycle hit latency</p></li>
+<li><p>Automatic cache line refill on miss</p></li>
+<li><p>Instruction sequencer for sequential access optimization</p></li>
+<li><p>Support for non-sequential jumps and branches</p></li>
+<li><p>Pipeline flush capability via invalidate signal</p></li>
+<li><p>Region switching support (ROM to DDR transitions)</p></li>
+<li><p>Conflict handling with data cache load requests</p></li>
+</ul>
+</section>
+</section>
+<section id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Link to this heading"></a></h2>
+<p>The Instruction Cache consists of three main components:</p>
+<ul class="simple">
+<li><p><strong>Instruction Cache Memory</strong>: Tag, valid bit, and data storage</p></li>
+<li><p><strong>Fetch Controller</strong>: FSM managing cache operations and memory refills</p></li>
+<li><p><strong>Instruction Sequencer</strong>: Buffers and delivers instructions sequentially</p></li>
+</ul>
+<section id="cache-organization">
+<h3>Cache Organization<a class="headerlink" href="#cache-organization" title="Link to this heading"></a></h3>
+<p><strong>Address Structure:</strong></p>
+<p>A 32-bit address is decomposed as follows:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Tag</p></th>
+<th class="head"><p>Index</p></th>
+<th class="head"><p>Offset</p></th>
+<th class="head"><p>Byte (00)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>[31:X]</p></td>
+<td><p>[X:Y]</p></td>
+<td><p>[Y:2]</p></td>
+<td><p>[1:0]</p></td>
+</tr>
+</tbody>
+</table>
+<p>Where:</p>
+<ul class="simple">
+<li><p><strong>Tag</strong>: Upper bits for cache line identification</p></li>
+<li><p><strong>Index</strong>: Selects cache line (log2(CACHE_SIZE / BLOCK_SIZE) bits)</p></li>
+<li><p><strong>Offset</strong>: Selects word within block (log2(BLOCK_SIZE / 4) bits)</p></li>
+<li><p><strong>Byte</strong>: Always 00 (word-aligned instructions)</p></li>
+</ul>
+<p><strong>Example (4KB cache, 16-byte blocks):</strong></p>
+<ul class="simple">
+<li><p>CACHE_SIZE = 4096 bytes</p></li>
+<li><p>BLOCK_SIZE = 16 bytes</p></li>
+<li><p>Number of blocks = 4096 / 16 = 256</p></li>
+<li><p>Words per block = 16 / 4 = 4</p></li>
+</ul>
+<p>Address breakdown:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Tag</p></th>
+<th class="head"><p>Index</p></th>
+<th class="head"><p>Offset</p></th>
+<th class="head"><p>Byte</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>[31:10]</p></td>
+<td><p>[9:4]</p></td>
+<td><p>[3:2]</p></td>
+<td><p>[1:0]</p></td>
+</tr>
+<tr class="row-odd"><td><p>22 bits</p></td>
+<td><p>6 bits</p></td>
+<td><p>2 bits</p></td>
+<td><p>2</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Memory Components:</strong></p>
+<ul class="simple">
+<li><p><strong>Data Memory</strong>: Stores instruction words (INDEX × BLOCK_WORDS × 32-bit)</p></li>
+<li><p><strong>Tag Memory</strong>: Stores address tags (INDEX × TAG bits)</p></li>
+<li><p><strong>Valid Memory</strong>: Single bit per cache line (INDEX × 1-bit)</p></li>
+</ul>
+</section>
+</section>
+<section id="cache-memory-structure">
+<h2>Cache Memory Structure<a class="headerlink" href="#cache-memory-structure" title="Link to this heading"></a></h2>
+<section id="data-storage">
+<h3>Data Storage<a class="headerlink" href="#data-storage" title="Link to this heading"></a></h3>
+<p>The cache data is organized in banks:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Cache Line 0: [Word 0][Word 1][Word 2][Word 3]
+Cache Line 1: [Word 0][Word 1][Word 2][Word 3]
+...
+Cache Line N: [Word 0][Word 1][Word 2][Word 3]
+</pre></div>
+</div>
+<p>Each cache line stores BLOCK_SIZE / 4 words (32-bit each).</p>
+<p><strong>Read Operation:</strong></p>
+<ol class="arabic simple">
+<li><p>Use INDEX to select cache line</p></li>
+<li><p>Read entire cache line (all words in parallel)</p></li>
+<li><p>Tag comparison in next cycle</p></li>
+<li><p>Output entire bundle on hit</p></li>
+</ol>
+<p><strong>Write Operation:</strong></p>
+<ol class="arabic simple">
+<li><p>Use INDEX to select cache line</p></li>
+<li><p>Write entire block (all words)</p></li>
+<li><p>Update tag and valid bit</p></li>
+<li><p>Single-cycle write operation</p></li>
+</ol>
+</section>
+<section id="tag-comparison">
+<h3>Tag Comparison<a class="headerlink" href="#tag-comparison" title="Link to this heading"></a></h3>
+<p>The cache performs tag comparison to determine hit/miss:</p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="n">hit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">stored_tag</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">requested_tag</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="n">valid_bit</span>
+</pre></div>
+</div>
+<p><strong>Timing:</strong></p>
+<ul class="simple">
+<li><p>Cycle 0: Issue read with address</p></li>
+<li><p>Cycle 1: Tag/data read from memory</p></li>
+<li><p>Cycle 2: Tag comparison completes, hit signal valid</p></li>
+</ul>
+<p>This introduces 1 cycle of latency from request to hit determination.</p>
+</section>
+</section>
+<section id="fetch-controller-fsm">
+<h2>Fetch Controller FSM<a class="headerlink" href="#fetch-controller-fsm" title="Link to this heading"></a></h2>
+<p>The fetch controller implements a 6-state FSM managing cache operations:</p>
+<section id="states">
+<h3>States<a class="headerlink" href="#states" title="Link to this heading"></a></h3>
+<p><strong>IDLE</strong></p>
+<ul class="simple">
+<li><p>Waiting for fetch request from CPU</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">stall_fetch_o</span></code> deasserted (CPU can fetch)</p></li>
+<li><p>On <code class="docutils literal notranslate"><span class="pre">fetch_i</span></code> assertion:</p>
+<ul>
+<li><p>Issue cache read with <code class="docutils literal notranslate"><span class="pre">program_counter_i</span></code></p></li>
+<li><p>Transition to OUTCOME</p></li>
+<li><p>Assert <code class="docutils literal notranslate"><span class="pre">stall_fetch_o</span></code></p></li>
+</ul>
+</li>
+</ul>
+<p><strong>OUTCOME</strong></p>
+<ul class="simple">
+<li><p>Wait for cache hit/miss determination</p></li>
+<li><p>On cache hit:</p>
+<ul>
+<li><p>Output <code class="docutils literal notranslate"><span class="pre">cache_instruction_i</span></code> bundle</p></li>
+<li><p>Assert <code class="docutils literal notranslate"><span class="pre">valid_o</span></code></p></li>
+<li><p>Return to IDLE</p></li>
+<li><p>Deassert <code class="docutils literal notranslate"><span class="pre">stall_fetch_o</span></code></p></li>
+</ul>
+</li>
+<li><p>On cache miss:</p>
+<ul>
+<li><p>Check for conflicts (D-cache using memory bus)</p></li>
+<li><p>Check for invalidation (pipeline flush)</p></li>
+<li><p>If clear: Issue first memory load request</p></li>
+<li><p>Transition to ALLOCATION_REQ</p></li>
+<li><p>Initialize <code class="docutils literal notranslate"><span class="pre">word_counter</span></code> to 1</p></li>
+</ul>
+</li>
+</ul>
+<p><strong>ALLOCATION_REQ</strong></p>
+<ul class="simple">
+<li><p>Issue sequential memory load requests to fetch cache block</p></li>
+<li><p>Requests issued for each word in block</p></li>
+<li><p>Address incremented: <code class="docutils literal notranslate"><span class="pre">{tag,</span> <span class="pre">index,</span> <span class="pre">word_counter,</span> <span class="pre">2'b0}</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">word_counter</span></code> increments each cycle</p></li>
+<li><p>When all requests issued (<code class="docutils literal notranslate"><span class="pre">word_counter[OFFSET]</span></code> set):</p>
+<ul>
+<li><p>Transition to WAIT_BUNDLE</p></li>
+<li><p>Reset <code class="docutils literal notranslate"><span class="pre">word_counter</span></code></p></li>
+</ul>
+</li>
+</ul>
+<p><strong>WAIT_BUNDLE</strong></p>
+<ul class="simple">
+<li><p>Wait for memory controller to return data</p></li>
+<li><p>On each <code class="docutils literal notranslate"><span class="pre">load_channel.valid</span></code>:</p>
+<ul>
+<li><p>Shift data into <code class="docutils literal notranslate"><span class="pre">instruction_bundle</span></code></p></li>
+<li><p>Increment <code class="docutils literal notranslate"><span class="pre">word_counter</span></code></p></li>
+</ul>
+</li>
+<li><p>When all words received (<code class="docutils literal notranslate"><span class="pre">word_counter[OFFSET]</span></code> set):</p>
+<ul>
+<li><p>Check for invalidation</p></li>
+<li><p>If valid: Transition to ALLOCATE</p></li>
+<li><p>If invalidated: Return to IDLE, discard data</p></li>
+</ul>
+</li>
+</ul>
+<p><strong>ALLOCATE</strong></p>
+<ul class="simple">
+<li><p>Write fetched bundle to cache</p></li>
+<li><p>Assert <code class="docutils literal notranslate"><span class="pre">cache_write_o</span></code> with full bundle</p></li>
+<li><p>Update tag and valid bit</p></li>
+<li><p>Output bundle to sequencer</p></li>
+<li><p>Assert <code class="docutils literal notranslate"><span class="pre">valid_o</span></code></p></li>
+<li><p>Return to IDLE</p></li>
+</ul>
+</section>
+<section id="fsm-diagram">
+<h3>FSM Diagram<a class="headerlink" href="#fsm-diagram" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>IDLE
+ │
+ │ fetch_i
+ ▼
+OUTCOME
+ │
+ ├─ hit ────────────────────────► IDLE
+ │
+ └─ miss ──► ALLOCATION_REQ
+                  │
+                  │ all requests sent
+                  ▼
+             WAIT_BUNDLE
+                  │
+                  │ all data received
+                  ▼
+             ALLOCATE ──────────────► IDLE
+</pre></div>
+</div>
+</section>
+</section>
+<section id="instruction-sequencer">
+<h2>Instruction Sequencer<a class="headerlink" href="#instruction-sequencer" title="Link to this heading"></a></h2>
+<p>The sequencer optimizes sequential instruction fetch by buffering cache blocks and serving instructions without additional cache accesses.</p>
+<section id="operation">
+<h3>Operation<a class="headerlink" href="#operation" title="Link to this heading"></a></h3>
+<p><strong>Buffering:</strong></p>
+<p>When a cache bundle arrives:</p>
+<ol class="arabic simple">
+<li><p>Identify requested word using <code class="docutils literal notranslate"><span class="pre">block_index</span></code> (PC offset bits)</p></li>
+<li><p>Load bundle into shift register</p></li>
+<li><p>Shift to align first instruction at position 0</p></li>
+<li><p>Store remaining instructions for sequential access</p></li>
+</ol>
+<p><strong>Sequential Access:</strong></p>
+<p>On each fetch:</p>
+<ol class="arabic simple">
+<li><p>Check if next PC is sequential (PC + 4)</p></li>
+<li><p>If sequential and sequencer not empty:</p>
+<ul class="simple">
+<li><p>Return instruction from sequencer[0]</p></li>
+<li><p>Shift sequencer right by one word</p></li>
+<li><p>Decrement <code class="docutils literal notranslate"><span class="pre">sequencer_size</span></code></p></li>
+<li><p>No cache access required</p></li>
+</ul>
+</li>
+<li><p>If non-sequential or sequencer empty:</p>
+<ul class="simple">
+<li><p>Request new bundle from cache/controller</p></li>
+<li><p>Set <code class="docutils literal notranslate"><span class="pre">request_bundle</span></code> flag</p></li>
+</ul>
+</li>
+</ol>
+<p><strong>Sequencer Size Tracking:</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">sequencer_size</span></code> tracks available instructions:</p>
+<ul class="simple">
+<li><p>On bundle arrival: <code class="docutils literal notranslate"><span class="pre">size</span> <span class="pre">=</span> <span class="pre">(BLOCK_WORDS</span> <span class="pre">-</span> <span class="pre">1)</span> <span class="pre">-</span> <span class="pre">block_index</span></code></p></li>
+<li><p>On fetch: <code class="docutils literal notranslate"><span class="pre">size</span> <span class="pre">=</span> <span class="pre">size</span> <span class="pre">-</span> <span class="pre">1</span></code></p></li>
+<li><p>On new bundle request: <code class="docutils literal notranslate"><span class="pre">size</span> <span class="pre">=</span> <span class="pre">0</span></code></p></li>
+</ul>
+<p><strong>Example (4-word block):</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Bundle arrives: [I0][I1][I2][I3], PC points to I1
+
+block_index = 1
+sequencer_size = (4 - 1) - 1 = 2
+sequencer = [I2][I3][--][--]
+
+Next fetch (PC+4):
+  output = sequencer[0] = I2
+  sequencer = [I3][--][--][--]
+  sequencer_size = 1
+
+Next fetch (PC+8):
+  output = sequencer[0] = I3
+  sequencer = [--][--][--][--]
+  sequencer_size = 0
+
+Next fetch (PC+12):
+  sequencer_size = 0, request new bundle
+</pre></div>
+</div>
+</section>
+<section id="non-sequential-access">
+<h3>Non-Sequential Access<a class="headerlink" href="#non-sequential-access" title="Link to this heading"></a></h3>
+<p>On branch/jump (non-sequential PC):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">request_bundle</span></code> asserted</p></li>
+<li><p>Sequencer flushed (size = 0)</p></li>
+<li><p>New bundle requested from cache</p></li>
+<li><p>Higher latency (cache access required)</p></li>
+</ul>
+<p>This design optimizes for common case (sequential) while supporting control flow changes.</p>
+</section>
+</section>
+<section id="pipeline-integration">
+<h2>Pipeline Integration<a class="headerlink" href="#pipeline-integration" title="Link to this heading"></a></h2>
+<section id="fetch-interface">
+<h3>Fetch Interface<a class="headerlink" href="#fetch-interface" title="Link to this heading"></a></h3>
+<p><strong>Signals:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">fetch_channel.fetch</span></code>: CPU requests instruction</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fetch_channel.address[31:0]</span></code>: Program counter</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fetch_channel.instruction[31:0]</span></code>: Returned instruction</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fetch_channel.valid</span></code>: Instruction valid</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fetch_channel.stall</span></code>: Stall CPU (cache miss)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fetch_channel.invalidate</span></code>: Flush pipeline (branch mispredict)</p></li>
+</ul>
+<p><strong>Timing Diagram (Cache Hit):</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Cycle:     0    1    2    3    4
+           │    │    │    │    │
+fetch:     ──┐  ┌─────────┐  ┌──
+           __│__│_________│__│__
+address:   A0   A1        A2
+stall:     ──┐  └──┐  ┌───────
+           __│_____│__│_______
+valid:     ──────┐  └──┐  ┌───
+           ______│_____│__│___
+instruction:     I0       I1
+</pre></div>
+</div>
+<p>Hit latency = 0 cycles (instruction available same cycle as fetch for sequential access via sequencer)</p>
+<p><strong>Timing Diagram (Cache Miss):</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Cycle:     0    1    2    ...  N    N+1
+           │    │    │          │    │
+fetch:     ──┐  └─────────────────────
+           __│_______________________
+address:   A0
+stall:     ──┐  ┌─────────────┐  └───
+           __│__│_____________│______
+valid:     ──────────────────┐  └────
+           __________________│_______
+instruction:                 I0
+</pre></div>
+</div>
+<p>Miss latency = N cycles (depends on DDR latency, typically 20-100 cycles)</p>
+</section>
+<section id="memory-interface">
+<h3>Memory Interface<a class="headerlink" href="#memory-interface" title="Link to this heading"></a></h3>
+<p><strong>Load Channel Signals:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">load_channel.request</span></code>: Request memory read</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_channel.address[31:0]</span></code>: Word address</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_channel.data[31:0]</span></code>: Returned data</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_channel.valid</span></code>: Data valid</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">load_channel.invalidate</span></code>: Cancel pending requests</p></li>
+</ul>
+<p><strong>Burst Read Sequence:</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>4-word block refill (16 bytes):
+
+request:   ─┐  ┌┐  ┌┐  ┌┐  └─────────
+address:   A0  A1  A2  A3
+valid:     ────────────────┐  ┌┐  ┌┐  ┌
+data:                      D0  D1  D2  D3
+</pre></div>
+</div>
+<p>The controller issues all requests first, then waits for responses. This allows the memory controller to optimize DDR burst access.</p>
+</section>
+</section>
+<section id="special-conditions">
+<h2>Special Conditions<a class="headerlink" href="#special-conditions" title="Link to this heading"></a></h2>
+<section id="region-switching">
+<h3>Region Switching<a class="headerlink" href="#region-switching" title="Link to this heading"></a></h3>
+<p>When transitioning from ROM to DDR (bootloader to main program):</p>
+<ul class="simple">
+<li><p>CPU Complex asserts <code class="docutils literal notranslate"><span class="pre">region_switch_i</span></code></p></li>
+<li><p>Fetch controller delays IDLE state entry</p></li>
+<li><p>Prevents false cache access to ROM address range</p></li>
+<li><p>Ensures clean transition between memory regions</p></li>
+</ul>
+<p><strong>Behavior:</strong></p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">invalidate_i</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">region_switch_i</span><span class="p">)</span><span class="w"> </span><span class="k">begin</span>
+<span class="w">    </span><span class="n">invalidate_pending</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mb">1&#39;b1</span><span class="p">;</span>
+<span class="k">end</span>
+</pre></div>
+</div>
+<p>Region switch invalidation is not pending, allowing immediate IDLE entry.</p>
+</section>
+<section id="cache-conflicts">
+<h3>Cache Conflicts<a class="headerlink" href="#cache-conflicts" title="Link to this heading"></a></h3>
+<p>When D-cache requests DDR access during I-cache refill:</p>
+<ul class="simple">
+<li><p>CPU Complex asserts <code class="docutils literal notranslate"><span class="pre">conflict_i</span></code></p></li>
+<li><p>Fetch controller defers memory requests</p></li>
+<li><p>D-cache given priority (data dependencies more critical)</p></li>
+<li><p>I-cache resumes when conflict clears</p></li>
+</ul>
+<p><strong>FSM Handling:</strong></p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="nl">OUTCOME:</span><span class="w"> </span><span class="k">begin</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="o">!</span><span class="n">cache_hit_i</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">!</span><span class="n">conflict_i</span><span class="p">)</span><span class="w"> </span><span class="k">begin</span>
+<span class="w">        </span><span class="n">load_channel</span><span class="p">.</span><span class="n">request</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mb">1&#39;b1</span><span class="p">;</span>
+<span class="w">    </span><span class="k">end</span>
+<span class="k">end</span>
+</pre></div>
+</div>
+</section>
+<section id="pipeline-invalidation">
+<h3>Pipeline Invalidation<a class="headerlink" href="#pipeline-invalidation" title="Link to this heading"></a></h3>
+<p>On branch misprediction or exception:</p>
+<ul class="simple">
+<li><p>CPU asserts <code class="docutils literal notranslate"><span class="pre">invalidate_i</span></code></p></li>
+<li><p>Fetch controller:</p>
+<ul>
+<li><p>Aborts ongoing memory requests</p></li>
+<li><p>Discards fetched but not yet allocated data</p></li>
+<li><p>Returns to IDLE</p></li>
+<li><p>Clears sequencer</p></li>
+</ul>
+</li>
+<li><p>Prevents invalid instructions from entering pipeline</p></li>
+</ul>
+<p><strong>Invalidation Handling:</strong></p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">invalidate_i</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">state_CRT</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">IDLE</span><span class="p">))</span><span class="w"> </span><span class="k">begin</span>
+<span class="w">    </span><span class="n">invalidate_pending</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="mb">1&#39;b1</span><span class="p">;</span>
+<span class="k">end</span>
+
+<span class="c1">// In WAIT_BUNDLE state:</span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">invalidate_i</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">invalidate_pending</span><span class="p">)</span><span class="w"> </span><span class="k">begin</span>
+<span class="w">    </span><span class="n">state_NXT</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IDLE</span><span class="p">;</span><span class="w">  </span><span class="c1">// Discard bundle</span>
+<span class="k">end</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="software-considerations">
+<h2>Software Considerations<a class="headerlink" href="#software-considerations" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><strong>Code Layout:</strong></p>
+<ul class="simple">
+<li><p>Align frequently executed loops to cache block boundaries</p></li>
+<li><p>Group related functions to improve spatial locality</p></li>
+<li><p>Minimize instruction cache working set</p></li>
+</ul>
+</li>
+<li><p><strong>Branch Optimization:</strong></p>
+<ul class="simple">
+<li><p>Use static branch prediction hints</p></li>
+<li><p>Reduce branch frequency in hot paths</p></li>
+<li><p>Inline small functions</p></li>
+</ul>
+</li>
+<li><p><strong>Cache Warming:</strong></p>
+<ul class="simple">
+<li><p>Pre-load critical code into cache before use</p></li>
+<li><p>Consider explicit prefetch mechanisms for predictable access patterns</p></li>
+</ul>
+</li>
+</ol>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="cpu_complex.html" class="btn btn-neutral float-left" title="CPU Complex" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="data_cache.html" class="btn btn-neutral float-right" title="Data Cache" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Tripi Gabriele.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

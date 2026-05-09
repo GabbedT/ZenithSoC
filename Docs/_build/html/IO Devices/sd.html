@@ -1,0 +1,886 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SD - Secure Digital Card Controller &mdash; ZenithSoC Documentation 04/05/2026 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6a8dd3d6"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="PRNG - Pseudo Random Number Generator" href="prng.html" />
+    <link rel="prev" title="Ethernet MAC Controller" href="ethernet.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            ZenithSoC Documentation
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">System Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../CPU%20Complex/cpu_complex.html">CPU Complex</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../CPU%20Complex/instruction_cache.html">Instruction Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../CPU%20Complex/data_cache.html">Data Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../axi_bus.html">AXI Bus</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Audio Processing Unit (APU)</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../APU/apu.html">Audio Processing Unit (APU)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../APU/audio_capture_unit.html">Audio Capture Unit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../APU/audio_synthesis_unit.html">Audio Synthesis Unit (ASU)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">IO Devices</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="gpio.html">GPIO - General Purpose Input/Output</a></li>
+<li class="toctree-l1"><a class="reference internal" href="uart.html">UART - Universal Asynchronous Receiver/Transmitter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spi.html">SPI - Serial Peripheral Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="timer.html">Timer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ethernet.html">Ethernet MAC Controller</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">SD - Secure Digital Card Controller</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#key-features">Key Features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#block-diagram">Block Diagram</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#signal-description">Signal Description</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#functional-description">Functional Description</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#sd-protocol-basics">SD Protocol Basics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#card-initialization-sequence">Card Initialization Sequence</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#command-operation">Command Operation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-transfer-operation">Data Transfer Operation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#clock-generation">Clock Generation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#bus-width-configuration">Bus Width Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#hardware-crc">Hardware CRC</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#interrupt-system">Interrupt System</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#command-fsm-description">Command FSM Description</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#data-fsm-description">Data FSM Description</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#register-map">Register Map</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#base-address">Base Address</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#register-summary">Register Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#register-descriptions">Register Descriptions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#ctrl-register-0x00">CTRL Register (0x00)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#status-register-0x04-read-only">STATUS Register (0x04, Read Only)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cmd-number-register-0x08">CMD_NUMBER Register (0x08)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cmd-argument-register-0x0c">CMD_ARGUMENT Register (0x0C)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#event-register-0x10">EVENT Register (0x10)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cmd-response-register-0x14-read-only">CMD_RESPONSE Register (0x14, Read Only)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-tx-buffer-register-0x18-write-only">DATA_TX_BUFFER Register (0x18, Write Only)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-rx-buffer-register-0x1c-read-only">DATA_RX_BUFFER Register (0x1C, Read Only)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#revision-history">Revision History</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="prng.html">PRNG - Pseudo Random Number Generator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="trace_unit.html">Trace Unit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Legal</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">ZenithSoC Documentation</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">SD - Secure Digital Card Controller</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/IO Devices/sd.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="sd-secure-digital-card-controller">
+<h1>SD - Secure Digital Card Controller<a class="headerlink" href="#sd-secure-digital-card-controller" title="Link to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The Secure Digital (SD) Card Controller provides a hardware interface for accessing SD/SDHC/SDXC memory cards using the SD protocol. The controller implements the command and data paths required for card initialization, configuration, and data transfer operations in compliance with the SD Card Physical Layer Specification.</p>
+<p>The ZenithSoC SD implementation features independent command and data controllers with hardware CRC generation/verification, configurable bus width, dual clock speed support, and FIFO-buffered data paths for efficient block transfers.</p>
+</section>
+<section id="key-features">
+<h2>Key Features<a class="headerlink" href="#key-features" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>SD Protocol Compliance</strong>: Physical layer compatible with SD 2.0+ specifications</p></li>
+<li><p><strong>Bus Width</strong>: 1-bit or 4-bit data bus (configurable)</p></li>
+<li><p><strong>Dual Clock Speed</strong>: 400 kHz (initialization) and 25 MHz (high-speed transfer)</p></li>
+<li><p><strong>Hardware CRC</strong>: Automatic CRC7 (command) and CRC16 (data) generation/verification</p></li>
+<li><p><strong>Buffered Data Path</strong>: Independent TX/RX FIFOs for block data</p></li>
+<li><p><strong>Command/Response</strong>: Full command set support with 48-bit and 136-bit responses</p></li>
+<li><p><strong>Burst Transfer</strong>: Multi-block read/write operations</p></li>
+<li><p><strong>Card Detection</strong>: Hardware card detect input</p></li>
+<li><p><strong>Interrupt System</strong>: Nine interrupt sources for event notification</p></li>
+<li><p><strong>Error Detection</strong>: Timeout and CRC error detection</p></li>
+</ul>
+</section>
+<section id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Link to this heading"></a></h2>
+<section id="block-diagram">
+<h3>Block Diagram<a class="headerlink" href="#block-diagram" title="Link to this heading"></a></h3>
+<p>The SD controller consists of the following main components:</p>
+<ul class="simple">
+<li><p><strong>Register Bank</strong>: Control, status, command, and data registers</p></li>
+<li><p><strong>Command Controller</strong>: CMD line protocol, CRC7 engine, response capture</p></li>
+<li><p><strong>Data Controller</strong>: 1/4-bit data path, CRC16 engines, token handling</p></li>
+<li><p><strong>Clock Generator</strong>: Programmable divider for 400kHz/25MHz operation</p></li>
+<li><p><strong>Reset Controller</strong>: Card power-on reset generation</p></li>
+<li><p><strong>TX/RX Buffers</strong>: FIFOs for command response and data blocks</p></li>
+<li><p><strong>Interrupt Controller</strong>: Edge-triggered interrupt generation</p></li>
+</ul>
+</section>
+<section id="signal-description">
+<h3>Signal Description<a class="headerlink" href="#signal-description" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Signal Name</p></th>
+<th class="head"><p>Direction</p></th>
+<th class="head"><p>Width</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Global</strong></p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">clk_i</span></code></p></td>
+<td><p>Input</p></td>
+<td><p>1</p></td>
+<td><p>System clock (100MHz typical)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rst_n_i</span></code></p></td>
+<td><p>Input</p></td>
+<td><p>1</p></td>
+<td><p>Active-low asynchronous reset</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">interrupt_o</span></code></p></td>
+<td><p>Output</p></td>
+<td><p>1</p></td>
+<td><p>Interrupt request</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>SD Card Interface</strong></p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sd_clk_o</span></code></p></td>
+<td><p>Output</p></td>
+<td><p>1</p></td>
+<td><p>SD clock (400kHz or 25MHz)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sd_cmd_io</span></code></p></td>
+<td><p>Inout</p></td>
+<td><p>1</p></td>
+<td><p>Command/response bidirectional line</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sd_data_io[3:0]</span></code></p></td>
+<td><p>Inout</p></td>
+<td><p>4</p></td>
+<td><p>Data lines (DAT0-DAT3)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sd_cd_n_i</span></code></p></td>
+<td><p>Input</p></td>
+<td><p>1</p></td>
+<td><p>Card detect (active low)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sd_reset_n_o</span></code></p></td>
+<td><p>Output</p></td>
+<td><p>1</p></td>
+<td><p>Card reset (active low)</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>AXI Write Interface</strong></p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">write_i</span></code></p></td>
+<td><p>Input</p></td>
+<td><p>1</p></td>
+<td><p>Write enable</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">write_address_i[2:0]</span></code></p></td>
+<td><p>Input</p></td>
+<td><p>3</p></td>
+<td><p>Register address</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">write_data_i[31:0]</span></code></p></td>
+<td><p>Input</p></td>
+<td><p>32</p></td>
+<td><p>Write data</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">write_strobe_i[3:0]</span></code></p></td>
+<td><p>Input</p></td>
+<td><p>4</p></td>
+<td><p>Byte write enable mask</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">write_done_o</span></code></p></td>
+<td><p>Output</p></td>
+<td><p>1</p></td>
+<td><p>Write acknowledge</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">write_error_o</span></code></p></td>
+<td><p>Output</p></td>
+<td><p>1</p></td>
+<td><p>Write error (invalid operation)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>AXI Read Interface</strong></p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">read_i</span></code></p></td>
+<td><p>Input</p></td>
+<td><p>1</p></td>
+<td><p>Read enable</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">read_address_i[2:0]</span></code></p></td>
+<td><p>Input</p></td>
+<td><p>3</p></td>
+<td><p>Register address</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">read_data_o[31:0]</span></code></p></td>
+<td><p>Output</p></td>
+<td><p>32</p></td>
+<td><p>Read data</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">read_done_o</span></code></p></td>
+<td><p>Output</p></td>
+<td><p>1</p></td>
+<td><p>Read acknowledge</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">read_error_o</span></code></p></td>
+<td><p>Output</p></td>
+<td><p>1</p></td>
+<td><p>Read error (invalid operation)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="functional-description">
+<h2>Functional Description<a class="headerlink" href="#functional-description" title="Link to this heading"></a></h2>
+<section id="sd-protocol-basics">
+<h3>SD Protocol Basics<a class="headerlink" href="#sd-protocol-basics" title="Link to this heading"></a></h3>
+<p>The SD card interface uses a command-response-data protocol:</p>
+<dl class="simple">
+<dt><strong>Command Line (CMD)</strong>:</dt><dd><ul class="simple">
+<li><p>Bidirectional serial line</p></li>
+<li><p>Master (host) sends commands</p></li>
+<li><p>Slave (card) sends responses</p></li>
+<li><p>Protected by CRC7</p></li>
+</ul>
+</dd>
+<dt><strong>Data Lines (DAT0-DAT3)</strong>:</dt><dd><ul class="simple">
+<li><p>Bidirectional parallel data</p></li>
+<li><p>1-bit mode: DAT0 only</p></li>
+<li><p>4-bit mode: DAT0-DAT3 parallel</p></li>
+<li><p>Protected by CRC16 per line</p></li>
+</ul>
+</dd>
+<dt><strong>Clock Line (CLK)</strong>:</dt><dd><ul class="simple">
+<li><p>Unidirectional from host</p></li>
+<li><p>400 kHz during initialization</p></li>
+<li><p>25 MHz during data transfer</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="card-initialization-sequence">
+<h3>Card Initialization Sequence<a class="headerlink" href="#card-initialization-sequence" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p><strong>Card Detection</strong>: Monitor <code class="docutils literal notranslate"><span class="pre">sd_cd_n_i</span></code> signal</p></li>
+<li><p><strong>Power-On Reset</strong>: Assert <code class="docutils literal notranslate"><span class="pre">sd_reset_n_o</span></code> for ~1ms</p></li>
+<li><p><strong>Clock Setup</strong>: Start with 400 kHz clock</p></li>
+<li><p><strong>CMD0</strong> (GO_IDLE_STATE): Reset card to idle state</p></li>
+<li><p><strong>CMD8</strong> (SEND_IF_COND): Check voltage and card version</p></li>
+<li><p><strong>ACMD41</strong> (SD_SEND_OP_COND): Initialize card, get OCR</p></li>
+<li><p><strong>CMD2</strong> (ALL_SEND_CID): Get Card Identification</p></li>
+<li><p><strong>CMD3</strong> (SEND_RELATIVE_ADDR): Get Relative Card Address (RCA)</p></li>
+<li><p><strong>CMD7</strong> (SELECT_CARD): Select card for data transfer</p></li>
+<li><p><strong>ACMD6</strong> (SET_BUS_WIDTH): Configure 4-bit mode (optional)</p></li>
+<li><p><strong>Clock Switch</strong>: Increase to 25 MHz for high-speed operation</p></li>
+</ol>
+</section>
+<section id="command-operation">
+<h3>Command Operation<a class="headerlink" href="#command-operation" title="Link to this heading"></a></h3>
+<p><strong>Command Structure</strong> (48 bits):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>[47:46] Start bits (01)
+[45:40] Command index (CMD0-CMD63)
+[39:8]  Argument (32 bits)
+[7:1]   CRC7 checksum
+[0]     End bit (1)
+</pre></div>
+</div>
+<p><strong>Response Types</strong>:</p>
+<ul class="simple">
+<li><p><strong>R1 (48-bit)</strong>: Normal response with card status</p></li>
+<li><p><strong>R2 (136-bit)</strong>: CID/CSD register contents</p></li>
+<li><p><strong>R3 (48-bit)</strong>: OCR register (no CRC)</p></li>
+<li><p><strong>R6 (48-bit)</strong>: Published RCA response</p></li>
+<li><p><strong>R7 (48-bit)</strong>: Card interface condition</p></li>
+</ul>
+<p><strong>Command Flow</strong>:</p>
+<ol class="arabic simple">
+<li><p>Software writes command number and argument to registers</p></li>
+<li><p>Software triggers command transmission via control register</p></li>
+<li><p>Command controller shifts out command on CMD line</p></li>
+<li><p>Card responds after N cycles (card-dependent)</p></li>
+<li><p>Response captured and stored in response FIFO</p></li>
+<li><p>Interrupt generated on completion, timeout, or CRC error</p></li>
+</ol>
+</section>
+<section id="data-transfer-operation">
+<h3>Data Transfer Operation<a class="headerlink" href="#data-transfer-operation" title="Link to this heading"></a></h3>
+<p><strong>Block Read</strong>:</p>
+<ol class="arabic simple">
+<li><p>Send CMD17 (READ_SINGLE_BLOCK) or CMD18 (READ_MULTIPLE_BLOCK)</p></li>
+<li><p>Card sends start token (0xFE for single, 0xFC for multiple)</p></li>
+<li><p>Card sends data block (512 bytes typical)</p></li>
+<li><p>Card sends CRC16 (16 bits per data line)</p></li>
+<li><p>Data written to RX FIFO</p></li>
+<li><p>For multi-block: repeat until CMD12 (STOP_TRANSMISSION)</p></li>
+</ol>
+<p><strong>Block Write</strong>:</p>
+<ol class="arabic simple">
+<li><p>Send CMD24 (WRITE_BLOCK) or CMD25 (WRITE_MULTIPLE_BLOCK)</p></li>
+<li><p>Host sends start token</p></li>
+<li><p>Host sends data from TX FIFO (512 bytes)</p></li>
+<li><p>Host sends CRC16</p></li>
+<li><p>Card responds with data response token</p></li>
+<li><p>Card signals busy by holding DAT0 low</p></li>
+<li><p>For multi-block: repeat until CMD12</p></li>
+</ol>
+<dl class="simple">
+<dt><strong>Data Tokens</strong>:</dt><dd><ul class="simple">
+<li><p>0xFE: Single block read start</p></li>
+<li><p>0xFC: Multiple block read start</p></li>
+<li><p>0xFD: Multiple block write start</p></li>
+<li><p>0xE5: Data accepted</p></li>
+<li><p>0xEB: Data rejected (CRC error)</p></li>
+<li><p>0xED: Data rejected (write error)</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="clock-generation">
+<h3>Clock Generation<a class="headerlink" href="#clock-generation" title="Link to this heading"></a></h3>
+<p>The SD clock is derived from the system clock:</p>
+<p><strong>400 kHz Clock</strong> (initialization):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Divisor = 125 (for 100MHz system clock)
+SD_CLK = 100MHz / (125 × 2) = 400 kHz
+</pre></div>
+</div>
+<p><strong>25 MHz Clock</strong> (data transfer):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Divisor = 2 (for 100MHz system clock)
+SD_CLK = 100MHz / (2 × 2) = 25 MHz
+</pre></div>
+</div>
+<dl class="simple">
+<dt><strong>Clock Control</strong>:</dt><dd><ul class="simple">
+<li><p>50% duty cycle</p></li>
+<li><p>Configurable via control register</p></li>
+<li><p>Shift and sample edges generated internally</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="bus-width-configuration">
+<h3>Bus Width Configuration<a class="headerlink" href="#bus-width-configuration" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt><strong>1-bit Mode</strong>:</dt><dd><ul class="simple">
+<li><p>Only DAT0 used</p></li>
+<li><p>Sequential bit transfer</p></li>
+<li><p>Compatible with all SD cards</p></li>
+<li><p>Slower transfer rate</p></li>
+</ul>
+</dd>
+<dt><strong>4-bit Mode</strong>:</dt><dd><ul class="simple">
+<li><p>DAT0-DAT3 used in parallel</p></li>
+<li><p>4× throughput vs 1-bit mode</p></li>
+<li><p>Requires card support and ACMD6 configuration</p></li>
+<li><p>CRC16 computed independently per line</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="hardware-crc">
+<h3>Hardware CRC<a class="headerlink" href="#hardware-crc" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt><strong>CRC7 (Command/Response)</strong>:</dt><dd><ul class="simple">
+<li><p>Polynomial: x^7 + x^3 + 1 (0x89)</p></li>
+<li><p>Protects command and response integrity</p></li>
+<li><p>Automatic generation on TX, verification on RX</p></li>
+</ul>
+</dd>
+<dt><strong>CRC16 (Data)</strong>:</dt><dd><ul class="simple">
+<li><p>Polynomial: x^16 + x^12 + x^5 + 1 (0x1021)</p></li>
+<li><p>Independent CRC per data line (4 CRCs in 4-bit mode)</p></li>
+<li><p>Automatic generation on TX, verification on RX</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="interrupt-system">
+<h3>Interrupt System<a class="headerlink" href="#interrupt-system" title="Link to this heading"></a></h3>
+<p>Nine interrupt sources (edge-triggered):</p>
+<ol class="arabic simple">
+<li><p><strong>Card Detected</strong>: Card insertion detected</p></li>
+<li><p><strong>TX Buffer Empty</strong>: TX FIFO empty (ready for more data)</p></li>
+<li><p><strong>RX Buffer Full</strong>: RX FIFO full (read data promptly)</p></li>
+<li><p><strong>Command Done</strong>: Command/response completed successfully</p></li>
+<li><p><strong>Command CRC Error</strong>: Response CRC mismatch</p></li>
+<li><p><strong>Command Timeout</strong>: No response received</p></li>
+<li><p><strong>Data Done</strong>: Data transfer completed successfully</p></li>
+<li><p><strong>Data CRC Error</strong>: Data CRC mismatch</p></li>
+<li><p><strong>Data Timeout</strong>: No data token received</p></li>
+</ol>
+<p>Each interrupt can be individually enabled/disabled via control register.</p>
+</section>
+</section>
+<section id="command-fsm-description">
+<h2>Command FSM Description<a class="headerlink" href="#command-fsm-description" title="Link to this heading"></a></h2>
+<p>The command controller implements command transmission and response reception.</p>
+<p><strong>States</strong> (simplified):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>IDLE → TX_START → TX_CMD → TX_ARG → TX_CRC → WAIT_RESP → RX_RESP → IDLE
+</pre></div>
+</div>
+<p><strong>Key Operations</strong>:</p>
+<ul class="simple">
+<li><p><strong>TX_CMD</strong>: Shift out 6-bit command index</p></li>
+<li><p><strong>TX_ARG</strong>: Shift out 32-bit argument</p></li>
+<li><p><strong>TX_CRC</strong>: Compute and shift out CRC7</p></li>
+<li><p><strong>WAIT_RESP</strong>: Wait for response start (timeout if not received)</p></li>
+<li><p><strong>RX_RESP</strong>: Capture 48-bit or 136-bit response</p></li>
+<li><p><strong>CRC Check</strong>: Verify response CRC7, set error flag if mismatch</p></li>
+</ul>
+<p><strong>Timeout</strong>: Configurable timeout for response detection</p>
+</section>
+<section id="data-fsm-description">
+<h2>Data FSM Description<a class="headerlink" href="#data-fsm-description" title="Link to this heading"></a></h2>
+<p>The data controller handles data block transfers with CRC.</p>
+<p><strong>Read States</strong> (simplified):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>IDLE → WAIT_TOKEN → RX_DATA → RX_CRC → IDLE
+</pre></div>
+</div>
+<p><strong>Write States</strong> (simplified):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>IDLE → TX_TOKEN → TX_DATA → TX_CRC → WAIT_RESP → IDLE
+</pre></div>
+</div>
+<p><strong>Key Operations</strong>:</p>
+<ul class="simple">
+<li><p><strong>WAIT_TOKEN</strong>: Detect start token on DAT0 (timeout if not received)</p></li>
+<li><p><strong>RX_DATA</strong>: Sample data lines, write to RX FIFO</p></li>
+<li><p><strong>RX_CRC</strong>: Receive and verify CRC16</p></li>
+<li><p><strong>TX_TOKEN</strong>: Send start token</p></li>
+<li><p><strong>TX_DATA</strong>: Read from TX FIFO, shift out on data lines</p></li>
+<li><p><strong>TX_CRC</strong>: Compute and send CRC16</p></li>
+<li><p><strong>WAIT_RESP</strong>: Capture data response token from card</p></li>
+</ul>
+<p><strong>Burst Mode</strong>: Automatically continues for multi-block transfers until STOP command</p>
+</section>
+<section id="register-map">
+<h2>Register Map<a class="headerlink" href="#register-map" title="Link to this heading"></a></h2>
+<section id="base-address">
+<h3>Base Address<a class="headerlink" href="#base-address" title="Link to this heading"></a></h3>
+<p>The SD controller base address is determined by the SoC memory map.</p>
+</section>
+<section id="register-summary">
+<h3>Register Summary<a class="headerlink" href="#register-summary" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Address</p></th>
+<th class="head"><p>Name</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Reset</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0x00</p></td>
+<td><p>CTRL</p></td>
+<td><p>R/W</p></td>
+<td><p>0x00</p></td>
+<td><p>Control register</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x04</p></td>
+<td><p>STATUS</p></td>
+<td><p>R</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Status register (read-only flags)</p></td>
+</tr>
+<tr class="row-even"><td><p>0x08</p></td>
+<td><p>CMD_NUMBER</p></td>
+<td><p>R/W</p></td>
+<td><p>0x00</p></td>
+<td><p>Command index (CMD0-CMD63)</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x0C</p></td>
+<td><p>CMD_ARGUMENT</p></td>
+<td><p>R/W</p></td>
+<td><p>0x00</p></td>
+<td><p>Command argument (32 bits)</p></td>
+</tr>
+<tr class="row-even"><td><p>0x10</p></td>
+<td><p>EVENT</p></td>
+<td><p>R/W</p></td>
+<td><p>0x00</p></td>
+<td><p>Interrupt event register</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x14</p></td>
+<td><p>CMD_RESPONSE</p></td>
+<td><p>R</p></td>
+<td><p>0x00</p></td>
+<td><p>Response data (FIFO read)</p></td>
+</tr>
+<tr class="row-even"><td><p>0x18</p></td>
+<td><p>DATA_TX_BUFFER</p></td>
+<td><p>W</p></td>
+<td><p>0x00</p></td>
+<td><p>Data transmit buffer (32-bit write)</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x1C</p></td>
+<td><p>DATA_RX_BUFFER</p></td>
+<td><p>R</p></td>
+<td><p>0x00</p></td>
+<td><p>Data receive buffer (32-bit read)</p></td>
+</tr>
+</tbody>
+</table>
+<p><em>Status flags updated dynamically</em></p>
+</section>
+</section>
+<section id="register-descriptions">
+<h2>Register Descriptions<a class="headerlink" href="#register-descriptions" title="Link to this heading"></a></h2>
+<section id="ctrl-register-0x00">
+<h3>CTRL Register (0x00)<a class="headerlink" href="#ctrl-register-0x00" title="Link to this heading"></a></h3>
+<p><strong>SD Control Register</strong></p>
+<dl class="simple">
+<dt><strong>Interrupt Enable Bits</strong>:</dt><dd><ul class="simple">
+<li><p>Bit 31: Card detected</p></li>
+<li><p>Bit 30: TX buffer empty</p></li>
+<li><p>Bit 29: RX buffer full</p></li>
+<li><p>Bit 28: Command done</p></li>
+<li><p>Bit 27: Command CRC error</p></li>
+<li><p>Bit 26: Command timeout</p></li>
+<li><p>Bit 25: Data done</p></li>
+<li><p>Bit 24: Data CRC error</p></li>
+<li><p>Bit 23: Data timeout</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="status-register-0x04-read-only">
+<h3>STATUS Register (0x04, Read Only)<a class="headerlink" href="#status-register-0x04-read-only" title="Link to this heading"></a></h3>
+<p><strong>SD Status Register</strong></p>
+</section>
+<section id="cmd-number-register-0x08">
+<h3>CMD_NUMBER Register (0x08)<a class="headerlink" href="#cmd-number-register-0x08" title="Link to this heading"></a></h3>
+<p><strong>Command Index Register</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Bit Field</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Reset</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>[31:6]</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>0x00</p></td>
+<td><p>Reserved</p></td>
+</tr>
+<tr class="row-odd"><td><p>[5:0]</p></td>
+<td><p>R/W</p></td>
+<td><p>0x00</p></td>
+<td><p>Command index (0-63)</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple">
+<dt><strong>Common Commands</strong>:</dt><dd><ul class="simple">
+<li><p>CMD0 (0): GO_IDLE_STATE</p></li>
+<li><p>CMD8 (8): SEND_IF_COND</p></li>
+<li><p>CMD17 (17): READ_SINGLE_BLOCK</p></li>
+<li><p>CMD18 (18): READ_MULTIPLE_BLOCK</p></li>
+<li><p>CMD24 (24): WRITE_BLOCK</p></li>
+<li><p>CMD25 (25): WRITE_MULTIPLE_BLOCK</p></li>
+<li><p>CMD55 (55): APP_CMD (prefix for ACMD)</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="cmd-argument-register-0x0c">
+<h3>CMD_ARGUMENT Register (0x0C)<a class="headerlink" href="#cmd-argument-register-0x0c" title="Link to this heading"></a></h3>
+<p><strong>Command Argument Register</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Bit Field</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Reset</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>[31:0]</p></td>
+<td><p>R/W</p></td>
+<td><p>0x00</p></td>
+<td><p>32-bit command argument</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple">
+<dt><strong>Argument Usage</strong> (command-dependent):</dt><dd><ul class="simple">
+<li><p>CMD17/18/24/25: Block address (byte address for SDSC, block address for SDHC/SDXC)</p></li>
+<li><p>CMD8: Voltage and check pattern</p></li>
+<li><p>ACMD41: HCS and voltage window</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="event-register-0x10">
+<h3>EVENT Register (0x10)<a class="headerlink" href="#event-register-0x10" title="Link to this heading"></a></h3>
+<p><strong>Interrupt Event Register</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Bit Field</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Reset</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>[31:9]</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>0x00</p></td>
+<td><p>Reserved</p></td>
+</tr>
+<tr class="row-odd"><td><p>[8]</p></td>
+<td><p>R/W</p></td>
+<td><p>0x0</p></td>
+<td><p><strong>Card Detected</strong></p></td>
+</tr>
+<tr class="row-even"><td><p>[7]</p></td>
+<td><p>R/W</p></td>
+<td><p>0x0</p></td>
+<td><p><strong>TX Buffer Empty</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p>[6]</p></td>
+<td><p>R/W</p></td>
+<td><p>0x0</p></td>
+<td><p><strong>RX Buffer Full</strong></p></td>
+</tr>
+<tr class="row-even"><td><p>[5]</p></td>
+<td><p>R/W</p></td>
+<td><p>0x0</p></td>
+<td><p><strong>Command Done</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p>[4]</p></td>
+<td><p>R/W</p></td>
+<td><p>0x0</p></td>
+<td><p><strong>Command CRC Error</strong></p></td>
+</tr>
+<tr class="row-even"><td><p>[3]</p></td>
+<td><p>R/W</p></td>
+<td><p>0x0</p></td>
+<td><p><strong>Command Timeout</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p>[2]</p></td>
+<td><p>R/W</p></td>
+<td><p>0x0</p></td>
+<td><p><strong>Data Done</strong></p></td>
+</tr>
+<tr class="row-even"><td><p>[1]</p></td>
+<td><p>R/W</p></td>
+<td><p>0x0</p></td>
+<td><p><strong>Data CRC Error</strong></p></td>
+</tr>
+<tr class="row-odd"><td><p>[0]</p></td>
+<td><p>R/W</p></td>
+<td><p>0x0</p></td>
+<td><p><strong>Data Timeout</strong></p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Write</strong>: Write 0 to clear individual event flags</p>
+<p><strong>Read</strong>: Returns current event status</p>
+</section>
+<section id="cmd-response-register-0x14-read-only">
+<h3>CMD_RESPONSE Register (0x14, Read Only)<a class="headerlink" href="#cmd-response-register-0x14-read-only" title="Link to this heading"></a></h3>
+<p><strong>Response Data Buffer</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Bit Field</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Reset</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>[31:0]</p></td>
+<td><p>R</p></td>
+<td><p>0x00</p></td>
+<td><p>Response data (32 bits per read, FIFO)</p></td>
+</tr>
+</tbody>
+</table>
+<dl class="simple">
+<dt><strong>Read Sequence</strong>:</dt><dd><ul class="simple">
+<li><p>R1/R3/R6/R7 (48-bit): Read once (lower 32 bits, skip upper 16)</p></li>
+<li><p>R2 (136-bit): Read four times sequentially</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="data-tx-buffer-register-0x18-write-only">
+<h3>DATA_TX_BUFFER Register (0x18, Write Only)<a class="headerlink" href="#data-tx-buffer-register-0x18-write-only" title="Link to this heading"></a></h3>
+<p><strong>Data Transmit Buffer</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Bit Field</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Reset</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>[31:0]</p></td>
+<td><p>W</p></td>
+<td><p>0x00</p></td>
+<td><p>32-bit data word for transmission</p></td>
+</tr>
+</tbody>
+</table>
+<p>Write 128 times (512 bytes / 4 bytes per write) for one block.</p>
+</section>
+<section id="data-rx-buffer-register-0x1c-read-only">
+<h3>DATA_RX_BUFFER Register (0x1C, Read Only)<a class="headerlink" href="#data-rx-buffer-register-0x1c-read-only" title="Link to this heading"></a></h3>
+<p><strong>Data Receive Buffer</strong></p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Bit Field</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Reset</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>[31:0]</p></td>
+<td><p>R</p></td>
+<td><p>0x00</p></td>
+<td><p>32-bit data word from reception</p></td>
+</tr>
+</tbody>
+</table>
+<p>Read 128 times (512 bytes / 4 bytes per read) for one block.</p>
+</section>
+</section>
+<section id="revision-history">
+<h2>Revision History<a class="headerlink" href="#revision-history" title="Link to this heading"></a></h2>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Version</p></th>
+<th class="head"><p>Date</p></th>
+<th class="head"><p>Author</p></th>
+<th class="head"><p>Changes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1.0</p></td>
+<td><p>2026-05-04</p></td>
+<td><ol class="upperalpha simple" start="7">
+<li><p>Tripi</p></li>
+</ol>
+</td>
+<td><p>Initial SD controller documentation</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="ethernet.html" class="btn btn-neutral float-left" title="Ethernet MAC Controller" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="prng.html" class="btn btn-neutral float-right" title="PRNG - Pseudo Random Number Generator" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Tripi Gabriele.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
