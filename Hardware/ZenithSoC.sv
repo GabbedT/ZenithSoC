@@ -171,6 +171,9 @@ module ZenithSoC (
     load_interface io_load_channel();
     store_interface io_store_channel();
 
+    /* CPU Trace channel */
+    trace_interface trace_channel();
+
     logic single_store_trx, load_instruction, load_trx_room;
 
     /* Interrupt nets */
@@ -195,6 +198,9 @@ module ZenithSoC (
         .rst_n_i ( reset_n   ),
         .halt_i  ( halt_core ),
 
+        /* Trace channel */
+        .trace_channel ( trace_channel ),
+        
         /* ROM channel */
         .rom_fetch_channel ( rom_fetch_channel ),
 
@@ -351,6 +357,10 @@ module ZenithSoC (
 
     logic [UART_DEVICE_NUMBER - 1:0] uart_interrupt;
     logic uart_tx_full;
+
+    /* From trace unit */
+    logic [7:0] trace_chunk; logic write_chunk;
+
 
     genvar i;
 
@@ -793,6 +803,49 @@ module ZenithSoC (
 
     assign read_busy[_SD_] = 1'b0;
     assign read_ready[_SD_] = 1'b1;
+
+
+//====================================================================================
+//      TRACE UNIT
+//====================================================================================
+
+    localparam _TRACE_UNIT_ = _SD_ + 1;
+
+    trace_unit #( 
+        .PACKET_BUFFER_SIZE ( TRACE_UNIT_BUFFER_SIZE )
+    ) trace_unit (
+        .clk_i   ( sys_clk ),
+        .rst_n_i ( reset_n ),
+
+        .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 9] ),
+        .halt_core_o ( halt_core                               ),
+
+        .uart_tx_full_i ( uart_tx_full ),
+
+        .write_i         ( write_request[_TRACE_UNIT_]      ),
+        .write_address_i ( write_address[_TRACE_UNIT_] >> 2 ),
+        .write_data_i    ( write_data[_TRACE_UNIT_]         ),
+        .write_strobe_i  ( write_strobe[_TRACE_UNIT_]       ),
+        .write_done_o    ( write_done[_TRACE_UNIT_]         ),
+        .write_error_o   ( write_error[_TRACE_UNIT_]        ),
+        
+        .read_i         ( read_request[_TRACE_UNIT_]      ),
+        .read_address_i ( read_address[_TRACE_UNIT_] >> 2 ),
+        .read_data_o    ( read_data[_TRACE_UNIT_]         ),
+        .read_done_o    ( read_done[_TRACE_UNIT_]         ),
+        .read_error_o   ( read_error[_TRACE_UNIT_]        ),
+
+        .trace_interface_i ( trace_channel ),
+
+        .trace_chunk_o ( trace_chunk ),
+        .write_chunk_o ( write_chunk )
+    );
+
+    assign write_busy[_TRACE_UNIT_] = 1'b0;
+    assign write_ready[_TRACE_UNIT_] = 1'b1;
+
+    assign read_busy[_TRACE_UNIT_] = 1'b0;
+    assign read_ready[_TRACE_UNIT_] = 1'b1;
 
 
 //====================================================================================
