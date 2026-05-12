@@ -20,6 +20,9 @@ package sd_pkg;
         /* Enable SD control */
         logic enable;
 
+        /* Flush TX Buffer */
+        logic flush_tx;
+
         logic clock_speed; /* 0 = 400kHz, 1 = 25MHz */
         logic bus_width;   /* 0 = 1 bit, 1 = 4 bit  */
 

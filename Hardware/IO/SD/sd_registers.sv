@@ -99,6 +99,8 @@ module sd_registers #(
                 control_register.clock_speed <= 1'b0;
                 control_register.bus_width <= 1'b0;
 
+                control_register.flush_tx <= 1'b0;
+
                 control_register.send_command <= 1'b0;
                 control_register.reset_card <= 1'b0;
 
@@ -109,6 +111,7 @@ module sd_registers #(
                     control_register <= (write_data_i & mask) | (control_register & ~mask);
                 end else begin
                     control_register.send_command <= 1'b0;
+                    control_register.flush_tx <= 1'b0;
 
                     if (reset_done_i) begin 
                         control_register.reset_card <= 1'b0;
@@ -253,39 +256,39 @@ module sd_registers #(
                 event_register <= (write_data_i & mask) | (event_register & ~mask);
             end else begin
                 if (tx_buffer_empty) begin
-                    event_register.tx_buffer_empty <= event_register.interrupt_enable[0];
+                    event_register.tx_buffer_empty <= control_register.interrupt_enable[0];
                 end
 
                 if (rx_buffer_full) begin
-                    event_register.rx_buffer_full <= event_register.interrupt_enable[1];
+                    event_register.rx_buffer_full <= control_register.interrupt_enable[1];
                 end
 
                 if (cmd_done) begin
-                    event_register.cmd_done <= event_register.interrupt_enable[2];
+                    event_register.cmd_done <= control_register.interrupt_enable[2];
                 end
 
                 if (cmd_crc_error_i) begin
-                    event_register.cmd_crc_error <= event_register.interrupt_enable[3];
+                    event_register.cmd_crc_error <= control_register.interrupt_enable[3];
                 end
 
                 if (cmd_timeout_i) begin
-                    event_register.cmd_timeout <= event_register.interrupt_enable[4];
+                    event_register.cmd_timeout <= control_register.interrupt_enable[4];
                 end
 
                 if (data_done) begin
-                    event_register.data_done <= event_register.interrupt_enable[5];
+                    event_register.data_done <= control_register.interrupt_enable[5];
                 end
 
                 if (data_crc_error_i) begin
-                    event_register.data_crc_error <= event_register.interrupt_enable[6];
+                    event_register.data_crc_error <= control_register.interrupt_enable[6];
                 end
 
                 if (data_timeout_i) begin
-                    event_register.data_timeout <= event_register.interrupt_enable[7];
+                    event_register.data_timeout <= control_register.interrupt_enable[7];
                 end
 
                 if (card_detect_i) begin
-                    event_register.card_detected <= event_register.interrupt_enable[8];
+                    event_register.card_detected <= control_register.interrupt_enable[8];
                 end
             end
         end 
@@ -321,8 +324,8 @@ module sd_registers #(
         .DATA_WIDTH   ( 32             ),
         .BUFFER_DEPTH ( TX_BUFFER_SIZE )
     ) tx_buffer (
-        .clk_i   ( clk_i   ),
-        .rst_n_i ( rst_n_i ),
+        .clk_i   ( clk_i ),
+        .rst_n_i ( rst_n_i & !control_register.flush_tx ),
 
         .write_i      ( write_tx_buffer ),
         .write_data_i ( write_data_i    ),
