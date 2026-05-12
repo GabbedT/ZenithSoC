@@ -1,6 +1,8 @@
 `ifndef SOC_TESTBENCH_SV
     `define SOC_TESTBENCH_SV
 
+`timescale 1ns/1ps
+
 `include "../../Hardware/Utility/Packages/soc_parameters.sv"
 
 // `include "../SD/Model/sd_top.v"
@@ -17,13 +19,13 @@
 // ============================================
 
 /* Enable or disable cpu instruction tracing */
-`define TRACE_CPU
+// `define TRACE_CPU
 
 /* Enable or disable memory accesses tracing */
 // `define TRACE_MEMORY
 
 /* Enable or disable STDOUT output tracing */
-`define TRACE_OUTPUT
+// `define TRACE_OUTPUT
 
 /* Enable or disable PDM file read */
 // `define AUDIO_PDM
@@ -199,7 +201,6 @@ module soc_testbench;
     /* Clock generation */
     always #10ns clk_50MHz  <= ~clk_50MHz;
     always #5ns  clk_100MHz <= ~clk_100MHz;
-    always #2.5ns clk_200MHz <= ~clk_200MHz; 
 
     /* Card SD Interface */
     logic sd_cmd_i, sd_cmd_o, sd_cmd_t;
@@ -210,7 +211,7 @@ module soc_testbench;
     sd_top sd_model (
         .clk_50      ( clk_50MHz  ),
         .clk_100     ( clk_100MHz ),
-        .clk_200     ( clk_200MHz ),
+        .clk_200     ( 1'b0       ),
         .reset_n     ( rst_n_i    ),
 
         .sd_clk      ( sd_clk_o ),
@@ -327,6 +328,15 @@ module soc_testbench;
 //====================================================================================
 //      TESTBENCH
 //====================================================================================
+
+    logic [31:0] program_counter;
+
+        always_ff @(posedge clk_i) begin
+            if (`CPU.apogeo_backend.writeback_o) begin
+                program_counter <= `CPU.apogeo_backend.trap_iaddress;
+            end
+        end 
+
 
     initial begin
         pdm_file = $fopen(`PDM_FILE, "r"); $display("%d", pdm_file);
