@@ -41,6 +41,9 @@ public:
          * be issued before changing this configuration */
         unsigned int clockSpeed : 1;
 
+        /* Flush TX Buffer after a fault */
+        unsigned int flushTX : 1;
+
         /* Enable the FSMs */
         unsigned int enableSD : 1;
 

@@ -448,6 +448,16 @@ SD& SD::readBlock(uint32_t blockAddress, uint32_t* blockRead, uint8_t* responseB
 
 
 SD& SD::writeBlock(uint32_t blockAddress, uint32_t* blockWrite, uint8_t* responseBuffer, uint8_t& responseToken, bool& timeout, bool& crcError) {
+    /* Since CMD FSM will automatically start data FSM if it detects CMD25 fill first the buffer 
+     * to avoiding reading into an empty buffer */
+    int i = 0;
+
+    while (i < MAX_32_BIT_BLOCK && !status->txBufferFull) {
+        /* Write buffer */
+        *txBuffer = blockWrite[i++];
+    }
+
+    
     /* Issue write block command */
     sendCommand(24, blockAddress);
 
@@ -455,15 +465,9 @@ SD& SD::writeBlock(uint32_t blockAddress, uint32_t* blockWrite, uint8_t* respons
     readResponse(responseBuffer, timeout, crcError);
 
     if (timeout || crcError) {
+        control->flushTX = true;
+
         return *this;
-    }
-
-    /* Write data words */
-    unsigned int i = 0;
-
-    while (i < MAX_32_BIT_BLOCK && !status->txBufferFull) {
-        /* Write buffer */
-        *txBuffer = blockWrite[i++];
     }
 
     /* Wait for data FSM to finish */
@@ -510,6 +514,12 @@ SD& SD::readBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstRea
 
 
 SD& SD::writeBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstWrite, uint8_t* responseBuffer, uint8_t* tokenBuffer, bool& timeout, bool& crcError) {
+    /* Since CMD FSM will automatically start data FSM if it detects CMD25 fill first the buffer 
+     * to avoiding reading into an empty buffer */
+    for (int j = 0; j < MAX_32_BIT_BLOCK; ++j) {
+        *txBuffer = burstWrite[MAX_32_BIT_BLOCK + j];
+    }
+    
     /* Issue write burst command */
     sendCommand(25, baseAddress);
 
@@ -517,20 +527,22 @@ SD& SD::writeBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstWr
     readResponse(responseBuffer, timeout, crcError);
 
     if (timeout || crcError) {
+        control->flushTX = true;
+        
         return *this;
     }
 
-    for (int i = 0; i < burstLength; ++i) {
-        for (int j = 0; j < MAX_32_BIT_BLOCK; ++j) {
-            *txBuffer = burstWrite[i * MAX_32_BIT_BLOCK + j];
-        }
-        
+    for (int i = 1; i < burstLength; ++i) {
         /* Wait until all data has been consumed */
         while (!status->txBufferEmpty) {  }
 
         /* For internal timing reasons*/
         if (i != 0) {
             tokenBuffer[i] = status->dataToken;
+        }
+
+        for (int j = 0; j < MAX_32_BIT_BLOCK; ++j) {
+            *txBuffer = burstWrite[i * MAX_32_BIT_BLOCK + j];
         }
     }
 
