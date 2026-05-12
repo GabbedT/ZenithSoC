@@ -28,10 +28,14 @@ extern "C" void sd_test() {
 
     Serial_IO::write("============= Start SD Test ============= \n");
 
-    uint8_t cmd8_response[6] = {0}; bool timeout = false; bool isHighCapacity = false;
+    uint8_t cmd8_response[6] = {0}; 
+    
+    bool timeout = false; 
+    bool crcError = false; 
+    bool isHighCapacity = false;
 
     /* Initialize SD Card controller */
-    SD card; card.init(SD::CLK_25MHZ, SD::BUS_NARROW, cmd8_response, timeout, isHighCapacity);
+    SD card; card.init(SD::CLK_25MHZ, SD::BUS_NARROW, cmd8_response, timeout, crcError, isHighCapacity);
 
     if (timeout) {
         Serial_IO::write("[INITIALIZATION] Timeout!\n");
@@ -147,15 +151,22 @@ void testInformations(SD& card) {
 
 
 void testRead(SD& card, uint32_t address, Timer& timer) {
-    uint32_t blockRead[128] = {0}; bool timeout = false;
+    uint32_t blockRead[128] = {0}; 
+    
+    bool timeout = false;
+    bool crcError = false;
 
     /* Starting timer to measure performance for block read */
     timer.restart();
-    card.readBlock(address, blockRead, nullptr, timeout);
+    card.readBlock(address, blockRead, nullptr, timeout, crcError);
     timer.stop();
 
     if (timeout) {
         Serial_IO::write("[READ] Timeout!\n");
+
+        return;
+    } else if (crcError) {
+        Serial_IO::write("[READ] CRC Error!\n");
 
         return;
     } else {
@@ -175,7 +186,10 @@ void testRead(SD& card, uint32_t address, Timer& timer) {
 
 
 void testWrite(SD& card, uint32_t address, Timer& timer) {
-    bool timeout = false; uint8_t responseToken = 0;
+    bool timeout = false; 
+    bool crcError = false;
+
+    uint8_t responseToken = 0;
 
     /* Buffer */
     uint32_t blockWrite[128] = {0}; 
@@ -187,11 +201,15 @@ void testWrite(SD& card, uint32_t address, Timer& timer) {
 
     /* Starting timer to measure performance for block read */
     timer.restart();
-    card.writeBlock(address, blockWrite, nullptr, responseToken, timeout);
+    card.writeBlock(address, blockWrite, nullptr, responseToken, timeout, crcError);
     timer.stop();
 
     if (timeout) {
         Serial_IO::write("[WRITE] Timeout!\n");
+
+        return;
+    } else if (crcError) {
+        Serial_IO::write("[WRITE] CRC Error!\n");
 
         return;
     } else {
@@ -205,15 +223,22 @@ void testWrite(SD& card, uint32_t address, Timer& timer) {
 
 
 void testBurstRead(SD& card, uint32_t address, Timer& timer) {
-    uint32_t blockRead[128 * BURST_LENGTH] = {0}; bool timeout = false;
+    uint32_t blockRead[128 * BURST_LENGTH] = {0}; 
+    
+    bool timeout = false;
+    bool crcError = false;
 
     /* Starting timer to measure performance for block read */
     timer.restart();
-    card.readBurst(address, BURST_LENGTH, blockRead, nullptr, timeout);
+    card.readBurst(address, BURST_LENGTH, blockRead, nullptr, timeout, crcError);
     timer.stop();
 
     if (timeout) {
         Serial_IO::write("[BURST READ] Timeout!\n");
+
+        return;
+    } else if (crcError) {
+        Serial_IO::write("[BURST READ] CRC Error!\n");
 
         return;
     } else {
@@ -233,7 +258,10 @@ void testBurstRead(SD& card, uint32_t address, Timer& timer) {
 
 
 void testBurstWrite(SD& card, uint32_t address, Timer& timer) {
-    bool timeout = false; uint8_t responseToken = 0;
+    bool timeout = false; 
+    bool crcError = false;
+    
+    uint8_t responseToken = 0;
 
     /* Buffer */
     uint32_t blockWrite[128 * BURST_LENGTH] = {0}; 
@@ -245,11 +273,15 @@ void testBurstWrite(SD& card, uint32_t address, Timer& timer) {
 
     /* Starting timer to measure performance for block read */
     timer.restart();
-    card.writeBurst(address, BURST_LENGTH, blockWrite, nullptr, &responseToken, timeout);
+    card.writeBurst(address, BURST_LENGTH, blockWrite, nullptr, &responseToken, timeout, crcError);
     timer.stop();
 
     if (timeout) {
         Serial_IO::write("[BURST WRITE] Timeout!\n");
+
+        return;
+    } else if (crcError) {
+        Serial_IO::write("[BURST WRITE] CRC Errpr!\n");
 
         return;
     } else {
