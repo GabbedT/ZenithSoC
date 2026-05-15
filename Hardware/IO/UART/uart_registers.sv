@@ -3,7 +3,7 @@
 
 `include "../../System/synchronous_buffer.sv"
 `include "../../System/edge_detector.sv"
- 
+
 `include "../../Utility/Packages/uart_pkg.sv"
 
 module uart_registers #(
@@ -160,8 +160,11 @@ module uart_registers #(
     
     assign tx_empty_o = tx_empty;
 
-    assign status_register.TX_empty = tx_empty;
-    assign status_register.TX_full = tx_full;
+        always_ff @(posedge clk_i) begin
+            status_register.TX_empty <= rx_empty;
+            status_register.TX_full <= rx_full;
+        end
+
 
 //====================================================================================
 //      RX BUFFER REGISTER
@@ -191,9 +194,10 @@ module uart_registers #(
 
     assign rx_rts_o = !rx_full & status_register.flow_control;
 
-    assign status_register.RX_empty = rx_empty;
-    assign status_register.RX_full = rx_full;
-
+        always_ff @(posedge clk_i) begin
+            status_register.RX_empty <= rx_empty;
+            status_register.RX_full <= rx_full;
+        end
 
 //====================================================================================
 //      EVENT REGISTER
