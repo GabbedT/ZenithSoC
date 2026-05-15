@@ -33,7 +33,25 @@
  * DDR2 Memory Model from testbench */
 `define _DDR_MEMORY_
 
-module ZenithSoC (
+module ZenithSoC #(
+    parameter UART = 1,
+
+    parameter TIMER = 1,
+
+    parameter GPIO = 1,
+
+    parameter SPI = 1,
+
+    parameter ETHERNET = 1;
+
+    parameter PRNG = 1,
+
+    parameter APU = 1,
+
+    parameter SD = 1,
+
+    parameter DDR_MEMORY = 1
+) (
     input logic clk_i,
     input logic rst_n_i,
 
@@ -104,23 +122,31 @@ module ZenithSoC (
 
     logic sys_clk, ddr_clk, locked, ddr_ready;
 
-    clock_source clock_generator (
-        /* External clock source */
-        .ext_clk_i ( clk_i ),
+    if (DDR_MEMORY) begin 
 
-        /* Generated clocks */
-        .sys_clk_o ( sys_clk ),
-        .mem_clk_o ( ddr_clk ),
+        clock_source clock_generator (
+            /* External clock source */
+            .ext_clk_i ( clk_i ),
 
-        /* PLL is locked */
-        .locked_o ( locked )
-    );
+            /* Generated clocks */
+            .sys_clk_o ( sys_clk ),
+            .mem_clk_o ( ddr_clk ),
 
-    `ifndef _DDR_MEMORY_
+            /* PLL is locked */
+            .locked_o ( locked )
+        );
 
-    assign ddr_ready = 1'b1;
+    end else begin
+        
+        assign locked = 1'b1;
 
-    `endif
+        assign sys_clk = clk_i;
+
+        assign ddr_ready = 1'b1;
+
+    end
+
+
 
     /* System reset syncronizer */
     logic reset_n, rst_sync;
@@ -138,10 +164,12 @@ module ZenithSoC (
             end 
         end 
 
-    `ifdef _DDR_MEMORY_
+
 
     /* DDR reset syncronizer */
     logic ddr_reset_n, ddr_rst_sync;
+
+    if (DDR_MEMORY) begin
 
         always_ff @(posedge ddr_clk or negedge rst_n_i) begin 
             if (!rst_n_i) begin
@@ -156,7 +184,7 @@ module ZenithSoC (
             end 
         end 
 
-    `endif
+    end
 
 //====================================================================================
 //      CPU COMPLEX
@@ -347,45 +375,64 @@ module ZenithSoC (
 
     genvar i; logic [UART_DEVICE_NUMBER - 1:0] uart_interrupt;
 
-    generate 
-        for (i = 0; i < UART_DEVICE_NUMBER; ++i) begin
-            uart #(
-                .RX_BUFFER_SIZE ( UART_RX_BUFFER_SIZE ),
-                .TX_BUFFER_SIZE ( UART_TX_BUFFER_SIZE )
-            ) uart_device (
-                .clk_i       ( sys_clk ),
-                .rst_n_i     ( reset_n ),
 
-                .interrupt_o ( uart_interrupt[i] ),
+    if (UART) begin 
 
-                .uart_rx_i  ( uart_rx_i[i]  ),
-                .uart_tx_o  ( uart_tx_o[i]  ),
-                .uart_rts_o ( uart_rts_o[i] ),
-                .uart_cts_i ( uart_cts_i[i] ),
+        generate 
+            for (i = 0; i < UART_DEVICE_NUMBER; ++i) begin
+                uart #(
+                    .RX_BUFFER_SIZE ( UART_RX_BUFFER_SIZE ),
+                    .TX_BUFFER_SIZE ( UART_TX_BUFFER_SIZE )
+                ) uart_device (
+                    .clk_i       ( sys_clk ),
+                    .rst_n_i     ( reset_n ),
 
-                .write_i         ( write_request[_UART_ + i]      ),
-                .write_address_i ( write_address[_UART_ + i] >> 2 ),
-                .write_data_i    ( write_data[_UART_ + i]         ),
-                .write_strobe_i  ( write_strobe[_UART_ + i]       ),
-                .write_error_o   ( write_error[_UART_ + i]        ),
-                .write_done_o    ( write_done[_UART_ + i]         ),
+                    .interrupt_o ( uart_interrupt[i] ),
 
-                .read_i         ( read_request[_UART_ + i]      ),
-                .read_address_i ( read_address[_UART_ + i] >> 2 ),
-                .read_data_o    ( read_data[_UART_ + i]         ),
-                .read_error_o   ( read_error[_UART_ + i]        ),
-                .read_done_o    ( read_done[_UART_ + i]         )
-            );
+                    .uart_rx_i  ( uart_rx_i[i]  ),
+                    .uart_tx_o  ( uart_tx_o[i]  ),
+                    .uart_rts_o ( uart_rts_o[i] ),
+                    .uart_cts_i ( uart_cts_i[i] ),
 
-            assign write_busy[_UART_ + i] = 1'b0;
-            assign write_ready[_UART_ + i] = 1'b1;
+                    .write_i         ( write_request[_UART_ + i]      ),
+                    .write_address_i ( write_address[_UART_ + i] >> 2 ),
+                    .write_data_i    ( write_data[_UART_ + i]         ),
+                    .write_strobe_i  ( write_strobe[_UART_ + i]       ),
+                    .write_error_o   ( write_error[_UART_ + i]        ),
+                    .write_done_o    ( write_done[_UART_ + i]         ),
 
-            assign read_busy[_UART_ + i] = 1'b0;
-            assign read_ready[_UART_ + i] = 1'b1;
-        end 
-    endgenerate
+                    .read_i         ( read_request[_UART_ + i]      ),
+                    .read_address_i ( read_address[_UART_ + i] >> 2 ),
+                    .read_data_o    ( read_data[_UART_ + i]         ),
+                    .read_error_o   ( read_error[_UART_ + i]        ),
+                    .read_done_o    ( read_done[_UART_ + i]         )
+                );
 
-    assign interrupt_source[INTERRUPT_SOURCES - 3] = uart_interrupt != '0;
+                assign write_busy[_UART_ + i] = 1'b0;
+                assign write_ready[_UART_ + i] = 1'b1;
+
+                assign read_busy[_UART_ + i] = 1'b0;
+                assign read_ready[_UART_ + i] = 1'b1;
+            end 
+        endgenerate
+
+        assign interrupt_source[INTERRUPT_SOURCES - 3] = uart_interrupt != '0;
+
+    end else begin
+        
+        assign interrupt_source[INTERRUPT_SOURCES - 3] = '0;
+
+        assign write_busy[_UART_] = 1'b0;
+        assign write_ready[_UART_] = 1'b1;
+        assign read_busy[_UART_] = 1'b0;
+        assign read_ready[_UART_] = 1'b1;
+
+        assign read_done[_UART_] = read_request[_UART_];
+        assign read_error[_UART_] = 1'b0;
+        assign write_done[_UART_] = write_request[_UART_];
+        assign write_error[_UART_] = 1'b0;
+
+    end
 
 
 //====================================================================================
@@ -395,6 +442,9 @@ module ZenithSoC (
     localparam _TIMER_ = _UART_ + UART_DEVICE_NUMBER;
 
     logic [TIMER_DEVICE_NUMBER - 1:0] timers_interrupt;
+
+
+    if (TIMER) begin
 
     generate 
         for (i = 0; i < TIMER_DEVICE_NUMBER; ++i) begin
@@ -428,6 +478,22 @@ module ZenithSoC (
 
     assign interrupt_source[INTERRUPT_SOURCES - 2] = timers_interrupt != '0;
 
+    end else begin
+        
+        assign interrupt_source[INTERRUPT_SOURCES - 2] = '0;
+
+        assign write_busy[_TIMER_] = 1'b0;
+        assign write_ready[_TIMER_] = 1'b1;
+        assign read_busy[_TIMER_] = 1'b0;
+        assign read_ready[_TIMER_] = 1'b1;
+
+        assign read_done[_TIMER_] = read_request[_TIMER_];
+        assign read_error[_TIMER_] = 1'b0;
+        assign write_done[_TIMER_] = write_request[_TIMER_];
+        assign write_error[_TIMER_] = 1'b0;
+        
+    end
+
 
 //====================================================================================
 //      GPIO
@@ -435,47 +501,64 @@ module ZenithSoC (
 
     localparam _GPIO_ = _TIMER_ + TIMER_DEVICE_NUMBER;
 
-    logic [GPIO_DEVICE_NUMBER - 1:0][7:0] gpio_interrupt;
+    genvar j; logic [GPIO_DEVICE_NUMBER - 1:0][7:0] gpio_interrupt;
 
-    genvar j;
 
-    generate 
-        for (i = 0; i < GPIO_DEVICE_NUMBER; ++i) begin
-            for (j = 0; j < 8; ++j) begin : gpio_gen
-                gpio gpio_device (
-                    .clk_i      ( sys_clk ),
-                    .rst_n_i    ( reset_n ),
+    if (GPIO) begin
 
-                    .pin_io ( pin_io[i][j] ),
+        generate 
+            for (i = 0; i < GPIO_DEVICE_NUMBER; ++i) begin
+                for (j = 0; j < 8; ++j) begin : gpio_gen
+                    gpio gpio_device (
+                        .clk_i      ( sys_clk ),
+                        .rst_n_i    ( reset_n ),
 
-                    /* Write interface */
-                    .write_i         ( write_request[_GPIO_ + i]      ),
-                    .write_address_i ( write_address[_GPIO_ + i] >> 2 ),
-                    .write_data_i    ( write_data[_GPIO_ + i][j]      ),
+                        .pin_io ( pin_io[i][j] ),
 
-                    /* Read interface */
-                    .read_address_i ( read_address[_GPIO_ + i] >> 2 ),
-                    .read_data_o    ( read_data[_GPIO_ + i][j]      ),
+                        /* Write interface */
+                        .write_i         ( write_request[_GPIO_ + i]      ),
+                        .write_address_i ( write_address[_GPIO_ + i] >> 2 ),
+                        .write_data_i    ( write_data[_GPIO_ + i][j]      ),
 
-                    .interrupt_o ( gpio_interrupt[i][j] )
-                );
-            end : gpio_gen
+                        /* Read interface */
+                        .read_address_i ( read_address[_GPIO_ + i] >> 2 ),
+                        .read_data_o    ( read_data[_GPIO_ + i][j]      ),
 
-            assign read_data[_GPIO_ + i][31:8] = '0;
+                        .interrupt_o ( gpio_interrupt[i][j] )
+                    );
+                end : gpio_gen
 
-            assign write_busy[_GPIO_ + i] = 1'b0;
-            assign write_ready[_GPIO_ + i] = 1'b1;
-            assign write_error[_GPIO_ + i] = 1'b0;
-            assign write_done[_GPIO_ + i] = write_request[_GPIO_ + i];
+                assign read_data[_GPIO_ + i][31:8] = '0;
 
-            assign read_busy[_GPIO_ + i] = 1'b0;
-            assign read_ready[_GPIO_ + i] = 1'b1;
-            assign read_error[_GPIO_ + i] = 1'b0;
-            assign read_done[_GPIO_ + i] = read_request[_GPIO_ + i];
-        end 
-    endgenerate
+                assign write_busy[_GPIO_ + i] = 1'b0;
+                assign write_ready[_GPIO_ + i] = 1'b1;
+                assign write_error[_GPIO_ + i] = 1'b0;
+                assign write_done[_GPIO_ + i] = write_request[_GPIO_ + i];
 
-    assign interrupt_source[INTERRUPT_SOURCES - 4] = gpio_interrupt != '0;
+                assign read_busy[_GPIO_ + i] = 1'b0;
+                assign read_ready[_GPIO_ + i] = 1'b1;
+                assign read_error[_GPIO_ + i] = 1'b0;
+                assign read_done[_GPIO_ + i] = read_request[_GPIO_ + i];
+            end 
+        endgenerate
+
+        assign interrupt_source[INTERRUPT_SOURCES - 4] = gpio_interrupt != '0;
+
+    end else begin
+        
+        assign interrupt_source[INTERRUPT_SOURCES - 4] = 0;
+
+        assign write_busy[_GPIO_] = 1'b0;
+        assign write_ready[_GPIO_] = 1'b1;
+        assign read_busy[_GPIO_] = 1'b0;
+        assign read_ready[_GPIO_] = 1'b1;
+
+        assign read_done[_GPIO_] = read_request[_GPIO_];
+        assign read_error[_GPIO_] = 1'b0;
+        assign write_done[_GPIO_] = write_request[_GPIO_];
+        assign write_error[_GPIO_] = 1'b0;
+
+    end
 
 
 //====================================================================================
@@ -486,46 +569,65 @@ module ZenithSoC (
 
     logic [SPI_DEVICE_NUMBER - 1:0] spi_interrupt;
 
-    generate 
-        for (i = 0; i < TIMER_DEVICE_NUMBER; ++i) begin
-            spi #(
-                .RX_BUFFER_SIZE ( SPI_RX_BUFFER_SIZE ), 
-                .TX_BUFFER_SIZE ( SPI_TX_BUFFER_SIZE ),
-                .SLAVES         ( SPI_SLAVES         )
-            ) spi_device (
-                .clk_i       ( sys_clk ),
-                .rst_n_i     ( reset_n ),
 
-                .interrupt_o ( spi_interrupt[i] ),
+    if (SPI) begin
 
-                .sclk_o ( spi_sclk_o ),
-                .cs_n_o ( spi_cs_n_o ),
-                .mosi_o ( spi_mosi_o ),
-                .miso_i ( spi_miso_i ),
+        generate 
+            for (i = 0; i < TIMER_DEVICE_NUMBER; ++i) begin
+                spi #(
+                    .RX_BUFFER_SIZE ( SPI_RX_BUFFER_SIZE ), 
+                    .TX_BUFFER_SIZE ( SPI_TX_BUFFER_SIZE ),
+                    .SLAVES         ( SPI_SLAVES         )
+                ) spi_device (
+                    .clk_i       ( sys_clk ),
+                    .rst_n_i     ( reset_n ),
 
-                .write_i         ( write_request[_SPI_ + i]      ),
-                .write_address_i ( write_address[_SPI_ + i] >> 2 ),
-                .write_data_i    ( write_data[_SPI_ + i]         ),
-                .write_strobe_i  ( write_strobe[_SPI_ + i]       ),
-                .write_error_o   ( write_error[_SPI_ + i]        ),
-                .write_done_o    ( write_done[_SPI_ + i]         ),
+                    .interrupt_o ( spi_interrupt[i] ),
 
-                .read_i         ( read_request[_SPI_ + i]      ),
-                .read_address_i ( read_address[_SPI_ + i] >> 2 ),
-                .read_data_o    ( read_data[_SPI_ + i]         ),
-                .read_error_o   ( read_error[_SPI_ + i]        ),
-                .read_done_o    ( read_done[_SPI_ + i]         )
-            );
+                    .sclk_o ( spi_sclk_o ),
+                    .cs_n_o ( spi_cs_n_o ),
+                    .mosi_o ( spi_mosi_o ),
+                    .miso_i ( spi_miso_i ),
 
-            assign write_busy[_SPI_ + i] = 1'b0;
-            assign write_ready[_SPI_ + i] = 1'b1;
+                    .write_i         ( write_request[_SPI_ + i]      ),
+                    .write_address_i ( write_address[_SPI_ + i] >> 2 ),
+                    .write_data_i    ( write_data[_SPI_ + i]         ),
+                    .write_strobe_i  ( write_strobe[_SPI_ + i]       ),
+                    .write_error_o   ( write_error[_SPI_ + i]        ),
+                    .write_done_o    ( write_done[_SPI_ + i]         ),
 
-            assign read_busy[_SPI_ + i] = 1'b0;
-            assign read_ready[_SPI_ + i] = 1'b1;
-        end 
-    endgenerate
+                    .read_i         ( read_request[_SPI_ + i]      ),
+                    .read_address_i ( read_address[_SPI_ + i] >> 2 ),
+                    .read_data_o    ( read_data[_SPI_ + i]         ),
+                    .read_error_o   ( read_error[_SPI_ + i]        ),
+                    .read_done_o    ( read_done[_SPI_ + i]         )
+                );
 
-    assign interrupt_source[INTERRUPT_SOURCES - 5] = spi_interrupt != '0;
+                assign write_busy[_SPI_ + i] = 1'b0;
+                assign write_ready[_SPI_ + i] = 1'b1;
+
+                assign read_busy[_SPI_ + i] = 1'b0;
+                assign read_ready[_SPI_ + i] = 1'b1;
+            end 
+        endgenerate
+
+        assign interrupt_source[INTERRUPT_SOURCES - 5] = spi_interrupt != '0;
+
+    end else begin
+        
+        assign interrupt_source[INTERRUPT_SOURCES - 5] = '0;
+
+        assign write_busy[_SPI_] = 1'b0;
+        assign write_ready[_SPI_] = 1'b1;
+        assign read_busy[_SPI_] = 1'b0;
+        assign read_ready[_SPI_] = 1'b1;
+
+        assign read_done[_SPI_] = read_request[_SPI_];
+        assign read_error[_SPI_] = 1'b0;
+        assign write_done[_SPI_] = write_request[_SPI_];
+        assign write_error[_SPI_] = 1'b0;
+
+    end
 
 
 //====================================================================================
@@ -536,51 +638,69 @@ module ZenithSoC (
 
     logic ethernet_busy;
 
-    ethernet #(
-        .CHIP_PHY_ADDRESS ( ETH_PHY_ADDRESS    ),
-        .MAC_ADDRESS      ( ETH_MAC_ADDRESS    ),
-        .TX_BUFFER_SIZE   ( ETH_TX_BUFFER_SIZE ),
-        .RX_BUFFER_SIZE   ( ETH_RX_BUFFER_SIZE ),
-        .TX_PACKETS       ( ETH_TX_PACKETS     ),
-        .RX_PACKETS       ( ETH_RX_PACKETS     )
-    ) ethernet_mac (
-        .clk_i       ( sys_clk ),
-        .rst_n_i     ( reset_n ),
 
-        .busy_o ( ethernet_busy ),
+    if (ETHERNET) begin
 
-        .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 6] ),
+        ethernet #(
+            .CHIP_PHY_ADDRESS ( ETH_PHY_ADDRESS    ),
+            .MAC_ADDRESS      ( ETH_MAC_ADDRESS    ),
+            .TX_BUFFER_SIZE   ( ETH_TX_BUFFER_SIZE ),
+            .RX_BUFFER_SIZE   ( ETH_RX_BUFFER_SIZE ),
+            .TX_PACKETS       ( ETH_TX_PACKETS     ),
+            .RX_PACKETS       ( ETH_RX_PACKETS     )
+        ) ethernet_mac (
+            .clk_i       ( sys_clk ),
+            .rst_n_i     ( reset_n ),
 
-        .write_i         ( write_request[_ETHERNET_]      ),
-        .write_address_i ( write_address[_ETHERNET_] >> 2 ),
-        .write_data_i    ( write_data[_ETHERNET_]         ),
-        .write_error_o   ( write_error[_ETHERNET_]        ),
-        .write_done_o    ( write_done[_ETHERNET_]         ),
+            .busy_o ( ethernet_busy ),
 
-        .read_i         ( read_request[_ETHERNET_]      ),
-        .read_address_i ( read_address[_ETHERNET_] >> 2 ),
-        .read_data_o    ( read_data[_ETHERNET_]         ),
-        .read_error_o   ( read_error[_ETHERNET_]        ),
-        .read_done_o    ( read_done[_ETHERNET_]         ),
+            .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 6] ),
 
-        .phy_interrupt_i ( 1'b0         ),
-        .rmii_rxd_io     ( rmii_rxd_io       ),
-        .rmii_crsdv_io   ( rmii_crsdv_io     ),
-        .rmii_rxer_i     ( rmii_rxer_i       ),
-        .rmii_txd_o      ( rmii_txd_o        ),
-        .rmii_txen_o     ( rmii_txen_o       ),
-        .rmii_refclk_o   ( rmii_refclk_o     ),
-        .rmii_rstn_o     ( rmii_rstn_o       ),
+            .write_i         ( write_request[_ETHERNET_]      ),
+            .write_address_i ( write_address[_ETHERNET_] >> 2 ),
+            .write_data_i    ( write_data[_ETHERNET_]         ),
+            .write_error_o   ( write_error[_ETHERNET_]        ),
+            .write_done_o    ( write_done[_ETHERNET_]         ),
 
-        .smii_mdc_o   ( smi_mdc_o   ),
-        .smii_mdio_io ( smi_mdio_io )
-    );
+            .read_i         ( read_request[_ETHERNET_]      ),
+            .read_address_i ( read_address[_ETHERNET_] >> 2 ),
+            .read_data_o    ( read_data[_ETHERNET_]         ),
+            .read_error_o   ( read_error[_ETHERNET_]        ),
+            .read_done_o    ( read_done[_ETHERNET_]         ),
 
-    assign write_busy[_ETHERNET_] = ethernet_busy;
-    assign write_ready[_ETHERNET_] = !ethernet_busy;
+            .phy_interrupt_i ( 1'b0         ),
+            .rmii_rxd_io     ( rmii_rxd_io       ),
+            .rmii_crsdv_io   ( rmii_crsdv_io     ),
+            .rmii_rxer_i     ( rmii_rxer_i       ),
+            .rmii_txd_o      ( rmii_txd_o        ),
+            .rmii_txen_o     ( rmii_txen_o       ),
+            .rmii_refclk_o   ( rmii_refclk_o     ),
+            .rmii_rstn_o     ( rmii_rstn_o       ),
 
-    assign read_busy[_ETHERNET_] = ethernet_busy;
-    assign read_ready[_ETHERNET_] = !ethernet_busy;
+            .smii_mdc_o   ( smi_mdc_o   ),
+            .smii_mdio_io ( smi_mdio_io )
+        );
+
+        assign write_busy[_ETHERNET_] = ethernet_busy;
+        assign write_ready[_ETHERNET_] = !ethernet_busy;
+
+        assign read_busy[_ETHERNET_] = ethernet_busy;
+        assign read_ready[_ETHERNET_] = !ethernet_busy;
+
+    end else begin
+        
+        assign write_busy[_ETHERNET_] = 1'b0;
+        assign write_ready[_ETHERNET_] = 1'b1;
+        assign read_busy[_ETHERNET_] = 1'b0;
+        assign read_ready[_ETHERNET_] = 1'b1;
+
+
+        assign read_done[_ETHERNET_] = read_request[_ETHERNET_];
+        assign read_error[_ETHERNET_] = 1'b0;
+        assign write_done[_ETHERNET_] = write_request[_ETHERNET_];
+        assign write_error[_ETHERNET_] = 1'b0;
+
+    end
 
 
 //====================================================================================
@@ -589,30 +709,48 @@ module ZenithSoC (
 
     localparam _PRNG_ = _ETHERNET_ + PRNG_NUMBER;
 
-    prng random_generator (
-        .clk_i   ( sys_clk ),
-        .rst_n_i ( reset_n ),
 
-        /* Write interface */
-        .write_i         ( write_request[_PRNG_] ),
-        .write_data_i    ( write_data[_PRNG_]    ),
-        .write_address_i ( write_address[_PRNG_] ),
-        .write_done_o    ( write_done[_PRNG_]    ),
-    
-        /* Read interface */
-        .read_i         ( read_request[_PRNG_] ),
-        .read_address_i ( read_address[_PRNG_] ),
-        .read_done_o    ( read_done[_PRNG_]    ),
-        .read_data_o    ( read_data[_PRNG_]    )
-    );
+    if (PRNG) begin
 
-    assign write_busy[_PRNG_] = 1'b0;
-    assign write_ready[_PRNG_] = 1'b1;
-    assign write_error[_PRNG_] = 1'b0;
+        prng random_generator (
+            .clk_i   ( sys_clk ),
+            .rst_n_i ( reset_n ),
 
-    assign read_busy[_PRNG_] = 1'b0;
-    assign read_ready[_PRNG_] = 1'b1;
-    assign read_error[_PRNG_] = 1'b0;
+            /* Write interface */
+            .write_i         ( write_request[_PRNG_] ),
+            .write_data_i    ( write_data[_PRNG_]    ),
+            .write_address_i ( write_address[_PRNG_] ),
+            .write_done_o    ( write_done[_PRNG_]    ),
+        
+            /* Read interface */
+            .read_i         ( read_request[_PRNG_] ),
+            .read_address_i ( read_address[_PRNG_] ),
+            .read_done_o    ( read_done[_PRNG_]    ),
+            .read_data_o    ( read_data[_PRNG_]    )
+        );
+
+        assign write_busy[_PRNG_] = 1'b0;
+        assign write_ready[_PRNG_] = 1'b1;
+        assign write_error[_PRNG_] = 1'b0;
+
+        assign read_busy[_PRNG_] = 1'b0;
+        assign read_ready[_PRNG_] = 1'b1;
+        assign read_error[_PRNG_] = 1'b0;
+
+    end else begin
+        
+        assign write_busy[_PRNG_] = 1'b0;
+        assign write_ready[_PRNG_] = 1'b1;
+        assign read_busy[_PRNG_] = 1'b0;
+        assign read_ready[_PRNG_] = 1'b1;
+
+
+        assign read_done[_PRNG_] = read_request[_PRNG_];
+        assign read_error[_PRNG_] = 1'b0;
+        assign write_done[_PRNG_] = write_request[_PRNG_];
+        assign write_error[_PRNG_] = 1'b0;
+
+    end
     
 
 //====================================================================================
@@ -659,38 +797,56 @@ module ZenithSoC (
 
     localparam _APU_ = _PRNG_ + 1;
 
-    apu #(APU_SAMPLE_BUFFER_SIZE) audio_processing_unit (
-        .clk_i   ( sys_clk ),
-        .rst_n_i ( reset_n ),
 
-        .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 7] ),
-        
-        .write_i         ( write_request[_APU_]      ),
-        .write_address_i ( write_address[_APU_] >> 2 ),
-        .write_data_i    ( write_data[_APU_]         ),
-        .write_strobe_i  ( write_strobe[_APU_]       ),
-        .write_done_o    ( write_done[_APU_]         ),
-        .write_error_o   ( write_error[_APU_]        ),
-        
-        .read_i         ( read_request[_APU_]      ),
-        .read_address_i ( read_address[_APU_] >> 2 ),
-        .read_data_o    ( read_data[_APU_]         ),
-        .read_done_o    ( read_done[_APU_]         ),
-        .read_error_o   ( read_error[_APU_]        ),
-        
-        .pdm_data_i  ( pdm_data_i  ),
-        .pdm_clk_o   ( pdm_clk_o   ),
-        .pdm_lrsel_o ( pdm_lrsel_o ),
-        
-        .pwm_o          ( pwm_o          ),
-        .audio_enable_o ( audio_enable_o )
-    );
+    if (APU) begin
 
-    assign write_busy[_APU_] = 1'b0;
-    assign write_ready[_APU_] = 1'b1;
+        apu #(APU_SAMPLE_BUFFER_SIZE) audio_processing_unit (
+            .clk_i   ( sys_clk ),
+            .rst_n_i ( reset_n ),
 
-    assign read_busy[_APU_] = 1'b0;
-    assign read_ready[_APU_] = 1'b1;
+            .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 7] ),
+            
+            .write_i         ( write_request[_APU_]      ),
+            .write_address_i ( write_address[_APU_] >> 2 ),
+            .write_data_i    ( write_data[_APU_]         ),
+            .write_strobe_i  ( write_strobe[_APU_]       ),
+            .write_done_o    ( write_done[_APU_]         ),
+            .write_error_o   ( write_error[_APU_]        ),
+            
+            .read_i         ( read_request[_APU_]      ),
+            .read_address_i ( read_address[_APU_] >> 2 ),
+            .read_data_o    ( read_data[_APU_]         ),
+            .read_done_o    ( read_done[_APU_]         ),
+            .read_error_o   ( read_error[_APU_]        ),
+            
+            .pdm_data_i  ( pdm_data_i  ),
+            .pdm_clk_o   ( pdm_clk_o   ),
+            .pdm_lrsel_o ( pdm_lrsel_o ),
+            
+            .pwm_o          ( pwm_o          ),
+            .audio_enable_o ( audio_enable_o )
+        );
+
+        assign write_busy[_APU_] = 1'b0;
+        assign write_ready[_APU_] = 1'b1;
+
+        assign read_busy[_APU_] = 1'b0;
+        assign read_ready[_APU_] = 1'b1;
+
+    end else begin
+
+        assign write_busy[_APU_] = 1'b0;
+        assign write_ready[_APU_] = 1'b1;
+        assign read_busy[_APU_] = 1'b0;
+        assign read_ready[_APU_] = 1'b1;
+
+
+        assign read_done[_APU_] = read_request[_APU_];
+        assign read_error[_APU_] = 1'b0;
+        assign write_done[_APU_] = write_request[_APU_];
+        assign write_error[_APU_] = 1'b0;
+
+    end
 
 
 //====================================================================================
@@ -753,141 +909,162 @@ module ZenithSoC (
 
     localparam _SD_ = _NC_MEM_ + 1;
 
-    sd sd_controller (
-        .clk_i   ( sys_clk ),
-        .rst_n_i ( reset_n ),
 
-        .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 8] ),
+    if (SD) begin
 
-        .write_i         ( write_request[_SD_]      ),
-        .write_address_i ( write_address[_SD_] >> 2 ),
-        .write_data_i    ( write_data[_SD_]         ),
-        .write_strobe_i  ( write_strobe[_SD_]       ),
-        .write_done_o    ( write_done[_SD_]         ),
-        .write_error_o   ( write_error[_SD_]        ),
+        sd sd_controller (
+            .clk_i   ( sys_clk ),
+            .rst_n_i ( reset_n ),
+
+            .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 8] ),
+
+            .write_i         ( write_request[_SD_]      ),
+            .write_address_i ( write_address[_SD_] >> 2 ),
+            .write_data_i    ( write_data[_SD_]         ),
+            .write_strobe_i  ( write_strobe[_SD_]       ),
+            .write_done_o    ( write_done[_SD_]         ),
+            .write_error_o   ( write_error[_SD_]        ),
+            
+            .read_i         ( read_request[_SD_]      ),
+            .read_address_i ( read_address[_SD_] >> 2 ),
+            .read_data_o    ( read_data[_SD_]         ),
+            .read_done_o    ( read_done[_SD_]         ),
+            .read_error_o   ( read_error[_SD_]        ),
+
+            .sd_cd_n_i    ( sd_cd_n_i    ),
+            .sd_cmd_io    ( sd_cmd_io    ),
+            .sd_data_io   ( sd_data_io   ),
+            .sd_reset_n_o ( sd_reset_n_o ),
+            .sd_clk_o     ( sd_clk_o     ) 
+        );
+
+        assign write_busy[_SD_] = 1'b0;
+        assign write_ready[_SD_] = 1'b1;
+
+        assign read_busy[_SD_] = 1'b0;
+        assign read_ready[_SD_] = 1'b1;
+
+    end else begin
         
-        .read_i         ( read_request[_SD_]      ),
-        .read_address_i ( read_address[_SD_] >> 2 ),
-        .read_data_o    ( read_data[_SD_]         ),
-        .read_done_o    ( read_done[_SD_]         ),
-        .read_error_o   ( read_error[_SD_]        ),
+        assign write_busy[_SD_] = 1'b0;
+        assign write_ready[_SD_] = 1'b1;
+        assign read_busy[_SD_] = 1'b0;
+        assign read_ready[_SD_] = 1'b1;
 
-        .sd_cd_n_i    ( sd_cd_n_i    ),
-        .sd_cmd_io    ( sd_cmd_io    ),
-        .sd_data_io   ( sd_data_io   ),
-        .sd_reset_n_o ( sd_reset_n_o ),
-        .sd_clk_o     ( sd_clk_o     ) 
-    );
 
-    assign write_busy[_SD_] = 1'b0;
-    assign write_ready[_SD_] = 1'b1;
+        assign read_done[_SD_] = read_request[_SD_];
+        assign read_error[_SD_] = 1'b0;
+        assign write_done[_SD_] = write_request[_SD_];
+        assign write_error[_SD_] = 1'b0;
 
-    assign read_busy[_SD_] = 1'b0;
-    assign read_ready[_SD_] = 1'b1;
+    end
 
 
 //====================================================================================
 //      DDR CONTROLLER
 //====================================================================================
 
-    `ifdef _DDR_MEMORY_
-
     logic [26:0] ddr_address; logic ddr_write, ddr_read, push_trx, pull_trx, ddr_data_valid, ddr_done; 
     logic [63:0] ddr_data_write, ddr_data_read; logic [7:0] ddr_mask; 
 
-    cache_ddr_interface #(
-        .DATA_MAX_BURST        ( DBLOCK_SIZE_BYTE / 4 ),
-        .INSTRUCTION_MAX_BURST ( IBLOCK_SIZE_BYTE / 4 )
-    ) ddr_controller_interface (
-        .clk_i   ( sys_clk ),
-        .rst_n_i ( reset_n ),
 
-        /* Arbiter */
-        .hold_i ( 1'b0 ),
+    if (DDR_MEMORY) begin
+            
+        cache_ddr_interface #(
+            .DATA_MAX_BURST        ( DBLOCK_SIZE_BYTE / 4 ),
+            .INSTRUCTION_MAX_BURST ( IBLOCK_SIZE_BYTE / 4 )
+        ) ddr_controller_interface (
+            .clk_i   ( sys_clk ),
+            .rst_n_i ( reset_n ),
 
-        /* Memory interface */
-        .load_channel  ( ddr_load_channel  ),
-        .store_channel ( ddr_store_channel ),
+            /* Arbiter */
+            .hold_i ( 1'b0 ),
 
-        .single_trx_i ( single_store_trx ),
-        .instr_req_i  ( load_instruction ),
-        .load_empty_o ( load_trx_room    ),
+            /* Memory interface */
+            .load_channel  ( ddr_load_channel  ),
+            .store_channel ( ddr_store_channel ),
 
-        /* Common address */
-        .address_o ( ddr_address ), 
+            .single_trx_i ( single_store_trx ),
+            .instr_req_i  ( load_instruction ),
+            .load_empty_o ( load_trx_room    ),
+
+            /* Common address */
+            .address_o ( ddr_address ), 
+            
+            /* Command interface */
+            .write_o ( ddr_write ), 
+            .read_o  ( ddr_read  ), 
+
+            /* Data interface */
+            .push_o       ( push_trx       ), 
+            .pull_o       ( pull_trx       ), 
+            .write_data_o ( ddr_data_write ),
+            .write_mask_o ( ddr_mask       ),
+            .read_data_i  ( ddr_data_read  ),
+            .read_valid_i ( ddr_data_valid ),
+
+            /* Status */
+            .done_o  ( ddr_done  ),
+            .ready_i ( ddr_ready )
+        );
+
+
+        ddr_memory_interface ddr_controller (
+            .clk_i       ( sys_clk     ),
+            .rst_n_i     ( reset_n     ),
+            .mem_clk_i   ( ddr_clk     ),
+            .mem_rst_n_i ( ddr_reset_n ),
+
+            /* Data */
+            .ddr2_dq_io ( ddr2_dq ),
+            .ddr2_dm_o  ( ddr2_dm ),
+
+            /* Data strobe pair */
+            .ddr2_dqs_n_io ( ddr2_dqs_n ),
+            .ddr2_dqs_p_io ( ddr2_dqs_p ),
+
+            /* Addreses */
+            .ddr2_addr_o ( ddr2_addr ),
+            .ddr2_ba_o   ( ddr2_ba   ),
+
+            /* Enable signals */
+            .ddr2_ras_n_o ( ddr2_ras_n ),
+            .ddr2_cas_n_o ( ddr2_cas_n ),
+            .ddr2_we_n_o  ( ddr2_we_n  ),
+            .ddr2_cke_o   ( ddr2_cke   ),
+
+            /* Clock pair */
+            .ddr2_ck_p_o ( ddr2_ck_p ),
+            .ddr2_ck_n_o ( ddr2_ck_n ),
+
+            /* Chip select */
+            .ddr2_cs_n_o ( ddr2_cs_n ),
+            .ddr2_odt_o  ( ddr2_odt  ),
+
+            /* Common address */
+            .address_i ( ddr_address ), 
+            
+            /* Command interface */
+            .write_i ( ddr_write ), 
+            .read_i  ( ddr_read  ), 
+
+            /* Data interface */
+            .push_i       ( push_trx       ), 
+            .pull_i       ( pull_trx       ), 
+            .write_data_i ( ddr_data_write ),
+            .write_mask_i ( ddr_mask       ),
+            .read_data_o  ( ddr_data_read  ),
+            .read_valid_o ( ddr_data_valid ),
+
+            /* Status */
+            .done_i  ( ddr_done  ),
+            .ready_o ( ddr_ready ),
+            .start_o (           )
+        );
+
+    end else begin
         
-        /* Command interface */
-        .write_o ( ddr_write ), 
-        .read_o  ( ddr_read  ), 
-
-        /* Data interface */
-        .push_o       ( push_trx       ), 
-        .pull_o       ( pull_trx       ), 
-        .write_data_o ( ddr_data_write ),
-        .write_mask_o ( ddr_mask       ),
-        .read_data_i  ( ddr_data_read  ),
-        .read_valid_i ( ddr_data_valid ),
-
-        /* Status */
-        .done_o  ( ddr_done  ),
-        .ready_i ( ddr_ready )
-    );
-
-
-    ddr_memory_interface ddr_controller (
-        .clk_i       ( sys_clk     ),
-        .rst_n_i     ( reset_n     ),
-        .mem_clk_i   ( ddr_clk     ),
-        .mem_rst_n_i ( ddr_reset_n ),
-
-        /* Data */
-        .ddr2_dq_io ( ddr2_dq ),
-        .ddr2_dm_o  ( ddr2_dm ),
-
-        /* Data strobe pair */
-        .ddr2_dqs_n_io ( ddr2_dqs_n ),
-        .ddr2_dqs_p_io ( ddr2_dqs_p ),
-
-        /* Addreses */
-        .ddr2_addr_o ( ddr2_addr ),
-        .ddr2_ba_o   ( ddr2_ba   ),
-
-        /* Enable signals */
-        .ddr2_ras_n_o ( ddr2_ras_n ),
-        .ddr2_cas_n_o ( ddr2_cas_n ),
-        .ddr2_we_n_o  ( ddr2_we_n  ),
-        .ddr2_cke_o   ( ddr2_cke   ),
-
-        /* Clock pair */
-        .ddr2_ck_p_o ( ddr2_ck_p ),
-        .ddr2_ck_n_o ( ddr2_ck_n ),
-
-        /* Chip select */
-        .ddr2_cs_n_o ( ddr2_cs_n ),
-        .ddr2_odt_o  ( ddr2_odt  ),
-
-        /* Common address */
-        .address_i ( ddr_address ), 
-        
-        /* Command interface */
-        .write_i ( ddr_write ), 
-        .read_i  ( ddr_read  ), 
-
-        /* Data interface */
-        .push_i       ( push_trx       ), 
-        .pull_i       ( pull_trx       ), 
-        .write_data_i ( ddr_data_write ),
-        .write_mask_i ( ddr_mask       ),
-        .read_data_o  ( ddr_data_read  ),
-        .read_valid_o ( ddr_data_valid ),
-
-        /* Status */
-        .done_i  ( ddr_done  ),
-        .ready_o ( ddr_ready ),
-        .start_o (           )
-    );
-
-    `endif 
+    end
 
 endmodule : ZenithSoC
 
