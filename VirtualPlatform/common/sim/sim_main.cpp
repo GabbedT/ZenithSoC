@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstdlib>
 #include <iomanip>
 #include <cstdint>
 #include <cstring>
@@ -24,14 +25,18 @@ static Vtb_top *dut = nullptr;
 static VerilatedFstC *tfp = nullptr;
 static uint64_t sim_time = 0;
 
+static constexpr uint64_t HALF_PERIOD_PS = 5000;
+
 void clk_tick() {
     dut->clk = 1;
     dut->eval();
-    if (tfp) tfp->dump(sim_time++);
+    if (tfp) tfp->dump(sim_time);
+    sim_time += HALF_PERIOD_PS;
 
     dut->clk = 0;
     dut->eval();
-    if (tfp) tfp->dump(sim_time++);
+    if (tfp) tfp->dump(sim_time);
+    sim_time += HALF_PERIOD_PS;
 }
 
 void reset_dut() {
@@ -43,7 +48,7 @@ void reset_dut() {
 
 uint32_t axi_read(uint32_t address) {
     dut->read_i = 1;
-    dut->read_address_i = address;
+    dut->read_address_i = address >> 2;
 
     clk_tick();
     dut->read_i = 0;
@@ -63,7 +68,7 @@ uint32_t axi_read(uint32_t address) {
 
 void axi_write(uint32_t address, uint32_t data, uint8_t strb) {
     dut->write_i = 1;
-    dut->write_address_i = address;
+    dut->write_address_i = address >> 2;
     dut->write_data_i = data;
     dut->write_strobe_i = strb;
 
@@ -99,12 +104,9 @@ public:
     }
 
     bool load(reg_t addr, size_t len, uint8_t* bytes) override {
-        std::cout << "[Load] DEV" << std::endl;
+        uint32_t offset = static_cast<uint32_t>(addr);
 
-        uint32_t offset = static_cast<uint32_t>(addr - base);
-        uint32_t word_addr = offset >> 2;
-
-        uint32_t data = axi_read(word_addr);
+        uint32_t data = axi_read(offset);
 
         // Shift data for byte/halfword reads
         data >>= 8 * (offset & 0x3);
@@ -115,10 +117,7 @@ public:
     }
 
     bool store(reg_t addr, size_t len, const uint8_t* bytes) override {
-        std::cout << "[Store] DEV" << std::endl;
-
-        uint32_t offset = static_cast<uint32_t>(addr - base);
-        uint32_t word_addr = offset >> 2;
+        uint32_t offset = static_cast<uint32_t>(addr);
 
         uint32_t data = 0;
         memcpy(&data, bytes, std::min(len, sizeof(data)));
@@ -135,8 +134,37 @@ public:
             data <<= 8 * half_pos;
         }
 
-        axi_write(word_addr, data, strb);
+        axi_write(offset, data, strb);
 
+        return true;
+    }
+};
+
+
+class vp_tick_t : public abstract_device_t {
+public:
+    static const uint64_t BASE = 0x30000000;
+    static const uint64_t SIZE = 0x1000;
+
+    reg_t size() override {
+        return SIZE;
+    }
+
+    bool store(reg_t addr, size_t len, const uint8_t* bytes) override {
+        uint32_t cycles = 0;
+        memcpy(&cycles, bytes, std::min(len, sizeof(cycles)));
+
+        std::cout << "[VP TICK] advancing " << cycles << " cycles" << std::endl;
+
+        for (uint32_t i = 0; i < cycles; i++) {
+            clk_tick();
+        }
+
+        return true;
+    }
+
+    bool load(reg_t addr, size_t len, uint8_t* bytes) override {
+        memset(bytes, 0, len);
         return true;
     }
 };
@@ -149,7 +177,6 @@ public:
     static const uint64_t SIZE = 0x00001000;
 
     bool store(reg_t addr, size_t len, const uint8_t* bytes) override {
-        std::cout << "[Store] DBGUART" << std::endl;
         for (size_t i = 0; i < len; i++) {
             putchar(bytes[i]);
         }
@@ -164,8 +191,6 @@ public:
     }
 
     bool load(reg_t addr, size_t len, uint8_t* bytes) override {
-        std::cout << "[Load] DBGUART" << std::endl;
-
         memset(bytes, 0, len);
 
         return true;
@@ -240,7 +265,7 @@ int main(int argc, char **argv) {
 
     // 5. Configure Spike
     cfg_t cfg;
-    cfg.isa = "rv32im_zicsr";
+    cfg.isa = "rv32im_zfinx_zba_zbs_zicsr";
     cfg.priv = "m";
 
 
@@ -255,6 +280,7 @@ int main(int argc, char **argv) {
     auto io_dev = std::make_shared<zenith_io_device_t>(io_base, io_size);
     auto dbg_uart = std::make_shared<debug_uart_t>();
     auto test_res = std::make_shared<test_result_t>();
+    auto vp_tick = std::make_shared<vp_tick_t>();
 
 
     debug_module_config_t dm_config;
@@ -284,7 +310,7 @@ int main(int argc, char **argv) {
     const_cast<bus_t&>(spike.get_bus()).add_device(io_base, io_dev.get());
     const_cast<bus_t&>(spike.get_bus()).add_device(debug_uart_t::BASE, dbg_uart.get());
     const_cast<bus_t&>(spike.get_bus()).add_device(test_result_t::BASE, test_res.get());
-
+    const_cast<bus_t&>(spike.get_bus()).add_device(vp_tick_t::BASE, vp_tick.get());
 
     // 6. Run Spike
     std::cout << "[VP] Starting simulation with firmware: " << fw_path << std::endl;
@@ -292,9 +318,13 @@ int main(int argc, char **argv) {
               << io_base << " - 0x" << (io_base + io_size - 1)
               << std::dec << std::endl;
 
+    std::cout << "[VP] Forcing PC to firmware entry 0x80000000" << std::endl;
+    spike.get_core(0)->get_state()->pc = 0x80000000;
+
+    std::cout << "[VP] Entering Spike run..." << std::endl;
     spike.run();
 
-    std::cout << "[VP] Spike started!" << std::endl;
+    std::cout << "[VP] Spike terminated!" << std::endl;
 
     // 7. Cleanup
     if (tfp) {
