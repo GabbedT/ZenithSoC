@@ -1,4 +1,8 @@
 **/*.bin
 **/*.hex
 **/*.txt
-**settings.json
+
+**/.vscode/settings.json
+
+VirtualPlatform/out/
+VirtualPlatform/obj_dir/
