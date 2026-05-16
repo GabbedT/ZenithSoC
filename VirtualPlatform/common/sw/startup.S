@@ -13,6 +13,11 @@ _start:
     # Jump to main
     call main
 
+    # Signal termination to HTIF
+    la t0, tohost
+    li t1, 1
+    sw t1, 0(t0)
+
     # Halt after return
 1:  wfi
     j 1b
