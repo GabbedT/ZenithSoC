@@ -1,7 +1,7 @@
 `ifndef ASYNCHRONOUS_BUFFER_SV
     `define ASYNCHRONOUS_BUFFER_SV 
 
-`define _VIVADO_
+`include "../Utility/Defines/simulation.svh"
 
 module asynchronous_buffer #(
     /* Number of entries */

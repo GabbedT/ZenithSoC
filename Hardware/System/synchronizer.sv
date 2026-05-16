@@ -1,7 +1,7 @@
 `ifndef SYNCHRONIZER_SV
     `define SYNCHRONIZER_SV 
 
-// `define _VIVADO_
+`include "../Utility/Defines/simulation.svh"
 
 module synchronizer #(
     /* Number of sync flops */

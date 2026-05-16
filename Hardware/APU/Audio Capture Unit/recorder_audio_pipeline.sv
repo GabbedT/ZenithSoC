@@ -6,7 +6,7 @@
 `include "../../Utility/Packages/apu_pkg.sv"
 `include "../../CPU/ApogeoRV/Hardware/Back End/Execution Unit/Arithmetic Circuits/Integer/Dividers/non_restoring_divider.sv"
 
-`define _VIVADO_
+`include "../../Utility/Defines/simulation.svh"
 
 module recorder_audio_pipeline #(
     /* Int - Comb stages */

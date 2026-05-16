@@ -1,6 +1,7 @@
 `ifndef CLOCK_SOURCE_SV
     `define CLOCK_SOURCE_SV
 
+/* THIS IS A VIVADO WRAPPER */
 module clock_source (
     /* External clock source */
     input logic ext_clk_i,
