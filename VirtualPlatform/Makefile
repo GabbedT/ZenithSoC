@@ -92,7 +92,7 @@ verilate:
 firmware:
 	@mkdir -p out
 	@echo "=== Compiling firmware for block: $(BLOCK) ==="
-	$(RISCV_GCC) -march=rv32im_zicsr -mabi=ilp32 -nostdlib \
+	$(RISCV_GCC) -march=rv32im_zfinx_zba_zbs_zicsr -mabi=ilp32 -nostdlib \
 	    -T $(FW_LINK) $(FW_STARTUP) $(BLOCK_FW) \
 	    -I common/sw \
 	    -O2 -o out/firmware.elf
@@ -115,7 +115,8 @@ run-notrace: all
 
 # --- Open waveform ---
 wave:
-	gtkwave out/waveform.fst &
+	fst2vcd out/waveform.fst > out/waveform.vcd
+	env -u LD_LIBRARY_PATH -u GTK_PATH -u GIO_EXTRA_MODULES -u LD_PRELOAD gtkwave out/waveform.vcd
 
 # --- Print block info ---
 info:
