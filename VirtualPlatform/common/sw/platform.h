@@ -8,6 +8,9 @@
  *  Addresses from ZenithSoC/Software/Library/mmio.h
  * ============================================================ */
 
+#define VP_TICK_ADDR 0x30000000u
+#define VP_TICK (*(volatile uint32_t *)VP_TICK_ADDR)
+
 #define MMIO_START        0x00004000
 #define DEVICE_INTERLEAVE (1 << 13)
 
@@ -63,6 +66,11 @@ static inline void vp_print_hex(uint32_t val) {
 static inline void vp_println(const char *s) {
     vp_print(s);
     vp_putchar('\n');
+}
+
+static inline void vp_delay_cycles(uint32_t cycles)
+{
+    VP_TICK = cycles;
 }
 
 #endif
