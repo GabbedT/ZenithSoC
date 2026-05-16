@@ -1,3 +1,4 @@
 **/*.bin
 **/*.hex
 **/*.txt
+**settings.json
