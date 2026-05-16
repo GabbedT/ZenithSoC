@@ -4,6 +4,8 @@
  * I/O peripherals are at 0x00004000+ (same as real ZenithSoC).
  */
 
+ENTRY(_start)
+
 MEMORY
 {
     ROM (rx)  : ORIGIN = 0x80000000, LENGTH = 128K
@@ -45,12 +47,10 @@ SECTIONS
         fromhost = .;
     }
 
-    /* Add space for tohost and fromhost in RAM */
-    .tohost : {
-        . = . + 4; /* Allocate 4 bytes for the tohost symbol */
-    } > RAM
-
-    .fromhost : {
-        . = . + 4; /* Allocate 4 bytes for the fromhost symbol */
+    .htif (NOLOAD) : ALIGN(4) {
+        tohost = .;
+        . = . + 4;
+        fromhost = .;
+        . = . + 4;
     } > RAM
 }
