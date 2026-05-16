@@ -1,5 +1,7 @@
 #include "platform.h"
 
+#include <stdbool.h>
+
 /*
  * UART register map (from uart_pkg.sv):
  *   0x00 = TX_DATA / CONFIG
@@ -14,17 +16,63 @@
  *   3 = STATUS
  */
 
-#define UART_TX_DATA    REG32(UART_BASE + 0x00)
-#define UART_RX_DATA    REG32(UART_BASE + 0x04)
-#define UART_CONFIG     REG32(UART_BASE + 0x08)
-#define UART_STATUS     REG32(UART_BASE + 0x0C)
+#define UART_CONTROL    REG32(UART_BASE + 0x00)
+#define UART_TX_DATA    REG32(UART_BASE + 0x04)
+#define UART_RX_DATA    REG32(UART_BASE + 0x08)
+#define UART_EVENT      REG32(UART_BASE + 0x0C)
+
+#include <stdint.h>
+#include <stdbool.h>
+
+typedef union {
+    uint32_t raw;
+
+    struct {
+        /* Buffer status */
+        unsigned int emptyRX : 1;
+        unsigned int fullRX : 1;
+        unsigned int emptyTX : 1;
+        unsigned int fullTX : 1;
+
+        /* Enable interrupt for each event */
+        unsigned int interruptEnable : 5;
+
+        /* Operation enable */
+        unsigned int enableRX : 1;
+        unsigned int enableTX : 1;
+
+        /* Communication config */
+        unsigned int parityEnable : 1;
+        unsigned int parityMode : 1;
+        unsigned int stopBits : 1;
+        unsigned int dataBits : 2;
+
+        /* Enable CTS - RTS flow control */
+        unsigned int flowControl : 1;
+
+        /* Clock divider */
+        unsigned int clockDivider : 15;
+    } bits;
+} uartCtrlStatus_t;
+
 
 void main(void) {
+    uartCtrlStatus_t ctrl; 
+
     vp_println("[UART] Test start");
 
     /* Configure: 8N1, baud divider for loopback testing */
     /* Set a reasonable baud divider (system_clk / (16 * baud)) */
-    UART_CONFIG = (1 << 15) | (1 << 14) | 54;  /* TX enable | RX enable | divider */
+    ctrl.raw = UART_CONTROL;
+
+    ctrl.bits.enableRX = true;
+    ctrl.bits.enableTX = true;
+    ctrl.bits.parityEnable = true;
+
+    UART_CONTROL = ctrl.raw;
+
+
+    vp_print_hex(UART_CONTROL);
 
     vp_println("[UART] Config written");
 
@@ -37,11 +85,10 @@ void main(void) {
      * Wait some cycles for transmission to complete.
      * In the VP, each UART bit-time takes divider*16 clock cycles. */
 
-    volatile int delay;
-    for (delay = 0; delay < 50000; delay++);
+    vp_delay_cycles(50000);
 
     /* Read status to check if data received */
-    uint32_t status = UART_STATUS;
+    uint32_t status = UART_CONTROL;
     vp_print("[UART] Status: ");
     vp_print_hex(status);
     vp_putchar('\n');
