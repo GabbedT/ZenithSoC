@@ -17,9 +17,10 @@
 #include "riscv/mmu.h"
 #include "riscv/processor.h"
 
-// =============================================
-// Verilator Model
-// =============================================
+
+//====================================================================================
+//      VERILATOR (TB -> DUT)
+//====================================================================================
 
 static Vtb_top *dut = nullptr;
 static VerilatedFstC *tfp = nullptr;
@@ -84,14 +85,12 @@ void axi_write(uint32_t address, uint32_t data, uint8_t strb) {
               << " Strobe: 0x" << (int) strb << std::dec << std::endl;
 }
 
-// =============================================
-// ZenithSoC MMIO Device for Spike
-// =============================================
+//====================================================================================
+//      SoC DEVICE
+//====================================================================================
 
-// Block-specific MMIO device. BASE and SIZE are set per block via
-// command-line args (+io_base=0xNNNN +io_size=0xNNNN).
-// Addresses reaching the DUT are word-aligned register indices (offset >> 2).
 class zenith_io_device_t : public abstract_device_t {
+
 public:
     uint64_t base;
     uint64_t dev_size;
@@ -141,7 +140,12 @@ public:
 };
 
 
+//====================================================================================
+//      VIRTUAL PLATFORM TIMER
+//====================================================================================
+
 class vp_tick_t : public abstract_device_t {
+
 public:
     static const uint64_t BASE = 0x30000000;
     static const uint64_t SIZE = 0x1000;
@@ -170,7 +174,11 @@ public:
 };
 
 
-// Debug UART: prints characters to host console
+
+//====================================================================================
+//      VIRTUAL PLATFORM STDOUT
+//====================================================================================
+
 class debug_uart_t : public abstract_device_t {
 public:
     static const uint64_t BASE = 0x10000000;
@@ -222,9 +230,11 @@ public:
     }
 };
 
-// =============================================
-// Main
-// =============================================
+
+
+//====================================================================================
+//      MAIN SIM BODY
+//====================================================================================
 
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);

@@ -15,6 +15,16 @@ SIM_SRC      = common/sim/sim_main.cpp
 FW_STARTUP   = common/sw/startup.S
 FW_LINK      = common/sw/link.ld
 
+# Driver paths
+FW_INC_DIRS = common/sw \
+              ../Software/Library \
+              ../Software/Library/Driver
+
+FW_SRC_DIRS = ../Software/Source
+
+FW_SRCS = $(foreach dir,$(FW_SRC_DIRS),$(wildcard $(dir)/*.c))
+FW_INCS = $(addprefix -I,$(FW_INC_DIRS))
+
 # ZenithSoC hardware source tree (for includes)
 ZENITH_HW    = ..
 
@@ -93,8 +103,8 @@ firmware:
 	@mkdir -p out
 	@echo "=== Compiling firmware for block: $(BLOCK) ==="
 	$(RISCV_GCC) -march=rv32im_zfinx_zba_zbs_zicsr -mabi=ilp32 -nostdlib \
-	    -T $(FW_LINK) $(FW_STARTUP) $(BLOCK_FW) \
-	    -I common/sw \
+	    -T $(FW_LINK) $(FW_STARTUP) $(BLOCK_FW) $(FW_SRCS) \
+	    $(FW_INCS) \
 	    -O2 -o out/firmware.elf
 	$(RISCV_OBJDUMP) -d out/firmware.elf > out/firmware.dis
 	@echo "=== Firmware built: out/firmware.elf ==="
