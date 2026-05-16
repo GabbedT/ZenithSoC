@@ -999,7 +999,6 @@ module ZenithSoC #(
     logic [26:0] ddr_address; logic ddr_write, ddr_read, push_trx, pull_trx, ddr_data_valid, ddr_done; 
     logic [63:0] ddr_data_write, ddr_data_read; logic [7:0] ddr_mask; 
 
-
         
     cache_ddr_interface #(
         .DATA_MAX_BURST        ( DBLOCK_SIZE_BYTE / 4 ),
@@ -1097,6 +1096,66 @@ module ZenithSoC #(
 
     `else
         
+    localparam int DDR_SIZE_BYTES = 128 * 1024 * 1024;
+    localparam int WORD_BYTES = 8;
+    localparam int DDR_WORDS = DDR_SIZE_BYTES / WORD_BYTES;
+    localparam int DDR_LATENCY = 4;
+
+    /* Memory to hold data */
+    logic [63:0] ddr_memory [0:DDR_WORDS-1];
+
+    /* Used for latency modeling */
+    logic [26:0] read_address_q;
+    logic [$clog2(DDR_LATENCY + 1) - 1:0] latency_count;
+    logic read_pending;
+    
+    /* DDR Address */
+    logic [$clog2(DDR_WORDS)-1:0] word_address;
+    assign word_address = ddr_address[$clog2(DDR_WORDS)+2:3];
+
+
+        always_ff @(posedge sys_clk or negedge reset_n) begin
+            if (!reset_n) begin
+                ddr_data_valid  <= 1'b0;
+                ddr_data_read   <= '0;
+
+                read_address_q <= '0;
+                latency_count <= '0;
+                read_pending  <= 1'b0;
+            end else begin
+
+                if (ddr_write && push_trx) begin
+                    for (int i = 0; i < 8; i = i + 1) begin
+                        if (ddr_mask[i]) begin
+                            ddr_memory[word_address][8*i +: 8] <= ddr_data_write[8*i +: 8];
+                        end
+                    end
+                end
+
+                if (ddr_read && !read_pending && !ddr_data_valid) begin
+                    read_address_q <= ddr_address;
+                    read_pending <= 1'b1;
+                    latency_count <= DDR_LATENCY;
+                end
+
+                if (read_pending) begin
+                    if (latency_count != 0) begin
+                        latency_count <= latency_count - 1'b1;
+                    end else begin
+                        ddr_data_read <= ddr_memory[read_address_q[26:3]];
+
+                        ddr_data_valid <= 1'b1;
+                        read_pending <= 1'b0;
+                    end
+                end
+
+              
+                if (ddr_data_valid && pull_trx) begin
+                    ddr_data_valid <= 1'b0;
+                end
+            end
+        end
+
     `endif
 
 endmodule : ZenithSoC
