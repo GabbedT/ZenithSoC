@@ -92,6 +92,7 @@ module cpu_complex #(
     ApogeoRV #(PREDICTOR_SIZE, BTB_SIZE, STORE_BUFFER_SIZE, INSTRUCTION_BUFFER_SIZE, ROB_DEPTH) system_cpu (
         .clk_i   ( clk_i   ),
         .rst_n_i ( rst_n_i ),
+        .halt_i  ( 1'b0    ),
 
         .fetch_channel ( cpu_fetch_channel ), 
 
