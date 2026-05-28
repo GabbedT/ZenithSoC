@@ -1,3 +1,5 @@
+`timescale 1ns/1ns
+
 module tb_top (
     input  logic        clk,
     input  logic        rst_n,
