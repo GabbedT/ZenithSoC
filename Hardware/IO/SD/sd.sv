@@ -47,8 +47,8 @@ module sd (
     logic cd_n_sync;
 
     synchronizer #(
-        .FLOP_NUMBER   ( 2 ),
-        .INITIAL_VALUE ( 0 )
+        .FLOP_NUMBER ( 2 ),
+        .RESET_VALUE ( 0 )
     ) card_detect_synchronizer (
         /* Global signals */
         .clk_i   ( clk_i   ),
