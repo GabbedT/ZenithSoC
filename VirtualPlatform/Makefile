@@ -4,25 +4,30 @@
 # =============================================================================
 
 BLOCK       ?= _template
+TIMEOUT		?= 10s
 
 # --- Paths ---
 BLOCK_DIR    = blocks/$(BLOCK)
 BLOCK_RTL    = $(wildcard $(BLOCK_DIR)/rtl/*.sv)
-BLOCK_FW     = $(BLOCK_DIR)/sw/firmware.c
+BLOCK_FW     = $(BLOCK_DIR)/sw/firmware.cpp
 
 COMMON_RTL   = common/tb/tb_top.sv
 SIM_SRC      = common/sim/sim_main.cpp
 FW_STARTUP   = common/sw/startup.S
 FW_LINK      = common/sw/link.ld
 
+TRACE_START ?= 0
+TRACE_END   ?= 18446744073709551615
+
 # Driver paths
 FW_INC_DIRS = common/sw \
               ../Software/Library \
               ../Software/Library/Driver
 
+FW_INCS = $(addprefix -I,$(FW_INC_DIRS))
+
 FW_SRC_DIRS = ../Software/Source
 
-FW_SRCS = $(foreach dir,$(FW_SRC_DIRS),$(wildcard $(dir)/*.c))
 FW_INCS = $(addprefix -I,$(FW_INC_DIRS))
 
 # ZenithSoC hardware source tree (for includes)
@@ -30,7 +35,7 @@ ZENITH_HW    = ..
 
 # --- Tools ---
 VERILATOR     ?= verilator
-RISCV_GCC     ?= riscv32-unknown-elf-gcc
+RISCV_GCC     ?= riscv32-unknown-elf-g++
 RISCV_OBJDUMP ?= riscv32-unknown-elf-objdump
 SPIKE_DIR     ?= 
 
@@ -63,6 +68,7 @@ endif
 
 # --- Verilator flags ---
 VFLAGS       = --cc --exe --trace-fst --trace-structs \
+			   --timing \
                --top-module tb_top \
                -Wno-fatal \
                -I$(ZENITH_HW) \
@@ -77,10 +83,10 @@ VFLAGS       = --cc --exe --trace-fst --trace-structs \
                -I$(ZENITH_HW)/Hardware/APU \
                -I$(ZENITH_HW)/Hardware/System \
                -I$(ZENITH_HW)/Utility/Packages \
+			   -I$(BLOCK_DIR)/rtl \
                -CFLAGS "-std=c++17 -O2 -I$(SPIKE_DIR)/include" \
                -LDFLAGS "-L$(SPIKE_DIR)/lib -lriscv -lfesvr -lpthread -ldl"
 
-# --- Optional: include block-specific config ---
 -include $(BLOCK_DIR)/block.mk
 
 # =============================================================================
@@ -102,7 +108,7 @@ verilate:
 firmware:
 	@mkdir -p out
 	@echo "=== Compiling firmware for block: $(BLOCK) ==="
-	$(RISCV_GCC) -march=rv32im_zfinx_zba_zbs_zicsr -mabi=ilp32 -nostdlib \
+	$(RISCV_GCC) -march=rv32im_zfinx_zba_zbs_zicsr -fno-use-cxa-atexit -fno-exceptions -mno-fdiv -mabi=ilp32 -nostartfiles \
 	    -T $(FW_LINK) $(FW_STARTUP) $(BLOCK_FW) $(FW_SRCS) \
 	    $(FW_INCS) \
 	    -O2 -o out/firmware.elf
@@ -113,8 +119,15 @@ firmware:
 run: all
 	@echo "=== Running VP: BLOCK=$(BLOCK) IO_BASE=$(IO_BASE) ==="
 	./obj_dir/Vtb_top +firmware=out/firmware.elf \
-	    +io_base=$(IO_BASE) +io_size=$(IO_SIZE)
+		+io_base=$(IO_BASE) +io_size=$(IO_SIZE) \
+		+trace_start=$(TRACE_START) +trace_end=$(TRACE_END)
 	@echo "=== Simulation done ==="
+
+# --- Run simulator with waveform and a timeout when the FW get stuck (easy debug) ---
+run-timeout: all
+	@echo "=== Running VP with timeout $(TIMEOUT): BLOCK=$(BLOCK) IO_BASE=$(IO_BASE) ==="
+	-timeout -s TERM $(TIMEOUT) ./obj_dir/Vtb_top +firmware=out/firmware.elf \
+	    +io_base=$(IO_BASE) +io_size=$(IO_SIZE)
 
 # --- Run without waveform (faster) ---
 run-notrace: all
