@@ -46,21 +46,42 @@ SD::~SD() {
     control->enableSD = 0;
 };
 
+#define STDOUT (*(volatile char *)0x10000000)
+
+/* Print string */
+static inline void print(const char *s) {
+    while (*s) STDOUT = *s++;
+}
+
+/* Print single char */
+static inline void putchar(char c) {
+    STDOUT = c;
+}
+
+/* Print hex value */
+static inline void print_hex(uint32_t val) {
+    const char hex[] = "0123456789abcdef";
+    print("0x");
+    for (int i = 28; i >= 0; i -= 4) {
+        putchar(hex[(val >> i) & 0xF]);
+    }
+}
+
 
 SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool& timeout, bool& crcError, bool& isHighCapacity) {
     uint8_t resp[17] = {0};
 
     /* ----------- Card Preparation ----------- */
 
-    reset();
-    control->enableSD = true;
+    // reset();
+    // control->enableSD = true;
 
-    /* Need ~74 SD clock cycles before starting CMD0 */
-    volatile int sink = 0;
+    // /* Need ~74 SD clock cycles before starting CMD0 */
+    // volatile int sink = 0;
 
-    for (int i = 0; i < 10000; ++i) { 
-        ++sink;
-    }
+    // for (int i = 0; i < 10000; ++i) { 
+    //     ++sink;
+    // }
     
 
     /* CMD0: GO_IDLE_STATE -> put the card in idle mode */
@@ -368,7 +389,7 @@ SD& SD::setInterruptEnable(bool enable, uint32_t position) {
 
 SD& SD::sendCommand(uint32_t cmdNumber, uint32_t argument) {
     /* Wait for both FSMs to be idle */
-    while (!status->cmdIdle || !status->dataIdle) {  }
+    while (!status->cmdIdle) {  }
 
     /* Set the command number and argument */
     *commandNumber = cmdNumber;
@@ -517,7 +538,7 @@ SD& SD::writeBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstWr
     /* Since CMD FSM will automatically start data FSM if it detects CMD25 fill first the buffer 
      * to avoiding reading into an empty buffer */
     for (int j = 0; j < MAX_32_BIT_BLOCK; ++j) {
-        *txBuffer = burstWrite[MAX_32_BIT_BLOCK + j];
+        *txBuffer = burstWrite[j];
     }
     
     /* Issue write burst command */
