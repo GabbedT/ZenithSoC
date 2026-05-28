@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <optional>
+#include <csignal>
 
 #include "Vtb_top.h"
 #include "verilated.h"
@@ -26,18 +27,35 @@ static Vtb_top *dut = nullptr;
 static VerilatedFstC *tfp = nullptr;
 static uint64_t sim_time = 0;
 
-static constexpr uint64_t HALF_PERIOD_PS = 5000;
+static uint64_t trace_start = 0;
+static uint64_t trace_end   = UINT64_MAX;
+
+static constexpr uint64_t HALF_PERIOD_NS = 5;
+
+
+void dump_trace() {
+    if (tfp && sim_time >= trace_start && sim_time <= trace_end) {
+        tfp->dump(sim_time);
+    }
+}
+
 
 void clk_tick() {
     dut->clk = 1;
     dut->eval();
-    if (tfp) tfp->dump(sim_time);
-    sim_time += HALF_PERIOD_PS;
+
+    dump_trace();
+    Verilated::timeInc(HALF_PERIOD_NS);
+
+    sim_time += HALF_PERIOD_NS;
 
     dut->clk = 0;
     dut->eval();
-    if (tfp) tfp->dump(sim_time);
-    sim_time += HALF_PERIOD_PS;
+
+    dump_trace();
+    Verilated::timeInc(HALF_PERIOD_NS);
+
+    sim_time += HALF_PERIOD_NS;
 }
 
 void reset_dut() {
@@ -61,8 +79,9 @@ uint32_t axi_read(uint32_t address) {
     uint32_t data = dut->read_data_o;
     clk_tick();
 
-    std::cout << "[AXI RD] Address: 0x" << std::hex << std::setw(8) << std::setfill('0') << address
-              << " Data: 0x" << std::setw(8) << data << std::dec << std::endl;
+    for (int i = 0; i < 10; ++i) {
+        clk_tick();
+    }
 
     return data;
 }
@@ -80,9 +99,9 @@ void axi_write(uint32_t address, uint32_t data, uint8_t strb) {
         clk_tick();
     }
 
-    std::cout << "[AXI WR] Address: 0x" << std::hex << std::setw(8) << std::setfill('0') << address
-              << " Data: 0x" << std::setw(8) << data
-              << " Strobe: 0x" << (int) strb << std::dec << std::endl;
+    for (int i = 0; i < 10; ++i) {
+        clk_tick();
+    }
 }
 
 //====================================================================================
@@ -233,11 +252,44 @@ public:
 
 
 //====================================================================================
+//      HANDLE FORCED EXIT
+//====================================================================================
+
+void close_waveform_and_exit(int code) {
+    std::cout << "\n[VP] Closing waveform..." << std::endl;
+
+    if (tfp) {
+        tfp->close();
+        delete tfp;
+        tfp = nullptr;
+    }
+
+    if (dut) {
+        delete dut;
+        dut = nullptr;
+    }
+
+    std::cout << "[VP] Waveform closed." << std::endl;
+
+    std::exit(code);
+};
+
+void signal_handler(int signum) {
+    std::cout << "\n[VP] Caught signal " << signum << std::endl;
+    close_waveform_and_exit(128 + signum);
+};
+
+
+
+//====================================================================================
 //      MAIN SIM BODY
 //====================================================================================
 
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
+
+    std::signal(SIGINT, signal_handler);
+    std::signal(SIGTERM, signal_handler);   
 
     // 1. Create Verilator model
     dut = new Vtb_top;
@@ -265,12 +317,21 @@ int main(int argc, char **argv) {
     
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
+
         if (arg.find("+firmware=") == 0)
             fw_path = arg.substr(10);
+
         else if (arg.find("+io_base=") == 0)
             io_base = std::stoull(arg.substr(9), nullptr, 0);
+
         else if (arg.find("+io_size=") == 0)
             io_size = std::stoull(arg.substr(9), nullptr, 0);
+
+        else if (arg.find("+trace_start=") == 0)
+            trace_start = std::stoull(arg.substr(13), nullptr, 0);
+
+        else if (arg.find("+trace_end=") == 0)
+            trace_end = std::stoull(arg.substr(11), nullptr, 0);
     }
 
     // 5. Configure Spike
@@ -321,6 +382,12 @@ int main(int argc, char **argv) {
     const_cast<bus_t&>(spike.get_bus()).add_device(debug_uart_t::BASE, dbg_uart.get());
     const_cast<bus_t&>(spike.get_bus()).add_device(test_result_t::BASE, test_res.get());
     const_cast<bus_t&>(spike.get_bus()).add_device(vp_tick_t::BASE, vp_tick.get());
+
+    if (enable_trace) {
+        std::cout << "[VP] Trace window: "
+              << trace_start << " ns - "
+              << trace_end << " ns" << std::endl;
+    }
 
     // 6. Run Spike
     std::cout << "[VP] Starting simulation with firmware: " << fw_path << std::endl;
