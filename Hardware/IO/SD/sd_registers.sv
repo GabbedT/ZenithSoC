@@ -127,7 +127,7 @@ module sd_registers #(
 
     assign send_command_o = control_register.send_command;
     
-    assign reset_card_o = control_register.reset_card;
+    assign reset_card_o = control_register.reset_card & !reset_done_i;
 
 
 //====================================================================================
