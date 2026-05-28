@@ -27,12 +27,6 @@
 `include "System/synchronizer.sv"
 `include "System/clock_source.sv"
 
-/* Comment this define to execute code directly from 
- * boot memory (useful to speedup testbench since there
- * is no ddr controller). Remember to comment out the 
- * DDR2 Memory Model from testbench */
-`define _DDR_MEMORY_
-
 module ZenithSoC #(
     parameter UART = 1,
 
