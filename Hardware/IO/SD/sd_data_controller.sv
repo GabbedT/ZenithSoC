@@ -68,8 +68,8 @@ module sd_data_controller (
         end
 
 
-    /* 100 us timeout counter */
-    logic [$clog2(10_000) - 1:0] timeout_counter; logic timeout_increment, timeout_reset;
+    /* Timeout counter */
+    logic [$clog2(1_000_000) - 1:0] timeout_counter; logic timeout_increment, timeout_reset;
 
         always_ff @(posedge clk_i) begin
             if (!rst_n_i) begin 
@@ -113,7 +113,7 @@ module sd_data_controller (
 //      FSM LOGIC
 //====================================================================================
 
-    localparam CRC16_LENGTH = 16;
+    localparam CRC16_LENGTH = 16; // TODO: know why SEND_DATA blocks, modify interface so the software doesn't need to read the tokens but just a bit (then reset it)
     localparam DATA_LENGTH = 4096;
 
     /* Write response */
@@ -121,7 +121,13 @@ module sd_data_controller (
     localparam WRITE_ERROR_RESP = 8'h0D;
     localparam WRITE_CRC_ERROR_RESP = 8'h0B;
 
-    typedef enum logic [3:0] {IDLE, WAIT_RX, WAIT_TX, START_BIT, RCV_DATA, RCV_CRC, CHECK_CRC, SEND_DATA, SEND_CRC, STOP_BIT, WAIT_END, CARD_RESPONSE, RECOVERY_CYCLE} data_states_t;
+    /* Write recovery after a single block in a burst */
+    localparam WRITE_RECOVERY_CYCLES = 16;
+
+
+    typedef enum logic [3:0] {IDLE, WAIT_RX, WAIT_TX, START_BIT, RCV_DATA, 
+                              RCV_CRC, CHECK_CRC, SEND_DATA, SEND_CRC, STOP_BIT, 
+                              WAIT_END, WAIT_TOKEN, CARD_RESPONSE, READ_TOKEN, RECOVERY_CYCLE} data_states_t;
 
     data_states_t state_CRT, state_NXT; 
 
@@ -312,8 +318,16 @@ module sd_data_controller (
                 end
 
                 RECOVERY_CYCLE: begin
+                    tristate_enable = 1'b0;
+
                     if (shift_i) begin
-                        state_NXT = WAIT_TX;
+                        if (bit_counter == WRITE_RECOVERY_CYCLES - 1) begin
+                            state_NXT = WAIT_TX;
+
+                            bit_reset = 1'b1;
+                        end else begin
+                            bit_increment = 1'b1;
+                        end
                     end
                 end
 
@@ -478,7 +492,8 @@ module sd_data_controller (
                         end
 
                         /* Reset the state machine */
-                        state_NXT = CARD_RESPONSE;
+                        state_NXT = WAIT_TOKEN;
+                        data_NXT = '0;
 
                         bit_reset = 1'b1;
                     end
@@ -487,29 +502,53 @@ module sd_data_controller (
                     tristate_enable = 1'b1;
                 end
 
-                CARD_RESPONSE: begin
-                    /* Wait for the card to respond */
-                    if (sample_i) begin
-                        bit_increment = bit_counter != 'd8;
+                WAIT_TOKEN: begin
+                    if (sample_i & !sd_data_io[0]) begin
+                        data_NXT = '0;
 
-                        /* Shift bit in */
+                        bit_reset = 1'b1;
+
+                        state_NXT = READ_TOKEN;
+                    end else if (timeout_counter >= 'd1_000_000) begin
+                        state_NXT = IDLE;
+                        timeout_o = 1'b1;
+                    end
+
+                    timeout_increment = 1'b1;
+
+                    /* Keep high impedence */
+                    tristate_enable = 1'b0;
+                end
+
+                READ_TOKEN: begin
+                    tristate_enable = 1'b0;
+
+                    if (sample_i) begin
                         data_NXT = {data_CRT[6:0], sd_data_io[0]};
 
-                        if (bit_counter == 'd8) begin
+                        /* We already stored the first token bit in WAIT_TOKEN (1'b0).
+                         * Now we need 4 more samples. At bit_counter == 3, data_NXT[4:0] contains:
+                         * 0 s2 s1 s0 1 */
+                        if (bit_counter == 'd3) begin
                             token_valid_o = 1'b1;
-                            token_o = data_CRT;
 
-                            /* Wait until the card is not busy anymore (bit is high) */
+                            case (data_NXT[3:1])
+                                3'b010: token_o = WRITE_OK_RESP;
+                                3'b101: token_o = WRITE_CRC_ERROR_RESP;
+                                3'b110: token_o = WRITE_ERROR_RESP;
+                                default: token_o = data_NXT;
+                            endcase
+
+                            /* Write CRC Error Token */
+                            crc_error_o = data_NXT[3:1] == 3'b101;
+
                             state_NXT = WAIT_END;
-
                             timeout_reset = 1'b1;
+                            bit_reset = 1'b1;
                         end else begin
                             bit_increment = 1'b1;
                         end
                     end
-
-                    /* Keep high impedence */
-                    tristate_enable = 1'b0;
                 end
 
                 WAIT_END: begin
@@ -522,17 +561,15 @@ module sd_data_controller (
                             timeout_reset = 1'b1;
                             bit_reset = 1'b1;
                             crc16_initialize = 1'b1;
+                        end else if (timeout_counter >= 'd1_000_000) begin
+                            /* Timeout, reset the state machine */
+                            state_NXT = IDLE;
+
+                            timeout_o = 1'b1;
                         end
                     end
 
                     timeout_increment = 1'b1;
-
-                    if (timeout_counter == 'd10_000) begin
-                        /* Timeout, reset the state machine */
-                        state_NXT = IDLE;
-
-                        timeout_o = 1'b1;
-                    end
 
                     /* Keep high impedence */
                     tristate_enable = 1'b0;
