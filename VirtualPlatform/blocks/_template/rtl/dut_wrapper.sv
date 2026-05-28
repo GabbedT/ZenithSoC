@@ -1,5 +1,6 @@
 // Template dut_wrapper: responds OKAY to all transactions
 // Copy this block and replace the placeholder logic with your peripheral
+`timescale 1ns/1ns
 
 module dut_wrapper (
     input  logic        clk,
