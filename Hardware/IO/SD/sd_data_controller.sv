@@ -26,9 +26,8 @@ module sd_data_controller (
     /* Status */
     output logic idle_o,
     output logic timeout_o,
-    output logic token_valid_o,
     output logic crc_error_o, 
-    output logic [7:0] token_o,
+    output logic error_o, 
 
     /* PHY Interface */
     inout logic [3:0] sd_data_io
@@ -168,9 +167,8 @@ module sd_data_controller (
             timeout_increment = 1'b0;
             timeout_reset = 1'b0;
 
-            token_valid_o = 1'b0;
             crc_error_o = 1'b0;
-            token_o = '0;
+            error_o = 1'b0;
 
             tristate_enable = 1'b1;
             data_line = '1;
@@ -530,19 +528,16 @@ module sd_data_controller (
                          * Now we need 4 more samples. At bit_counter == 3, data_NXT[4:0] contains:
                          * 0 s2 s1 s0 1 */
                         if (bit_counter == 'd3) begin
-                            token_valid_o = 1'b1;
-
-                            case (data_NXT[3:1])
-                                3'b010: token_o = WRITE_OK_RESP;
-                                3'b101: token_o = WRITE_CRC_ERROR_RESP;
-                                3'b110: token_o = WRITE_ERROR_RESP;
-                                default: token_o = data_NXT;
-                            endcase
-
                             /* Write CRC Error Token */
-                            crc_error_o = data_NXT[3:1] == 3'b101;
+                            crc_error_o = data_NXT[3:1] == WRITE_CRC_ERROR_RESP[3:1];
+                            error_o = data_NXT[3:1] == WRITE_ERROR_RESP[3:1];
 
-                            state_NXT = WAIT_END;
+                            if (data_NXT[3:1] != WRITE_OK_RESP[3:1]) begin
+                                state_NXT = IDLE;
+                            end else begin
+                                state_NXT = WAIT_END;
+                            end
+
                             timeout_reset = 1'b1;
                             bit_reset = 1'b1;
                         end else begin

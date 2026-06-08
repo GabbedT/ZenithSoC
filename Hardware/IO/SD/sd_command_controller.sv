@@ -61,7 +61,7 @@ module sd_command_controller (
             end
         end 
 
-    assign resp_o = resp_CRT;
+    assign resp_o = resp_NXT;
 
 
     /* Counter to select the payload bits */
@@ -147,6 +147,12 @@ module sd_command_controller (
 
     /* Output SD command line */
     logic tristate_enable, cmd_bit;
+
+    logic response_without_crc; 
+
+    assign response_without_crc = (cmd_number_i == 6'd58) 
+                              || ((cmd_number_i == 6'd41) && card_app_cmd_CRT)
+                              ||  (cmd_number_i == 6'd1);
 
         always_comb begin
             /* Default Values */
@@ -354,8 +360,8 @@ module sd_command_controller (
                             /* Shift in most significant bit */
                             resp_NXT = {resp_CRT[6:0], sd_cmd_io};
 
-                            /* Reset bit counter */
-                            bit_reset = 1'b1;
+                            timeout_reset = 1'b1;
+                            bit_increment = 1'b1;
 
                             /* Start computing CRC7 */
                             crc7_compute = 1'b1;
@@ -370,11 +376,11 @@ module sd_command_controller (
                     /* Release command line */
                     tristate_enable = 1'b0;
 
-                    /* Shift in most significant bit */
-                    resp_NXT = {resp_CRT[6:0], sd_cmd_io};
-
                     if (sample_i) begin
                         state_NXT = rcv136_CRT ? RCV136 : RCV48;
+
+                        /* Shift in most significant bit */
+                        resp_NXT = {resp_CRT[6:0], sd_cmd_io};
 
                         bit_increment = 1'b1;
 
@@ -399,11 +405,11 @@ module sd_command_controller (
                         bit_increment = 1'b1;
 
                         /* Don't compute CRC on CRC reception */
-                        crc7_compute = bit_counter < 'd39;
+                        crc7_compute = bit_counter < 'd40;
                         crc7_data = sd_cmd_io;
 
                         /* Once 8 bits have been received write the byte */
-                        if (bit_counter[2:0] == '1) begin
+                        if (bit_counter[2:0] == 3'd7) begin
                             /* Load response type */
                             resp_type_o = 1'b0;
                             resp_valid_o = 1'b1;
@@ -412,7 +418,9 @@ module sd_command_controller (
                         /* Count one less bit since the first one is not counted in WAIT_RESP */
                         if (bit_counter == 'd47) begin
                             /* Don't check CRC7 */
-                            state_NXT = (cmd_number_i == 'd41 & card_app_cmd_CRT) ? RECOVERY : CHECK_CRC;
+                            state_NXT = response_without_crc ? RECOVERY : CHECK_CRC;
+
+                            bit_reset = 1'b1;
 
                             resp_valid_o = 1'b1;
 
@@ -433,25 +441,28 @@ module sd_command_controller (
                         /* Shift in most significant bit */
                         resp_NXT = {resp_CRT[6:0], sd_cmd_io};
 
-                        /* Keep shifting in this register and validate it at the end */
-                        crc7_NXT = {crc7_CRT[5:0], sd_cmd_io};
-
                         bit_increment = 1'b1;
 
-                        crc7_compute = bit_counter < 'd129;
+                        crc7_compute = (bit_counter < 'd128) & (bit_counter >= 'd8);
                         crc7_data = sd_cmd_io;
 
+                        if ((bit_counter >= 8'd128) && (bit_counter <  8'd135)) begin
+                            crc7_NXT = {crc7_CRT[5:0], sd_cmd_io};
+                        end
+
+
                         /* Once 8 bits have been received write the byte */
-                        if (bit_counter[2:0] == '1) begin
+                        if (bit_counter[2:0] == 3'd7) begin
                             /* Load response type */
                             resp_type_o = 1'b1;
                             resp_valid_o = 1'b1;
                         end
 
                         /* Count one less bit since the first one is not counted in WAIT_RESP */
-                        if (bit_counter == 'd136) begin
+                        if (bit_counter == 'd135) begin
                             /* Don't check CRC7 */
-                            state_NXT = (cmd_number_i == 'd2 | cmd_number_i == 'd10) ? RECOVERY : CHECK_CRC;
+                            // state_NXT = (cmd_number_i == 'd2 | cmd_number_i == 'd10) ? RECOVERY : CHECK_CRC;
+                            state_NXT = CHECK_CRC;
 
                             /* Don't shift CRC7 on last bit */
                             crc7_NXT = crc7_CRT;
@@ -465,6 +476,8 @@ module sd_command_controller (
                 CHECK_CRC: begin
                     if (crc7_CRT != crc7_out) begin
                         crc_error_o = 1'b1;
+
+                        state_NXT = IDLE;
                     end
 
                     bit_reset = 1'b1;

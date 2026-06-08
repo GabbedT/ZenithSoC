@@ -37,8 +37,6 @@ package sd_pkg;
     typedef struct packed {
         logic card_detected;
 
-        logic [7:0] data_token;
-
         logic tx_buffer_empty;
         logic tx_buffer_full;
         logic rx_buffer_empty;
@@ -54,6 +52,7 @@ package sd_pkg;
 
         logic data_idle;
         logic data_crc_error;
+        logic data_error;
         logic data_timeout;
     } sd_status_t;
 

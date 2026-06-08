@@ -89,9 +89,7 @@ module sd (
     logic [3:0][7:0] data_rx;
     logic data_buffer_rx_write;
     logic data_idle;
-    logic data_timeout, data_crc_error,  data_timeout_ff, data_crc_error_ff;
-    logic data_token_valid;
-    logic [7:0] data_token;
+    logic data_timeout, data_crc_error, data_error, data_timeout_ff, data_crc_error_ff, data_error_ff;
 
     /* Control from Command to Data */
     logic force_stop;
@@ -105,6 +103,7 @@ module sd (
     always_ff @(posedge clk_i) begin
         data_timeout_ff <= data_timeout;
         data_crc_error_ff <= data_crc_error;
+        data_error_ff <= data_error;
 
         cmd_timeout_ff <= cmd_timeout;
         cmd_crc_error_ff <= cmd_crc_error;
@@ -157,8 +156,8 @@ module sd (
         .data_idle_i        ( data_idle            ),
         .data_timeout_i     ( data_timeout_ff      ),
         .data_crc_error_i   ( data_crc_error_ff    ),
-        .data_token_valid_i ( data_token_valid     ),
-        .data_token_i       ( data_token           )
+        .data_error_i       ( data_error_ff        )
+
     );
 
 
@@ -372,11 +371,10 @@ module sd (
         .burst_i       ( data_burst     ),
         .transfer_en_i ( data_activate  ),
 
-        .idle_o        ( data_idle        ),
-        .timeout_o     ( data_timeout     ),
-        .token_valid_o ( data_token_valid ),
-        .crc_error_o   ( data_crc_error   ),
-        .token_o       ( data_token       ),
+        .idle_o      ( data_idle      ),
+        .timeout_o   ( data_timeout   ),
+        .crc_error_o ( data_crc_error ),
+        .error_o     ( data_error     ),
 
         .sd_data_io ( sd_data_io )
     );

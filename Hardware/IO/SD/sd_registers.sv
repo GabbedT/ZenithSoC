@@ -58,9 +58,8 @@ module sd_registers #(
     input logic data_rx_valid_i,
     input logic data_idle_i,
     input logic data_timeout_i,
-    input logic data_crc_error_i, 
-    input logic data_token_valid_i,
-    input logic [7:0] data_token_i
+    input logic data_crc_error_i,
+    input logic data_error_i
 );
 
 //====================================================================================
@@ -163,42 +162,52 @@ module sd_registers #(
             if (!rst_n_i) begin 
                 status_register <= '0;
             end else begin 
-                /* Card Status */
-                status_register.card_detected <= card_detect_i;
+                if ((write_address_i == SD_STATUS) & write_i) begin 
+                    status_register <= (write_data_i & mask) | (status_register & ~mask);
+                end else begin
+                    /* Card Status */
+                    status_register.card_detected <= card_detect_i;
 
-                /* FIFOS Status */
-                status_register.tx_buffer_empty <= tx_buffer_empty;
-                status_register.tx_buffer_full <= tx_buffer_full;
+                    /* FIFOS Status */
+                    status_register.tx_buffer_empty <= tx_buffer_empty;
+                    status_register.tx_buffer_full <= tx_buffer_full;
 
-                status_register.rx_buffer_empty <= rx_buffer_empty;
-                status_register.rx_buffer_full <= rx_buffer_full;
+                    status_register.rx_buffer_empty <= rx_buffer_empty;
+                    status_register.rx_buffer_full <= rx_buffer_full;
 
-                status_register.resp_buffer_empty <= resp_buffer_empty;
-                status_register.resp_buffer_full <= resp_buffer_full;
+                    status_register.resp_buffer_empty <= resp_buffer_empty;
+                    status_register.resp_buffer_full <= resp_buffer_full;
 
-                /* CMD Status */
-                status_register.cmd_idle <= cmd_idle_i;
+                    /* CMD Status */
+                    status_register.cmd_idle <= cmd_idle_i;
 
-                /* Token */
-                if (data_token_valid_i) begin
-                    status_register.data_token <= data_token_i;
-                end
+                    if (cmd_crc_error_i) begin
+                        status_register.cmd_crc_error <= 1'b1;
+                    end
 
-                if (cmd_done) begin
-                    status_register.cmd_crc_error <= cmd_crc_error_i;
-                    status_register.cmd_timeout <= cmd_timeout_i;
-                end
+                    if (cmd_timeout_i) begin
+                        status_register.cmd_timeout <= 1'b1;
+                    end
+                    
+                    if (cmd_response_valid_i) begin
+                        status_register.cmd_response_type <= cmd_response_type_i;
+                    end
 
-                if (cmd_response_valid_i) begin
-                    status_register.cmd_response_type <= cmd_response_type_i;
-                end
 
-                /* CMD Status */
-                status_register.data_idle <= data_idle_i;
+                    /* Data Status */
+                    status_register.data_idle <= data_idle_i;
 
-                if (data_done) begin
-                    status_register.cmd_crc_error <= cmd_crc_error_i;
-                    status_register.cmd_timeout <= cmd_timeout_i;
+                    if (data_crc_error_i) begin
+                        status_register.data_crc_error <= 1'b1;
+                    end
+
+                    if (data_timeout_i) begin
+                        status_register.data_timeout <= 1'b1;
+                    end
+
+                    if (data_error_i) begin
+                        status_register.data_error <= 1'b1;
+                    end
                 end
             end 
         end 
