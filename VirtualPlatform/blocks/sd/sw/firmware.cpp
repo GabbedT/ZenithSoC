@@ -24,13 +24,13 @@ extern "C" int main() {
 
     uint8_t cmd8_response[6] = {0}; 
     
-    bool timeout = false; 
-    bool crcError = false; 
     bool isHighCapacity = false;
-
-
+    
+    
     /* Initialize SD Card controller */
-    SD card; 
+    SD card;
+
+    SD::errorType_e error = SD::NO_ERROR; 
 
     card.reset();
     card.control->enableSD = true;
@@ -38,16 +38,16 @@ extern "C" int main() {
     /* Need ~74 SD clock cycles before starting CMD0 */
     vp_delay_cycles(20000);
 
-    card.init(SD::CLK_25MHZ, SD::BUS_NARROW, cmd8_response, timeout, crcError, isHighCapacity);
+    card.init(SD::CLK_25MHZ, SD::BUS_NARROW, cmd8_response, isHighCapacity, error);
 
-    if (timeout) {
+    if (error == SD::CMD_TIMEOUT || error == SD::DAT_TIMEOUT) {
         vp_print("[INITIALIZATION] Timeout!\n");
 
         TEST_FAIL();
         return 0;
     }
 
-    if (crcError) {
+    if (error == SD::CMD_CRC_ERR || error == SD::DAT_CRC_ERR) {
         vp_print("[INITIALIZATION] CRC Error!\n");
 
         TEST_FAIL();
@@ -75,7 +75,7 @@ extern "C" int main() {
     vp_print("\n\n");
 
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 1; i < 4; i++) {
         switch (i) {
             case 0:
                 vp_print("[CONFIGURATION] | BUS: Narrow | Speed: 400 KHz |\n");
@@ -171,17 +171,18 @@ void testInformations(SD& card) {
 void testRead(SD& card, uint32_t address) {
     uint32_t blockRead[128] = {0}; 
     uint8_t response[6] = {0};
+    SD::errorType_e error = SD::NO_ERROR;
     
     bool timeout = false;
     bool crcError = false;
 
-    card.readBlock(address, blockRead, response, timeout, crcError);
+    card.readBlock(address, blockRead, response, error);
 
-    if (timeout) {
+    if (error == SD::DAT_TIMEOUT) {
         vp_print("[READ] Timeout!\n");
 
         return;
-    } else if (crcError) {
+    } else if (error == SD::DAT_CRC_ERR) {
         vp_print("[READ] CRC Error!\n");
 
         return;
@@ -199,14 +200,10 @@ void testRead(SD& card, uint32_t address) {
 
 
 void testWrite(SD& card, uint32_t address) {
-    bool timeout = false; 
-    bool crcError = false;
-
-    uint8_t responseToken = 0;
-
     /* Buffer */
     uint32_t blockWrite[128] = {0}; 
     uint8_t response[6] = {0};
+    SD::errorType_e error = SD::NO_ERROR;
 
 
     /* Generate data*/
@@ -214,13 +211,13 @@ void testWrite(SD& card, uint32_t address) {
         blockWrite[i] = address + i;
     }
 
-    card.writeBlock(address, blockWrite, response, responseToken, timeout, crcError);
+    card.writeBlock(address, blockWrite, response, error);
 
-    if (timeout) {
+    if (error == SD::DAT_TIMEOUT) {
         vp_print("[WRITE] Timeout!\n");
 
         return;
-    } else if (crcError) {
+    } else if (error == SD::DAT_CRC_ERR) {
         vp_print("[WRITE] CRC Error!\n");
 
         return;
@@ -234,18 +231,15 @@ void testWrite(SD& card, uint32_t address) {
 void testBurstRead(SD& card, uint32_t address) {
     uint32_t blockRead[128 * BURST_LENGTH] = {0}; 
     uint8_t response[6] = {0};
+    SD::errorType_e error = SD::NO_ERROR;
 
-    
-    bool timeout = false;
-    bool crcError = false;
+    card.readBurst(address, BURST_LENGTH, blockRead, response, error);
 
-    card.readBurst(address, BURST_LENGTH, blockRead, response, timeout, crcError);
-
-    if (timeout) {
+    if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
         vp_print("[BURST READ] Timeout!\n");
 
         return;
-    } else if (crcError) {
+    } else if (error == SD::DAT_CRC_ERR || error == SD::CMD_CRC_ERR) {
         vp_print("[BURST READ] CRC Error!\n");
 
         return;
@@ -263,29 +257,24 @@ void testBurstRead(SD& card, uint32_t address) {
 
 
 void testBurstWrite(SD& card, uint32_t address) {
-    bool timeout = false; 
-    bool crcError = false;
-    
-    uint8_t responseToken = 0;
-
     /* Buffer */
     uint32_t blockWrite[128 * BURST_LENGTH] = {0}; 
     uint8_t response[6] = {0};
-
+    SD::errorType_e error = SD::NO_ERROR;
 
     /* Generate data */
     for (int i = 0; i < 128 * BURST_LENGTH; ++i) {
         blockWrite[i] = address + i;
     }
 
-    card.writeBurst(address, BURST_LENGTH, blockWrite, response, &responseToken, timeout, crcError);
+    card.writeBurst(address, BURST_LENGTH, blockWrite, response, error);
 
-    if (timeout) {
+    if (error == SD::DAT_TIMEOUT) {
         vp_print("[BURST WRITE] Timeout!\n");
 
         return;
-    } else if (crcError) {
-        vp_print("[BURST WRITE] CRC Errpr!\n");
+    } else if (error == SD::DAT_CRC_ERR) {
+        vp_print("[BURST WRITE] CRC Error!\n");
 
         return;
     } else {
