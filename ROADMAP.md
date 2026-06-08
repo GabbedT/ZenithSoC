@@ -22,5 +22,5 @@ The project will be developed using an incremental approach, structured into fou
 * DDR2 Controller ✅
 * Audio System (APU) ✅
 * Video System (GPU)
-* SD Card Controller
+* SD Card Controller ✅
 * ADC System

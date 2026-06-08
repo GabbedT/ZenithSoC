@@ -26,7 +26,7 @@ The design emphasizes modularity, allowing developers to configure and synthesiz
   - On-chip memory for fast execution
   - DDR2 controller for external memory
   - Boot ROM support
-- **Interconnect**: AXI4-Lite network with intelligent routing
+- **Interconnect**: AXI4-Lite network
 
 ### Audio Processing Unit (APU)
 - **Audio Capture**: PDM to PCM conversion with CIC filtering
@@ -62,14 +62,11 @@ The design emphasizes modularity, allowing developers to configure and synthesiz
 ZenithSoC/
 ├── Hardware/
 │   ├── CPU/
-│   │   ├── ApogeoRV/          # RISC-V processor core (submodule)
-│   │   └── interrupt_controller.sv
+│   │   └── ApogeoRV/          # RISC-V processor core (submodule)
 │   ├── Memory/
 │   │   └── Cache/             # Instruction and data caches
 │   ├── Bus/                   # AXI interconnect
 │   ├── APU/                   # Audio Processing Unit
-│   │   ├── audio_capture_unit.sv
-│   │   └── audio_synthesis_unit.sv
 │   ├── IO/                    # Peripheral devices
 │   │   ├── UART/
 │   │   ├── SPI/
@@ -86,8 +83,6 @@ ZenithSoC/
 │   ├── Examples/              # Sample applications and drivers
 │   └── Doc/                   # Software documentation and build instructions
 ├── Constraints/               # FPGA constraint files
-│   ├── pins.xdc
-│   └── mig.ucf
 └── Doc/                       # Hardware documentation (Sphinx)
 ```
 
@@ -100,7 +95,6 @@ Comprehensive documentation is available covering all subsystems:
   - Register maps for all peripherals
   - Programming examples
   - Integration guidelines
-- **[Build Instructions](Software/Doc/BUILD_INSTRUCTIONS.md)**: Software toolchain setup
 - **[ApogeoRV CPU](Hardware/CPU/ApogeoRV/README.md)**: Detailed processor documentation
 - **[Roadmap](ROADMAP.md)**: Feature status and development plan
 
@@ -111,35 +105,6 @@ cd Doc
 make html
 # Open Doc/_build/html/index.html in a browser
 ```
-
-## Getting Started
-
-### Hardware Requirements
-
-- **FPGA**: Xilinx 7-series or compatible
-- **Memory**: External DDR2 DRAM (optional, depending on configuration)
-- **Clock**: 100 MHz system clock (adjustable)
-
-### Important Configuration Notes
-
-Before synthesis, review and configure these platform-specific components:
-
-1. **DDR2 Controller**: Generate MIG core in Vivado for your target FPGA
-2. **Clock Generation**: Modify `system_clocking.sv` for your clocking requirements
-3. **Multipliers**: Adjust latency parameters in `integer_multiplier.sv` and `float_multiplier.sv`
-4. **Boot Memory**: Set the correct boot ROM path in `ZenithSoC.sv`
-
-### Software Development
-
-1. **Toolchain**: RISC-V GCC toolchain (RV32IMC)
-2. **Examples**: See `Software/Examples/` for sample applications:
-   - Audio recording and playback
-   - Ethernet communication
-   - SPI device control
-   - UART debugging
-   - Floating-point operations
-
-Check [Software/Doc/BUILD_INSTRUCTIONS.md](Software/Doc/BUILD_INSTRUCTIONS.md) for detailed setup instructions.
 
 ## Current Status
 
@@ -211,13 +176,3 @@ For questions, bug reports, or feature requests:
 - **Email**: tripi.gabriele2002@gmail.com
 - **Issues**: Open an issue on GitHub
 - **Documentation**: Start with the [documentation index](Doc/_build/html/index.html)
-
-## Acknowledgments
-
-- Built around the high-performance [ApogeoRV](Hardware/CPU/ApogeoRV) RISC-V core
-- RISC-V ISA designed by UC Berkeley and maintained by RISC-V International
-- Developed with Xilinx Vivado for FPGA synthesis
-
----
-
-**ZenithSoC** - Reaching the peak of SoC design

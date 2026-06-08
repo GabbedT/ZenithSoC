@@ -20,5 +20,6 @@ Test interrupts
 
 Test wait for interrupt instruction (sleep)
 
+Test stall core
 
 GESTIONE DATI PARZIALI NEL CASO DI INTERRUZIONE BURST DELEGATA AL SOFTWARE
