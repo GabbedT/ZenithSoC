@@ -142,63 +142,25 @@ module dut_wrapper (
 //      SD CMD/DAT shared lines with pull-up
 //====================================================================================
 
-    logic host_cmd_drive;
-    logic host_cmd_value;
+    /* Card model drives CMD only when enabled */
+    assign sd_cmd_io =
+        (sd_cmd_t == 1'b0) ? sd_cmd_o : 1'bz;
 
-    logic card_cmd_drive;
-    logic card_cmd_value;
-
-    logic sd_cmd_line;
-
-    assign host_cmd_drive = dut.command_controller.tristate_enable_flop;
-    assign host_cmd_value = dut.command_controller.cmd_bit_flop;
-
-    assign card_cmd_drive = (sd_cmd_t == 1'b0);
-    assign card_cmd_value = sd_cmd_o;
-
-    /* Bus resolution with pull-up */
-    assign sd_cmd_line = card_cmd_drive ? card_cmd_value :
-                        host_cmd_drive ? host_cmd_value :
-                        1'b1;   // pull-up
-
-    assign sd_cmd_i  = sd_cmd_line;
-    assign sd_cmd_io = sd_cmd_line;
+    /* Card model reads the resolved CMD line */
+    assign sd_cmd_i = sd_cmd_io;
 
 
-    logic card_force_busy;
-    assign card_force_busy = (sd_model.isdl.data_state == 7'd24);
-
-    logic host_dat_drive;
-    logic [3:0] host_dat_value;
-
-    logic card_dat_drive;
-    logic [3:0] card_dat_value;
-
-    logic [3:0] sd_dat_line;
-
-    assign host_dat_drive = dut.data_controller.tristate_enable_flop;
-    assign host_dat_value = dut.data_controller.data_line_flop;
-
-    assign card_dat_drive = (sd_dat_t != 4'b1111);
-    assign card_dat_value = sd_dat_o;
-
-    /* Bus resolution with pull-up */
+    /* Card model drives each DAT line independently */
     genvar k;
-    
+
     generate
-        for (k = 0; k < 4; k++) begin : sd_dat_resolve
-            assign sd_dat_line[k] =
-                (k == 0 && card_force_busy) ? 1'b0 :
-                (sd_dat_t[k] == 1'b0)       ? sd_dat_o[k] :
-                (host_dat_drive)            ? host_dat_value[k] :
-                                            1'b1;
+        for (k = 0; k < 4; k++) begin : sd_dat_connection
+            assign sd_data_io[k] =
+                (sd_dat_t[k] == 1'b0) ? sd_dat_o[k] : 1'bz;
         end
     endgenerate
 
-    assign sd_dat_i   = sd_dat_line;
-    assign sd_data_io = sd_dat_line;
-
-    assign sd_dat_i    = sd_dat_line;
-    assign sd_data_io  = sd_dat_line;
+    /* Card model reads the resolved DAT bus */
+    assign sd_dat_i = sd_data_io;
 
 endmodule
