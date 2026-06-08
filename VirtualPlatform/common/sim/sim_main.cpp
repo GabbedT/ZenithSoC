@@ -7,6 +7,9 @@
 #include <vector>
 #include <optional>
 #include <csignal>
+#include <string>
+#include <limits>
+#include <stdexcept>
 
 #include "Vtb_top.h"
 #include "verilated.h"
@@ -34,9 +37,15 @@ static constexpr uint64_t HALF_PERIOD_NS = 5;
 
 
 void dump_trace() {
-    if (tfp && sim_time >= trace_start && sim_time <= trace_end) {
-        tfp->dump(sim_time);
+    if (!tfp) {
+        return;
     }
+
+    if (sim_time < trace_start || sim_time > trace_end) {
+        return;
+    }
+
+    tfp->dump(sim_time - trace_start);
 }
 
 
@@ -282,6 +291,44 @@ void signal_handler(int signum) {
 
 
 //====================================================================================
+//      PARSER
+//====================================================================================
+
+static uint64_t parse_time_ns(const std::string& text) {
+    if (text == "max") {
+        return std::numeric_limits<uint64_t>::max();
+    }
+
+    std::size_t unit_pos = 0;
+    const uint64_t value = std::stoull(text, &unit_pos, 0);
+    const std::string unit = text.substr(unit_pos);
+
+    uint64_t multiplier = 1;
+
+    if (unit.empty() || unit == "ns") {
+        multiplier = 1;
+    } else if (unit == "us") {
+        multiplier = 1'000;
+    } else if (unit == "ms") {
+        multiplier = 1'000'000;
+    } else if (unit == "s") {
+        multiplier = 1'000'000'000;
+    } else {
+        throw std::invalid_argument(
+            "Invalid time unit in '" + text +
+            "'. Supported units: ns, us, ms, s"
+        );
+    }
+
+    if (value > std::numeric_limits<uint64_t>::max() / multiplier) {
+        throw std::overflow_error("Trace time is too large: " + text);
+    }
+
+    return value * multiplier;
+}
+
+
+//====================================================================================
 //      MAIN SIM BODY
 //====================================================================================
 
@@ -318,20 +365,25 @@ int main(int argc, char **argv) {
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
 
-        if (arg.find("+firmware=") == 0)
+        if (arg.find("+firmware=") == 0) {
             fw_path = arg.substr(10);
+        }
 
-        else if (arg.find("+io_base=") == 0)
+        else if (arg.find("+io_base=") == 0) {
             io_base = std::stoull(arg.substr(9), nullptr, 0);
+        }
 
-        else if (arg.find("+io_size=") == 0)
+        else if (arg.find("+io_size=") == 0) {
             io_size = std::stoull(arg.substr(9), nullptr, 0);
+        }
 
-        else if (arg.find("+trace_start=") == 0)
-            trace_start = std::stoull(arg.substr(13), nullptr, 0);
+        else if (arg.find("+trace_start=") == 0) {
+            trace_start = parse_time_ns(arg.substr(13));
+        }
 
-        else if (arg.find("+trace_end=") == 0)
-            trace_end = std::stoull(arg.substr(11), nullptr, 0);
+        else if (arg.find("+trace_end=") == 0) {
+            trace_end = parse_time_ns(arg.substr(11));
+        }
     }
 
     // 5. Configure Spike
