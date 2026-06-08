@@ -23,6 +23,9 @@ public:
     /* SD Clock speed */
     enum clockSpeed_e { CLK_400KHZ, CLK_25MHZ };
 
+    /* Error type */
+    enum errorType_e { NO_ERROR, CMD_TIMEOUT, CMD_CRC_ERR, DAT_TIMEOUT, DAT_CRC_ERR, DAT_ERR };
+
 
     /* Configuration Register bitmap */
     struct sdControl_s {
@@ -56,6 +59,7 @@ public:
     struct sdStatus_s {
         /* Data FSM status */
         unsigned int dataTimeout : 1;
+        unsigned int dataError : 1;
         unsigned int dataCRC_Error : 1;
         unsigned int dataIdle : 1;
         
@@ -160,7 +164,7 @@ public:
 /*                         CONFIGURATION                         */
 /*****************************************************************/
 
-    SD& init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool& timeout, bool& crcError, bool& isHighCapacity);
+    SD& init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool& isHighCapacity, errorType_e& error);
 
     SD& reset();
 
@@ -175,48 +179,58 @@ public:
 /*                            STATUS                             */
 /*****************************************************************/
 
-    inline uint8_t getDataError();
-
-    inline uint8_t getCommandError();
-
     inline bool isCardInserted();
 
 
 /*****************************************************************/
-/*                         DATA TRANSFER                         */
+/*                           COMMANDS                            */
 /*****************************************************************/
 
     SD& sendCommand(uint32_t commandNumber, uint32_t argument);
 
-    SD& sendCommand(uint32_t commandNumber, uint32_t argument, uint8_t* responseBuffer, bool& timeout);
-
     /* Get all the bytes from the response, from the byte that has been received first (MSB) (which is placed on the first position of the buffer)
      * to the last */
-    SD& readResponse(uint8_t* responseBuffer, bool& timeout, bool& crcError);
+    SD& readResponse(uint8_t* responseBuffer, errorType_e& error);
 
-    SD& readBlock(uint32_t blockAddress, uint32_t* blockRead, uint8_t* responseBuffer, bool& timeout, bool& crcError);
 
-    SD& writeBlock(uint32_t blockAddress, uint32_t* blockRead, uint8_t* responseBuffer, uint8_t& responseToken, bool& timeout, bool& crcError);
+/*****************************************************************/
+/*                       SINGLE TRANSFER                         */
+/*****************************************************************/
 
-    SD& readBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstRead, uint8_t* responseBuffer, bool& timeout, bool& crcError);
+    SD& readBlock(uint32_t blockAddress, uint32_t* blockRead, uint8_t* responseBuffer, errorType_e& error);
 
-    SD& writeBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstWrite, uint8_t* responseBuffer, uint8_t* tokenBuffer, bool& timeout, bool& crcError);
+    SD& writeBlock(uint32_t blockAddress, uint32_t* blockWrite, uint8_t* responseBuffer,  errorType_e& error);
+
+
+/*****************************************************************/
+/*                        BURST TRANSFER                         */
+/*****************************************************************/
+
+    SD& readBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstRead, uint8_t* responseBuffer,  errorType_e& error);
+
+    SD& writeBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstWrite, uint8_t* responseBuffer,  errorType_e& error);
+
+
+/*****************************************************************/
+/*                             FLUSH                             */
+/*****************************************************************/
 
     SD& flushResponseBuffer();
 
     SD& flushDataBuffer();
 
+
 /*****************************************************************/
 /*                           CARD INFO                           */
 /*****************************************************************/
 
-    SD& readCID(uint8_t* cidBuffer, bool& timeout, bool& crcError);    // 16 bytes
+    SD& readCID(uint8_t* cidBuffer, errorType_e& error);    // 16 bytes
 
-    SD& readCSD(uint8_t* csdBuffer, bool& timeout, bool& crcError);    // 16 bytes  
+    SD& readCSD(uint8_t* csdBuffer, errorType_e& error);    // 16 bytes  
 
     SD& readSCR(uint8_t* scrBuffer);    // 8 bytes
 
-    SD& readOCR(uint8_t* ocrBuffer, bool& timeout, bool& crcError);    // 4 bytes
+    SD& readOCR(uint8_t* ocrBuffer, errorType_e& error);    // 4 bytes
 
 };
 

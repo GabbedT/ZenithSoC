@@ -68,8 +68,9 @@ static inline void print_hex(uint32_t val) {
 }
 
 
-SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool& timeout, bool& crcError, bool& isHighCapacity) {
+SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool& isHighCapacity, errorType_e& error) {
     uint8_t resp[17] = {0};
+    error = SD::NO_ERROR;
 
     /* ----------- Card Preparation ----------- */
 
@@ -91,17 +92,14 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
 
     /* CMD8: SEND_IF_COND -> check voltage range (2.7–3.6V) and SD version >= 2.0 */
     sendCommand(8, 0x1AA);
-    readResponse(cmd8_response, timeout, crcError);
+    readResponse(cmd8_response, error);
 
-    if (timeout) {
-        /* Very old card (pre-2.0): ignore CMD8 failure and continue with ACMD41 */
-        timeout = false;
-    }
-
-    if (crcError) {
+    if (error == SD::CMD_CRC_ERR) {
         return *this;
     }
 
+    /* Reset since we don't care about timeouts */
+    error = SD::NO_ERROR;
 
     /* ----------- Initialization Loop ----------- */
 
@@ -115,15 +113,14 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
 
         /* ACMD41: SEND_OP_COND -> request operating conditions + HCS bit */
         sendCommand(41, 0x40300000);
-        readResponse(resp, timeout, crcError);
+        readResponse(resp, error);
 
-        if (timeout) { 
-            timeout = false; 
-        }
-
-        if (crcError) {
+        if (error == SD::CMD_CRC_ERR) {
             return *this;
         }
+        
+        /* Reset since we don't care about timeouts */
+        error = SD::NO_ERROR;
 
         /* Busy flag is bit 39,  */
         cardReady = (resp[1] & 0x80) != 0;
@@ -136,9 +133,9 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
 
     /* CMD58: READ_OCR -> get the official OCR register */
     sendCommand(58, 0);
-    readResponse(resp, timeout, crcError);
+    readResponse(resp, error);
 
-    if (!timeout && !crcError) {
+    if (error == SD::NO_ERROR) {
         /* Store OCR in class variable, pack 4 bytes into uint32_t */
         this->cardOCR = (((uint32_t) resp[1]) << 24) | (((uint32_t) resp[2]) << 16) |
                         (((uint32_t) resp[3]) << 8)  | ((uint32_t) resp[4]);
@@ -148,14 +145,15 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
     } else {
         /* Assume SDSC if OCR not available */
         isHighCapacity = false;
-        timeout = false;
 
         this->cardOCR = 0;
     }
 
-    if (crcError) {
+    if (error == SD::CMD_CRC_ERR) {
         return *this;
     }
+
+    error = SD::NO_ERROR;
 
     flushResponseBuffer();
 
@@ -170,9 +168,9 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
 
     /* CMD2 ALL_SEND_CID: Get the card identification number */
     sendCommand(2, 0);
-    readResponse(resp, timeout, crcError);
+    readResponse(resp, error);
 
-    if (!timeout && !crcError) {
+    if (error == SD::NO_ERROR) {
         /* Store CID in class variable (15 bytes = 120 bits) */
         uint8_t* cidBytes = reinterpret_cast<uint8_t*>(this->cardCID);
 
@@ -183,32 +181,32 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
         }
     } else {
         this->cardCID[0] = this->cardCID[1] = 0;
-
-        timeout = false;
     }
 
-    if (crcError) {
+    if (error == SD::CMD_CRC_ERR) {
         return *this;
     }
+
+    error = SD::NO_ERROR;
 
 
     /* ----------- RCA Register Reading ----------- */
 
     /* CMD3 SEND_RELATIVE_ADDR: Assign and get RCA (Relative Card Address) */
     sendCommand(3, 0);
-    readResponse(resp, timeout, crcError);
+    readResponse(resp, error);
 
 
-    if (!timeout && !crcError) {
+    if (error == SD::NO_ERROR) {
         /* Extract RCA from bits [39:24] of response */
         this->cardRCA = (((uint32_t) resp[1]) << 8) | resp[2];
-    } else {
-        timeout = false;
     }
 
-    if (crcError) {
+    if (error == SD::CMD_CRC_ERR) {
         return *this;
     }
+
+    error = SD::NO_ERROR;
 
     flushResponseBuffer();
 
@@ -217,10 +215,10 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
 
     /* CMD9: SEND_CSD -> Get Card Specific Data */
     sendCommand(9, static_cast<uint32_t>(cardRCA) << 16);
-    readResponse(resp, timeout, crcError);
+    readResponse(resp, error);
 
 
-    if (!timeout && !crcError) {
+    if (error == SD::NO_ERROR) {
         /* Store CSD in class variable (15 bytes = 120 bits) */
         uint8_t* csdBytes = reinterpret_cast<uint8_t*>(this->cardCSD);
 
@@ -231,12 +229,13 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
         }
     } else {
         this->cardCSD[0] = this->cardCSD[1] = 0;
-        timeout = false;
     }
 
-    if (crcError) {
+    if (error == SD::CMD_CRC_ERR) {
         return *this;
     }
+
+    error = SD::NO_ERROR;
 
     flushResponseBuffer();
 
@@ -276,46 +275,37 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
     sendCommand(55, ((uint32_t) cardRCA) << 16);
     flushResponseBuffer();
     
-    if (!timeout) {
-        uint8_t resp51[6];
+    uint8_t resp51[6];
 
-        /* ACMD51: SEND_SCR */
-        sendCommand(51, 0);
-        flushResponseBuffer();
+    /* ACMD51: SEND_SCR */
+    sendCommand(51, 0);
+    flushResponseBuffer();
+    
+    
+    /* Read SCR as two 32-bit words directly */
+    uint32_t* scrPtr = reinterpret_cast<uint32_t*>(&this->cardSCR);
         
-        
-        /* Read SCR as two 32-bit words directly */
-        uint32_t* scrPtr = reinterpret_cast<uint32_t*>(&this->cardSCR);
-            
-        /* Store first half */
-        while (status->rxBufferEmpty) { 
-            uint32_t timeout = 0;
+    /* Store first half */
+    while (status->rxBufferEmpty) { 
+        uint32_t timeout = 0;
 
-            if (++timeout > 100000) {
-                timeout = false;
-
-                return *this;
-            }
+        if (++timeout > 100000) {
+            return *this;
         }
-        scrPtr[1] = *rxBuffer;
-            
-        /* Store second half */
-        while (status->rxBufferEmpty) { 
-            uint32_t timeout = 0;
-
-            if (++timeout > 100000) {
-                timeout = false;
-
-                return *this;
-            }
-        }
-        scrPtr[0] = *rxBuffer;
-            
-        flushDataBuffer();
-    } else {
-        this->cardSCR = 0;
-        timeout = false;
     }
+    scrPtr[1] = *rxBuffer;
+        
+    /* Store second half */
+    while (status->rxBufferEmpty) { 
+        uint32_t timeout = 0;
+
+        if (++timeout > 100000) {
+            return *this;
+        }
+    }
+    scrPtr[0] = *rxBuffer;
+        
+    flushDataBuffer();
 
 
     /* ----------- Final Setup ----------- */
@@ -402,12 +392,13 @@ SD& SD::sendCommand(uint32_t cmdNumber, uint32_t argument) {
 };
 
 
-SD& SD::readResponse(uint8_t* responseBuffer, bool& timeout, bool& crcError) {
+SD& SD::readResponse(uint8_t* responseBuffer, errorType_e& error) {
     /* Wait for both FSMs to be idle */
     while (!status->cmdIdle) {  }
 
     if (status->cmdTimeout) {
-        timeout = true;
+        error = SD::CMD_TIMEOUT;
+        status->cmdTimeout = false;
 
         flushResponseBuffer();
 
@@ -415,7 +406,8 @@ SD& SD::readResponse(uint8_t* responseBuffer, bool& timeout, bool& crcError) {
     }
 
     if (status->cmdCRC_Error) {
-        crcError = true;
+        error = SD::CMD_CRC_ERR;
+        status->cmdCRC_Error = false;
 
         flushResponseBuffer();
 
@@ -434,22 +426,24 @@ SD& SD::readResponse(uint8_t* responseBuffer, bool& timeout, bool& crcError) {
 };
 
 
-SD& SD::readBlock(uint32_t blockAddress, uint32_t* blockRead, uint8_t* responseBuffer, bool& timeout, bool& crcError) {
+SD& SD::readBlock(uint32_t blockAddress, uint32_t* blockRead, uint8_t* responseBuffer, errorType_e& error) {
     /* Issue read block command */
     sendCommand(17, blockAddress);
 
     /* Read response */
-    readResponse(responseBuffer, timeout, crcError);
+    readResponse(responseBuffer, error);
 
-    if (timeout || crcError) {
+    if (error != SD::NO_ERROR) {
         return *this;
     }
+
 
     /* Wait for data FSM to be idle */
     while (!status->dataIdle) {  }
 
     if (status->dataTimeout) {
-        timeout = true;
+        error = SD::DAT_TIMEOUT;
+        status->dataTimeout = false;
 
         flushDataBuffer();
 
@@ -468,7 +462,7 @@ SD& SD::readBlock(uint32_t blockAddress, uint32_t* blockRead, uint8_t* responseB
 };
 
 
-SD& SD::writeBlock(uint32_t blockAddress, uint32_t* blockWrite, uint8_t* responseBuffer, uint8_t& responseToken, bool& timeout, bool& crcError) {
+SD& SD::writeBlock(uint32_t blockAddress, uint32_t* blockWrite, uint8_t* responseBuffer,  errorType_e& error) {
     /* Since CMD FSM will automatically start data FSM if it detects CMD25 fill first the buffer 
      * to avoiding reading into an empty buffer */
     int i = 0;
@@ -483,34 +477,44 @@ SD& SD::writeBlock(uint32_t blockAddress, uint32_t* blockWrite, uint8_t* respons
     sendCommand(24, blockAddress);
 
     /* Read response */
-    readResponse(responseBuffer, timeout, crcError);
+    readResponse(responseBuffer, error);
 
-    if (timeout || crcError) {
+    if (error != SD::NO_ERROR) {
         control->flushTX = true;
-
+        
         return *this;
     }
 
     /* Wait for data FSM to finish */
     while (!status->dataIdle) {  }
 
-    timeout = status->dataTimeout;
 
-    /* Read the response token */
-    responseToken = status->dataToken;
+    if (status->dataTimeout) {
+        error = SD::DAT_TIMEOUT;
+        status->dataTimeout = false;
+
+        return *this;
+    }
+
+    if (status->dataCRC_Error) {
+        error = SD::DAT_CRC_ERR;
+        status->dataCRC_Error = false;
+
+        return *this;
+    }
 
     return *this;
 };
 
 
-SD& SD::readBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstRead, uint8_t* responseBuffer, bool& timeout, bool& crcError) {
+SD& SD::readBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstRead, uint8_t* responseBuffer,  errorType_e& error) {
     /* Issue read burst command */
     sendCommand(18, baseAddress);
 
     /* Read response */
-    readResponse(responseBuffer, timeout, crcError);
+    readResponse(responseBuffer, error);
 
-    if (timeout || crcError) {
+    if (error != SD::NO_ERROR) {
         return *this;
     }
 
@@ -520,6 +524,14 @@ SD& SD::readBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstRea
             while (status->rxBufferEmpty) {  }
 
             burstRead[i * MAX_32_BIT_BLOCK + j] = *rxBuffer;
+        }
+
+        /* Error Checks */
+        if (status->dataCRC_Error) {
+            error = SD::DAT_CRC_ERR;
+            status->dataCRC_Error = false;
+
+            break;
         }
     }
 
@@ -534,7 +546,7 @@ SD& SD::readBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstRea
 };
 
 
-SD& SD::writeBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstWrite, uint8_t* responseBuffer, uint8_t* tokenBuffer, bool& timeout, bool& crcError) {
+SD& SD::writeBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstWrite, uint8_t* responseBuffer,  errorType_e& error) {
     /* Since CMD FSM will automatically start data FSM if it detects CMD25 fill first the buffer 
      * to avoiding reading into an empty buffer */
     for (int j = 0; j < MAX_32_BIT_BLOCK; ++j) {
@@ -545,21 +557,44 @@ SD& SD::writeBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstWr
     sendCommand(25, baseAddress);
 
     /* Read response */
-    readResponse(responseBuffer, timeout, crcError);
+    readResponse(responseBuffer, error);
 
-    if (timeout || crcError) {
+    if (error != SD::NO_ERROR) {
         control->flushTX = true;
-        
+
         return *this;
     }
 
     for (int i = 1; i < burstLength; ++i) {
         /* Wait until all data has been consumed */
-        while (!status->txBufferEmpty) {  }
+        while (!status->txBufferEmpty) {  
+            /* Error Checks */
+            if (status->dataError) {
+                error = SD::DAT_ERR;
+                status->dataError = false;
 
-        /* For internal timing reasons*/
-        if (i != 0) {
-            tokenBuffer[i] = status->dataToken;
+                break;
+            }
+
+            if (status->dataCRC_Error) {
+                error = SD::DAT_CRC_ERR;
+                status->dataCRC_Error = false;
+
+                break;
+            }
+        }
+
+        if (error != SD::NO_ERROR) {
+            control->flushTX = true;
+
+            /* Stop burst */
+            sendCommand(12, 0);
+
+            /* Flush useless data */
+            flushResponseBuffer();
+            flushDataBuffer();
+
+            return *this;
         }
 
         for (int j = 0; j < MAX_32_BIT_BLOCK; ++j) {
@@ -569,9 +604,6 @@ SD& SD::writeBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstWr
 
     /* Stop burst */
     sendCommand(12, 0);
-
-    /* Final token */
-    tokenBuffer[burstLength - 1] = status->dataToken;
 
     /* Flush useless data */
     flushResponseBuffer();
@@ -607,13 +639,13 @@ SD& SD::flushDataBuffer() {
 };
 
 
-SD& SD::readCID(uint8_t* cidBuffer, bool& timeout, bool& crcError) {
+SD& SD::readCID(uint8_t* cidBuffer, errorType_e& error) {
     sendCommand(10, SD::cardRCA << 16);
     
     uint8_t responseBuffer[17];
-    readResponse(responseBuffer, timeout, crcError);
+    readResponse(responseBuffer, error);
 
-    if (timeout || crcError) {
+    if (error != SD::NO_ERROR) {
         return *this;
     }
     
@@ -625,14 +657,14 @@ SD& SD::readCID(uint8_t* cidBuffer, bool& timeout, bool& crcError) {
     return *this;
 };
 
-SD& SD::readCSD(uint8_t* csdBuffer, bool& timeout, bool& crcError) {
+SD& SD::readCSD(uint8_t* csdBuffer, errorType_e& error) {
     /* CMD9: SEND_CSD */
     sendCommand(9, cardRCA << 16);
     
     uint8_t responseBuffer[17];
-    readResponse(responseBuffer, timeout, crcError);
-    
-    if (timeout || crcError) {
+    readResponse(responseBuffer, error);
+
+    if (error != SD::NO_ERROR) {
         return *this;
     }
 
@@ -674,15 +706,15 @@ SD& SD::readSCR(uint8_t* scrBuffer) {
     return *this;
 };
 
-SD& SD::readOCR(uint8_t* ocrBuffer, bool& timeout, bool& crcError) {
+SD& SD::readOCR(uint8_t* ocrBuffer, errorType_e& error) {
     /* CMD58: READ_OCR */
     sendCommand(58, 0);
     
     /* Get R3 Response */
     uint8_t responseBuffer[6];
-    readResponse(responseBuffer, timeout, crcError);
+    readResponse(responseBuffer, error);
 
-    if (timeout || crcError) {
+    if (error != SD::NO_ERROR) {
         return *this;
     }
     
