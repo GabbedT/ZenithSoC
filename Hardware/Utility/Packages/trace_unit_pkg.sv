@@ -82,11 +82,12 @@ package trace_unit_pkg;
 
     typedef enum logic [1:0] { EVENT_PACKET, DIVERGENCE_PACKET, OVERFLOW_PACKET } trace_unit_packet_type_t;
 
-    /* Event Packet (2/5 Bytes) */
-    /* SYNC (1 BYTE) | TYPE EVENT + EVENT_NUMBER (1 BYTE) | TIMESTAMP (IF ENABLED) (3 BYTE) */
 
-    /* Divergence Packet (10/13 Bytes) */
-    /* SYNC (1 BYTE) | TYPE DIVERGENCE (1 BYTE) | START PC (4 BYTE) | END PC (4 BYTE) | TIMESTAMP (IF ENABLED) (3 BYTE) */
+    /* Event Packet (1/4 Bytes) */
+    /* TYPE EVENT + EVENT_NUMBER (1 BYTE) | TIMESTAMP (IF ENABLED) (3 BYTE) */
+
+    /* Divergence Packet (5/8 Bytes) */
+    /* TYPE DIVERGENCE (1 BYTE) | DELTA PC (4 BYTE) | TIMESTAMP (IF ENABLED) (3 BYTE) */
 
     /* Time overflow Packet (2 Bytes) */
     /* SYNC (1 BYTE) | TYPE OVERFLOW + OV_FLAG (1 BYTE) | */
@@ -98,25 +99,24 @@ package trace_unit_pkg;
 
             logic [23:0] timestamp;
 
-            logic [63:0] padding;
+            logic [31:0] padding;
         } event_packet;
 
         struct packed {
             trace_unit_packet_type_t type_;
             logic [5:0] padding;
 
-            logic [31:0] start_pc;
-            logic [31:0] end_pc;
+            logic [31:0] delta_pc;
 
             logic [23:0] timestamp;
         } divergence_packet;
 
         struct packed {
             trace_unit_packet_type_t type_;
-            logic [93:0] padding;
+            logic [61:0] padding;
         } overflow_packet;
 
-        logic [11:0][7:0] raw;
+        logic [7:0][7:0] raw;
     } trace_unit_packet_t;
 
 endpackage : trace_unit_pkg

@@ -224,8 +224,7 @@ module trace_unit_packetizer #(
             if (divergence & enable_branch_tracing_i) begin
                 /* Generate a divergence packet */
                 trace_packet.divergence_packet.type_ = DIVERGENCE_PACKET;
-                trace_packet.divergence_packet.start_pc = last_pc;
-                trace_packet.divergence_packet.end_pc = trace_interface_i.address;
+                trace_packet.divergence_packet.delta_pc = trace_interface_i.address - last_pc;
                 trace_packet.divergence_packet.timestamp = timestamp_counter;
 
                 write_packet = !halt_core_o;
@@ -270,7 +269,20 @@ module trace_unit_packetizer #(
         .empty_o ( trace_buffer_empty_o )
     );
 
-    assign halt_core_o = buffer_full;
+
+        always_ff @(posedge clk_i) begin
+            if (!rst_n_i) begin
+                halt_core_o <= 1'b0;
+            end else begin
+                if (buffer_full) begin
+                    halt_core_o <= 1'b1;
+                end
+
+                if (trace_buffer_empty_o) begin
+                    halt_core_o <= 1'b0;
+                end
+            end
+        end
 
     assign trace_buffer_full_o = buffer_full;
 

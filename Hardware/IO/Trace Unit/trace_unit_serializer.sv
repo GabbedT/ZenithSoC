@@ -77,7 +77,7 @@ module trace_unit_serializer (
                         /* Reset byte counter */
                         byte_counter_NXT = '0;
                         
-                        state_NXT = SYNC;
+                        state_NXT = DATA;
                     end
                 end
 
@@ -88,10 +88,6 @@ module trace_unit_serializer (
                         /* Extract packet type for the DATA state from last two bits */
                         packet_type_NXT = trace_unit_packet_type_t'(trace_packet_i.raw[11][7:6]);
                         packet_NXT = trace_packet_i;
-
-                        /* Send SYNC byte */
-                        write_chunk_o = 1'b1;
-                        trace_chunk_o = 8'hAA;
                     end
                 end
 
@@ -113,13 +109,13 @@ module trace_unit_serializer (
 
                             DIVERGENCE_PACKET: begin
                                 if (enable_timestamp_i) begin
-                                    /* Divergence packet payload is 12 bytes long */
-                                    if (byte_counter_CRT == 11) begin
+                                    /* Divergence packet payload is 8 bytes long */
+                                    if (byte_counter_CRT == 7) begin
                                         state_NXT = IDLE;
                                     end
                                 end else begin
-                                    /* Divergence packet payload is 9 bytes long */
-                                    if (byte_counter_CRT == 8) begin
+                                    /* Divergence packet payload is 5 bytes long */
+                                    if (byte_counter_CRT == 4) begin
                                         state_NXT = IDLE;
                                     end
                                 end
