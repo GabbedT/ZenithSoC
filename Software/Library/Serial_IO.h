@@ -59,7 +59,6 @@ public:
      * 
      * @param str String containing 1 null character.
      * 
-     * @return The Serial_IO object itself to chain the function call.
      */
     static void write(const char* str); 
 
@@ -70,7 +69,6 @@ public:
      * @param str String to write.
      * @param size The size of the string.
      * 
-     * @return The Serial_IO object itself to chain the function call.
      */
     static void write(const char* str, uint32_t size);
 
@@ -81,7 +79,6 @@ public:
      * @param num Number (8, 16, 32, 64, 128 bits) to display.
      * @param base Number base system.
      * 
-     * @return The Serial_IO object itself to chain the function call.
      */
     template<typename Type> static void write(Type number, base_e base) {
         switch (base) {
@@ -114,7 +111,6 @@ public:
      * @param num Number to display.
      * @param digits Digits after the dot.
      * 
-     * @return The Serial_IO object itself to chain the function call.
      */
     static void write(float num, uint32_t digits);
 
@@ -125,7 +121,6 @@ public:
      * @param format The string with the format characters.
      * @param args Argument list
      * 
-     * @return The Serial_IO object itself to chain the function call.
      */
     static void vprintf(const char *format, va_list args);
 
@@ -136,7 +131,6 @@ public:
      * @param format The string with the format characters.
      * @param args Argument list
      * 
-     * @return The Serial_IO object itself to chain the function call.
      */
     static void printf(const char *format, ...);
 
@@ -148,7 +142,6 @@ public:
      * @param format The string with the format characters.
      * @param ... The data to print corresponding to the format character.
      * 
-     * @return The Serial_IO object itself to chain the function call.
      */
     static void println(const char *format, ...);
 
@@ -160,7 +153,6 @@ public:
      * 
      * @param number Number to print.
      * 
-     * @return The Serial_IO object itself to chain the function call.
      */
     template<typename Type> static void writeD(Type number, bool isSigned) {
         char buffer[40];
@@ -199,9 +191,6 @@ public:
         }
 
         write(buffer, size);
-
-        /* Print EOS character */
-        write('\0');
     };
 
 
@@ -212,7 +201,6 @@ public:
      * 
      * @param number Number to print.
      * 
-     * @return The Serial_IO object itself to chain the function call.
      */
     template<typename Type> static void writeH(Type number) {
         uint8_t nibble[2];
@@ -246,7 +234,6 @@ public:
         }
 
         write(str, sizeof(Type) * 2);
-        write('\0');
     };
 
 
@@ -257,7 +244,6 @@ public:
      * 
      * @param number Number to print.
      * 
-     * @return The Serial_IO object itself to chain the function call.
      */
     template<typename Type> static void writeB(Type number) {
         char str[sizeof(Type) * 8];
@@ -270,7 +256,6 @@ public:
         }
 
         write(str, sizeof(Type) * 8);
-        write('\0');
     };
 
 

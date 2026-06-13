@@ -29,24 +29,28 @@ AudioCapture::~AudioCapture() {};
 /*                         CONFIGURATION                         */
 /*****************************************************************/
 
-AudioCapture& AudioCapture::init(channel_e channel, bool dualChannel, uint32_t frequency, uint32_t sampleRate, error_e* error) {
+AudioCapture& AudioCapture::init(channel_e channel, bool dualChannel, uint32_t frequency, uint32_t sampleRate, audioCaptError_e& error) {
     setChannel(channel);
     setDualChannel(dualChannel);
 
     if (frequency > 3'000'000 || frequency < 1'000'000) {
-        *error = ILLEGAL_CLOCK;
+        error = ILLEGAL_CLOCK;
 
         return *this;
     }
 
     /* Find the clock divisor value */
-    setFrequency(frequency, nullptr);
+    setFrequency(frequency, error);
+
+    if (error != AudioCapture::NO_ERROR) {
+        return *this;
+    }
 
     /* Find the decimation rate */
     uint32_t decimationRate = frequency / sampleRate;
 
     if (decimationRate > UINT8_MAX) {
-        *error = ILLEGAL_DECIMATION_RATE;
+        error = ILLEGAL_DECIMATION_RATE;
 
         return *this;
     }
@@ -67,9 +71,9 @@ AudioCapture& AudioCapture::init(channel_e channel, bool dualChannel, uint32_t f
     return *this;
 };
 
-AudioCapture& AudioCapture::setGain(uint16_t gain, error_e* error) {
-    if (gain > 0x8000) {
-        *error = ILLEGAL_GAIN;
+AudioCapture& AudioCapture::setGain(uint16_t gain, audioCaptError_e& error) {
+    if (gain >= 0x8000) {
+        error = ILLEGAL_GAIN;
 
         return *this;
     }
@@ -115,10 +119,10 @@ AudioCapture& AudioCapture::enableBuffer(bool enable) {
     return *this;
 };
 
-AudioCapture& AudioCapture::setFrequency(uint32_t frequency, error_e* error) {
+AudioCapture& AudioCapture::setFrequency(uint32_t frequency, audioCaptError_e& error) {
     /* Check value validity */
     if (frequency > 3'000'000 || frequency < 1'000'000) {
-        *error = ILLEGAL_CLOCK;
+        error = ILLEGAL_CLOCK;
 
         return *this;
     }
@@ -150,9 +154,11 @@ uint16_t AudioCapture::readSample() {
     return *AudioCapture::sampleBuffer;
 };
 
-uint32_t AudioCapture::readAudioStream(uint16_t* buffer, uint32_t size, error_e* error) {
+uint32_t AudioCapture::readAudioStream(uint16_t* buffer, uint32_t size, audioCaptError_e& error) {
     if (size == 0 || !buffer) {
-        *error = ILLEGAL_ARGUMENTS;
+        error = ILLEGAL_ARGUMENTS;
+
+        return 0;
     }
 
     /* Index of the buffer */

@@ -404,7 +404,7 @@ public:
 
     /* Ethernet constants */
     static const uint32_t MAX_PAYLOAD_LENGTH = 1500;
-    static const uint32_t MIN_PAYLOAD_LENGTH = 42;
+    static const uint32_t MIN_PAYLOAD_LENGTH = 46;
 
 
     /* Base memory address */
@@ -485,7 +485,7 @@ public:
      * 
      * @return The Ethernet object itself to chain the function call.
      */
-    Ethernet& setMacInterrupt(uint8_t index, bool enable, ethError_e* error);
+    Ethernet& setMacInterrupt(uint8_t index, bool enable, ethError_e& error);
 
     /**
      * @brief Set the MAC to receive IEEE 802.3 or Ethernet II packets
@@ -646,7 +646,7 @@ public:
      * 
      * @return The Ethernet object itself to chain the function call.
      */
-    Ethernet& sendFrame(const uint8_t* packet, uint32_t length, struct macAddr_s destMac, ethError_e* error);
+    Ethernet& sendFrame(const uint8_t* packet, uint32_t length, struct macAddr_s destMac, ethError_e& error);
 
     /**
      * @brief Receive (IEEE 802.3) the payload received plus 4 bytes of CRC.
@@ -660,7 +660,7 @@ public:
      * 
      * @return The Ethernet object itself to chain the function call.
      */
-    Ethernet& receiveFrame(uint8_t* buffer, uint32_t length, ethError_e* error);
+    Ethernet& receiveFrame(uint8_t* buffer, uint32_t length, ethError_e& error);
 
     /**
      * @brief Send an Ethernet (IEEE 802.3) frame on the link.
@@ -673,7 +673,7 @@ public:
      * 
      * @return The Ethernet object itself to chain the function call.
      */
-    Ethernet& sendFrame(const uint8_t* packet, uint32_t length, struct macAddr_s destMac, uint16_t type, ethError_e* error);
+    Ethernet& sendFrame(const uint8_t* packet, uint32_t length, struct macAddr_s destMac, uint16_t type, ethError_e& error);
 
     /**
      * @brief Receive (IEEE 802.3) the payload received plus 4 bytes of CRC.
@@ -688,7 +688,7 @@ public:
      * 
      * @return The Ethernet object itself to chain the function call.
      */
-    Ethernet& receiveFrame(uint8_t* buffer, uint32_t length, uint16_t* type, ethError_e* error);
+    Ethernet& receiveFrame(uint8_t* buffer, uint32_t length, uint16_t* type, ethError_e& error);
 
     /**
      * @brief Get the packet received descriptor containing the source MAC address and
@@ -784,7 +784,7 @@ public:
      * 
      * @return The Ethernet object itself to chain the function call.
      */
-    Ethernet& setPhyInterrupt(uint8_t index, bool enable, ethError_e* error);
+    Ethernet& setPhyInterrupt(uint8_t index, bool enable, ethError_e& error);
 };
 
 #endif 

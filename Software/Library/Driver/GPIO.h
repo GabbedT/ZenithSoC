@@ -11,7 +11,7 @@ public:
     enum pinDirection_e { OUTPUT, INPUT };
 
     /* Interrupt level */
-    enum triggerLevel_e { HIGH2LOW, LOW2HIGH };
+    enum triggerLevel_e { HIGH, POSEDGE, NEGEDGE, BOTH };
 
 
 
@@ -28,7 +28,11 @@ public:
     volatile uint8_t* const interruptEnable;
 
     /* Interrupt level */
-    volatile uint8_t* const triggerLevel;
+    volatile uint8_t* const triggerLevelLow;
+    volatile uint8_t* const triggerLevelHigh;
+
+    /* Interrupt register */
+    volatile uint8_t* const interruptPending;
 
 
 
@@ -77,6 +81,34 @@ public:
      */
     bool getPinValue(uint32_t index);
 
+    /**
+     * @brief Set the value of the entire GPIO port.
+     * 
+     * @param val The value to set the port to.
+     * @return The GPIO object itself to chain the function call.
+     */
+    inline GPIO& setPortValue(uint8_t val) {
+        *value = val;
+        
+        return *this;
+    };
+
+    /**
+     * @brief Read the value of the entire GPIO port.
+     * 
+     * @return The value of the port.
+     */
+    inline uint8_t getPortValue() {
+        return *value;
+    };
+
+    /**
+     * @brief Toggle the value of a specific pin in the GPIO group.
+     * 
+     * @param index Index of the pin inside the GPIO group (0 - 7).
+     * @return The GPIO object itself to chain the function call.
+     */
+    GPIO& togglePin(uint32_t index);
 
     /**
      * @brief Set the pin direction of a specific pin in the GPIO group 
@@ -112,6 +144,24 @@ public:
      * @return The register value.
      */
     bool getInterruptEnable(uint32_t index);
+
+
+    /**
+     * @brief Set interrupt pending register.
+     * 
+     * @param index Index of the pin inside the GPIO group (0 - 7).
+     * @param enable Enable / Disable interrupting.
+     * @return The GPIO object itself to chain the function call.
+     */
+    GPIO& setInterruptPending(uint32_t index, bool enable);
+
+    /**
+     * @brief Read the interrupt pending register of the i-th pin of the GPIO group.
+     * 
+     * @param index Index of the pin inside the GPIO group (0 - 7).
+     * @return The register value.
+     */
+    bool getInterruptPending(uint32_t index);
 
 
     /**

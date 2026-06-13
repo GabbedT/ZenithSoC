@@ -2,7 +2,6 @@
 #define ETHERNET_CPP
 
 #include "../Library/Driver/Ethernet.h"
-#include "../Library/Serial_IO.h"
 #include "../Library/mmio.h"
 #include "../Library/platform.h"
 
@@ -63,9 +62,9 @@ Ethernet& Ethernet::init(ethSpeed_e speed, ethDuplex_e duplexMode, bool autoNego
 };
 
 
-Ethernet& Ethernet::setMacInterrupt(uint8_t index, bool enable, Ethernet::ethError_e* error) {
+Ethernet& Ethernet::setMacInterrupt(uint8_t index, bool enable, ethError_e& error) {
     if (index > 3) {
-        *error = INDEX_OUT_OF_RANGE;
+        error = INDEX_OUT_OF_RANGE;
 
         return *this;
     }
@@ -88,6 +87,9 @@ Ethernet& Ethernet::setEthernetMode(ethMode_e ethernetMode) {
 
 
 Ethernet& Ethernet::enableTX(bool enable) {
+    /* Wait idle for disabling */
+    while (!macCtrlStatus->idleTX) {  }
+
     macCtrlStatus->enableTX = enable;
 
     return *this;
@@ -95,6 +97,9 @@ Ethernet& Ethernet::enableTX(bool enable) {
 
 
 Ethernet& Ethernet::enableRX(bool enable) {
+    /* Wait idle for disabling */
+    while (!macCtrlStatus->idleRX) {  }
+
     macCtrlStatus->enableRX = enable;
 
     return *this;
@@ -219,14 +224,14 @@ uint16_t Ethernet::getErrorCount() {
 /*                      MAC COMMUNICATION                        */
 /*****************************************************************/
 
-Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct Ethernet::macAddr_s destMac, Ethernet::ethError_e* error) {
+Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct Ethernet::macAddr_s destMac, ethError_e& error) {
     if (macCtrlStatus->ethernetMode == ethMode_e::ETHERNET_II) {
-        *error = BAD_CONFIG;
+        error = Ethernet::BAD_CONFIG;
     }
     
     /* Check if the length exceed the maximum payload size */
     if (length > MAX_PAYLOAD_LENGTH) {
-        *error = LENGTH_EXCEEDED;
+        error = Ethernet::LENGTH_EXCEEDED;
 
         return *this;
     }
@@ -287,15 +292,17 @@ Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct Eth
 };
 
 
-Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct macAddr_s destMac, uint16_t etherType, ethError_e* error) {
+Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct macAddr_s destMac, uint16_t etherType, ethError_e& error) {
     /* Check MAC mode */
     if (macCtrlStatus->ethernetMode == ethMode_e::IEEE_8023) {
-        *error = BAD_CONFIG;
+        error = Ethernet::BAD_CONFIG;
+
+        return *this;
     }
 
     /* Check if the length exceed the maximum payload size */
     if (length > MAX_PAYLOAD_LENGTH) {
-        *error = LENGTH_EXCEEDED;
+        error = Ethernet::LENGTH_EXCEEDED;
 
         return *this;
     }
@@ -309,6 +316,8 @@ Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct mac
 
     /* Send payload bytes to the TX buffer */
     for (int i = 0; i < length; ++i) {
+        while (isFullPayloadTX()) {  }
+
         *macTxBuffer = packet[i];
     }
 
@@ -318,6 +327,7 @@ Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct mac
     if (padding != 0) {
         for (int i = 0; i < padding; ++i) {
             while (isFullPayloadTX()) {  }
+
             *macTxBuffer = 0;
         }
     }
@@ -357,21 +367,21 @@ Ethernet& Ethernet::sendFrame(const uint8_t* packet, uint32_t length, struct mac
 };
 
 
-Ethernet& Ethernet::receiveFrame(uint8_t* buffer, uint32_t length, Ethernet::ethError_e* error) {
+Ethernet& Ethernet::receiveFrame(uint8_t* buffer, uint32_t length, ethError_e& error) {
     if (macCtrlStatus->ethernetMode == ethMode_e::ETHERNET_II) {
-        *error = BAD_CONFIG;
+        error = Ethernet::BAD_CONFIG;
 
         return *this;
     }
 
     if (length > MAX_PAYLOAD_LENGTH) {
-        *error = LENGTH_EXCEEDED;
+        error = Ethernet::LENGTH_EXCEEDED;
 
         return *this;
     } 
     
     if (length < MIN_PAYLOAD_LENGTH) {
-        *error = LENGTH_SUBCEEDED;
+        error = Ethernet::LENGTH_SUBCEEDED;
 
         return *this;
     }
@@ -385,21 +395,21 @@ Ethernet& Ethernet::receiveFrame(uint8_t* buffer, uint32_t length, Ethernet::eth
 };
 
 
-Ethernet& Ethernet::receiveFrame(uint8_t* buffer, uint32_t length, uint16_t* etherType, Ethernet::ethError_e* error) {
+Ethernet& Ethernet::receiveFrame(uint8_t* buffer, uint32_t length, uint16_t* etherType, ethError_e& error) {
     if (macCtrlStatus->ethernetMode == ethMode_e::IEEE_8023) {
-        *error = BAD_CONFIG;
+        error = Ethernet::BAD_CONFIG;
 
         return *this;
     }
 
     if (length > MAX_PAYLOAD_LENGTH) {
-        *error = LENGTH_EXCEEDED;
+        error = Ethernet::LENGTH_EXCEEDED;
 
         return *this;
     } 
     
     if (length < MIN_PAYLOAD_LENGTH) {
-        *error = LENGTH_SUBCEEDED;
+        error = Ethernet::LENGTH_SUBCEEDED;
 
         return *this;
     }
@@ -535,9 +545,9 @@ Ethernet& Ethernet::setChannel(Ethernet::ethChannel_e channel) {
 };
 
 
-Ethernet& Ethernet::setPhyInterrupt(uint8_t index, bool enable, Ethernet::ethError_e* error) {
+Ethernet& Ethernet::setPhyInterrupt(uint8_t index, bool enable, ethError_e& error) {
     if (index > 6) {
-        *error = INDEX_OUT_OF_RANGE;
+        error = INDEX_OUT_OF_RANGE;
 
         return *this;
     }

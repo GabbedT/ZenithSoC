@@ -80,29 +80,69 @@ extern "C" int main() {
             case 0:
                 vp_print("[CONFIGURATION] | BUS: Narrow | Speed: 400 KHz |\n");
 
-                card.setBusWidth(SD::BUS_NARROW);
+                card.setBusWidth(SD::BUS_NARROW, error);
                 card.setClockSpeed(SD::CLK_400KHZ);
+
+                if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
+                    vp_print("[CONFIGURATION] Timeout!\n");
+
+                    return;
+                } else if (error == SD::DAT_CRC_ERR || error == SD::CMD_CRC_ERR) {
+                    vp_print("[CONFIGURATION] CRC Error!\n");
+
+                    return;
+                }
             break;
 
             case 1:
                 vp_print("[CONFIGURATION] | BUS: Narrow | Speed: 25 MHz |\n");
                 
-                card.setBusWidth(SD::BUS_NARROW);
+                card.setBusWidth(SD::BUS_NARROW, error);
                 card.setClockSpeed(SD::CLK_25MHZ);
+
+                if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
+                    vp_print("[CONFIGURATION] Timeout!\n");
+
+                    return;
+                } else if (error == SD::DAT_CRC_ERR || error == SD::CMD_CRC_ERR) {
+                    vp_print("[CONFIGURATION] CRC Error!\n");
+
+                    return;
+                }
             break;
 
             case 2:
                 vp_print("[CONFIGURATION] | BUS: Wide | Speed: 400 KHz |\n");
 
-                card.setBusWidth(SD::BUS_WIDE);
+                card.setBusWidth(SD::BUS_WIDE, error);
                 card.setClockSpeed(SD::CLK_400KHZ);
+
+                if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
+                    vp_print("[CONFIGURATION] Timeout!\n");
+
+                    return;
+                } else if (error == SD::DAT_CRC_ERR || error == SD::CMD_CRC_ERR) {
+                    vp_print("[CONFIGURATION] CRC Error!\n");
+
+                    return;
+                }
             break;
 
             case 3:
                 vp_print("[CONFIGURATION] | BUS: Wide | Speed: 25 MHz |\n");
                 
-                card.setBusWidth(SD::BUS_WIDE);
+                card.setBusWidth(SD::BUS_WIDE, error);
                 card.setClockSpeed(SD::CLK_25MHZ);
+
+                if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
+                    vp_print("[CONFIGURATION] Timeout!\n");
+
+                    return;
+                } else if (error == SD::DAT_CRC_ERR || error == SD::CMD_CRC_ERR) {
+                    vp_print("[CONFIGURATION] CRC Error!\n");
+
+                    return;
+                }
             break;
         }
 

@@ -182,6 +182,13 @@ public:
     AudioSynthesizer& setADSR(bool enable);
 
     /**
+     * @brief Start ADSR modulation
+     * 
+     * @return Pointer to the object to chain functions
+     */
+    AudioSynthesizer& startADSR();
+
+    /**
      * @brief Set ADSR Modulation parameters to modulate 
      * the wave with attack, decay, sustain and release
      * modulation. It does not block until the modulation ends!

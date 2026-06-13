@@ -19,6 +19,7 @@ public:
     /* Configuration register fields */
     struct timerConfig_s {
         unsigned int enableTimer : 1;
+        unsigned int enablePWM : 1;
         unsigned int timerMode : 1;
         unsigned int interruptEnable : 1;
         unsigned int halted : 1;
@@ -37,6 +38,9 @@ public:
      * once the value reach the threshold an interrupt
      * in generated */
     volatile uint64_t* volatile const threshold;
+
+    /* PWM toggle limit */
+    volatile uint64_t* volatile const pwmToggle;
 
     /* Configuration register */
     volatile struct timerConfig_s* volatile const configuration;
@@ -67,21 +71,31 @@ public:
      * 
      * @return The Timer object itself to chain the function call.
      */
-    Timer& setInterrupt(bool enable);
+    inline Timer& setInterrupt(bool enable) {
+        configuration->interruptEnable = enable;
+
+        return *this;
+    };
 
     /**
      * @brief The function sets the timer mode.
      * 
      * @return The Timer object itself to chain the function call.
      */
-    Timer& setTimerMode(timerMode_e mode);
+    inline Timer& setTimerMode(timerMode_e mode) {
+        configuration->timerMode = mode;    
+
+        return *this;
+    };
 
     /**
      * @brief Returns the current configuration register of the Timer object.
      * 
      * @return Pointer to the status register.
      */
-    volatile struct timerConfig_s* getConfiguration() const;
+    inline volatile struct timerConfig_s* getConfiguration() const {
+        return configuration;
+    };
 
 
 /*****************************************************************/
@@ -94,14 +108,20 @@ public:
      * @param timeCount Time count based on the timer increment rate.
      * @return The Timer object itself to chain the function call.
      */
-    Timer& setTime(uint64_t timeCount);
+    inline Timer& setTime(uint64_t timeCount) {
+        *value = timeCount;
+
+        return *this;
+    };
     
     /**
      * @brief Read the 64 bit timer current value.
      * 
      * @return Return the value register.
      */
-    uint64_t getTime() const;
+    inline uint64_t getTime() const {
+        return *value;
+    };
 
 
 /*****************************************************************/
@@ -114,14 +134,34 @@ public:
      * 
      * @return The Timer object itself to chain the function call.
      */
-    Timer& setThreshold(uint64_t threshold);
+    inline Timer& setThreshold(uint64_t threshold) {
+        *this->threshold = threshold;
+
+        return *this;
+    };
 
     /**
      * @brief Read the 64 bit compare register.
      * 
      * @return The value stored in the compare register.
      */
-    uint64_t getThreshold() const;
+    inline uint64_t getThreshold() const {
+        return *threshold;
+    };
+
+
+/*****************************************************************/
+/*                              PWD                              */
+/*****************************************************************/
+
+    /**
+     * @brief Set timer to FREE_RUNNING, disable interrupts and enable PWM output
+     * 
+     * @param limit Upper limit, here timer value resets to 0
+     * @param toggle Middle limit, after this PWM output toggles from 1 to 0
+     * @return The Timer object itself to chain the function call.
+     */
+    Timer& pwm(uint64_t limit, uint64_t toggle);
 
 
 /*****************************************************************/
@@ -135,14 +175,23 @@ public:
      * 
      * @return The Timer object itself to chain the function call.
      */
-    Timer& start();
+    inline Timer& start() {
+        configuration->enableTimer = true;
+        configuration->halted = false;
+
+        return *this;
+    };
 
     /**
      * @brief Disable timer: stop incrementing.
      * 
      * @return The Timer object itself to chain the function call.
      */
-    Timer& stop();
+    inline Timer& stop() {
+        configuration->enableTimer = false;
+
+        return *this;
+    };
 
     /**
      * @brief Clear the timer counter and starts incrementing again. Valid only
@@ -176,7 +225,7 @@ public:
      * 
      * @return a float value representing the time elapsed in the specified format.
      */
-    float timeElapsed(timeFormat_e format) const;
+    uint64_t timeElapsed(timeFormat_e format) const;
 };
 
 #endif

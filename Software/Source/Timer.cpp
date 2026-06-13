@@ -81,95 +81,26 @@ Timer& Timer::init(uint64_t threshold, timerMode_e mode) {
     return *this;
 }
 
-/**
- * @brief Sets or clear the interrupt enable flag in the Timer configuration.
- * 
- * @return The Timer object itself to chain the function call.
- */
-Timer& Timer::setInterrupt(bool enable) {
-    configuration->interruptEnable = enable;
-
-    return *this;
-};
-
-
-/**
- * @brief The function sets the timer mode.
- * 
- * @return The Timer object itself to chain the function call.
- */
-Timer& Timer::setTimerMode(timerMode_e mode) {
-    configuration->timerMode = mode;    
-
-    return *this;
-};
-
-
-
-/**
- * @brief Returns the current configuration register of the Timer object.
- * 
- * @return Returns the current configuration register of the Timer object.
- */
-volatile struct Timer::timerConfig_s* Timer::getConfiguration() const {
-    return configuration;
-};
-
 
 
 /*****************************************************************/
-/*                             VALUE                             */
+/*                              PWM                              */
 /*****************************************************************/
 
-/**
- * @brief Sets the value of the Timer to a specified time unit count.
- * 
- * @param timeCount Time count based on the timer increment rate.
- * @return The Timer object itself to chain the function call.
- */
-Timer& Timer::setTime(uint64_t timeCount) {
-    *value = timeCount;
+Timer& Timer::pwm(uint64_t limit, uint64_t toggle) {
+    /* Free running to not halt after reaching the limit */
+    configuration->timerMode = FREE_RUNNING;
+    configuration->interruptEnable = false;
 
-    return *this;
-};
+    /* Set limits */
+    this->threshold = limit
+    this->pwmToggle = toggle;
 
+    /* Start timer */
+    configuration->enableTimer = true;
+    configuration->halted = false;
+}
 
-
-/**
- * @brief Read the 64 bit timer current value.
- * 
- * @return Return the value register.
- */
-uint64_t Timer::getTime() const {
-    return *value;
-};
-
-
-/*****************************************************************/
-/*                           THRESHOLD                           */
-/*****************************************************************/
-
-/**
- * @brief Sets the threshold value for the Timer object, the threshold serves as a limit that
- * once reached, the timer generate an interrupt.
- * 
- * @return The Timer object itself to chain the function call.
- */
-Timer& Timer::setThreshold(uint64_t threshold) {
-    *this->threshold = threshold;
-
-    return *this;
-};
-
-
-/**
- * @brief Read the 64 bit compare register.
- * 
- * @return The value stored in the compare register.
- */
-uint64_t Timer::getThreshold() const {
-    return *threshold;
-};
 
 
 /*****************************************************************/
@@ -183,41 +114,18 @@ uint64_t Timer::getThreshold() const {
  * @return The Timer object itself to chain the function call.
  */
 Timer& Timer::delay(uint64_t millis) {
+    setTimerMode(ONE_SHOT);
+
     /* Stop and reset timer count */
     stop();
     setTime(0);
 
     /* Setup threshold and start */
-    setThreshold(millis * 100'000);
+    setThreshold(millis * (SYSTEM_FREQUENCY / CLOCK_PERIOD));
     start();
     
     /* Wait until timer halts */
     while (!getConfiguration()->halted) {  }
-
-    return *this;
-};
-
-
-/**
- * @brief Enable timer: start incrementing.
- * 
- * @return The Timer object itself to chain the function call.
- */
-Timer& Timer::start() {
-    configuration->enableTimer = true;
-    configuration->halted = false;
-
-    return *this;
-};
-
-
-/**
- * @brief Disable timer: stop incrementing.
- * 
- * @return The Timer object itself to chain the function call.
- */
-Timer& Timer::stop() {
-    configuration->enableTimer = false;
 
     return *this;
 };
@@ -246,7 +154,7 @@ Timer& Timer::restart() {
  * @return Return a 64 bit integer rapresenting the number of milliseconds.
  */
 uint64_t Timer::getMillis() const {
-    uint64_t timerValue = getTime();
+    uint64_t timerValue = this->value;
 
     /* 1ms is 10^6 ns, however the timer might increment once Xns, 
      * then divide the divisor value for the incrementing period */
@@ -263,8 +171,8 @@ uint64_t Timer::getMillis() const {
  * 
  * @return a float value representing the time elapsed in the specified format.
  */
-float Timer::timeElapsed(timeFormat_e format) const {
-    float timerValue = (float) getTime();
+uint64_t Timer::timeElapsed(timeFormat_e format) const {
+    float uint64_t = this->value;
 
     switch (format) {
         case NANO:
@@ -272,23 +180,23 @@ float Timer::timeElapsed(timeFormat_e format) const {
         break;
 
         case MILLI:
-            return timerValue / (1e+6F / CLOCK_PERIOD);
+            return timerValue / (1e+6 / CLOCK_PERIOD);
         break;
 
         case SECONDS:
-            return timerValue / (1e+9F / CLOCK_PERIOD);
+            return timerValue / (1e+9 / CLOCK_PERIOD);
         break;
 
         case MINUTES:
-            return (timerValue / (1e+9F / CLOCK_PERIOD)) / 60;
+            return (timerValue / (1e+9 / CLOCK_PERIOD)) / 60;
         break;
 
         case HOURS:
-            return (timerValue / (1e+9F / CLOCK_PERIOD)) / 3600;
+            return (timerValue / (1e+9 / CLOCK_PERIOD)) / 3600;
         break;
         
         default:
-            return 0.0F;
+            return 0.0;
         break;
     }
 }

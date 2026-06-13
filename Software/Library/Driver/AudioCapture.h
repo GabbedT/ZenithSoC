@@ -9,12 +9,12 @@ class AudioCapture {
 
 public: 
 
-    enum error_e { NO_ERROR,
-                   ILLEGAL_CLOCK, 
-                   ILLEGAL_GAIN, 
-                   ILLEGAL_DIVISOR, 
-                   ILLEGAL_DECIMATION_RATE,
-                   ILLEGAL_ARGUMENTS };
+    enum audioCaptError_e { NO_ERROR,
+                            ILLEGAL_CLOCK, 
+                            ILLEGAL_GAIN, 
+                            ILLEGAL_DIVISOR, 
+                            ILLEGAL_DECIMATION_RATE,
+                            ILLEGAL_ARGUMENTS };
 
     enum channel_e { LEFT, RIGHT };
 
@@ -99,9 +99,9 @@ public:
 /*                         CONFIGURATION                         */
 /*****************************************************************/
 
-    AudioCapture& init(channel_e channel, bool dualChannel, uint32_t frequency, uint32_t sampleRate, error_e* error);
+    AudioCapture& init(channel_e channel, bool dualChannel, uint32_t frequency, uint32_t sampleRate, audioCaptError_e& error);
 
-    AudioCapture& setGain(uint16_t gain, error_e* error);
+    AudioCapture& setGain(uint16_t gain, audioCaptError_e& error);
 
     AudioCapture& setDecimationRate(uint8_t decimationRate);
 
@@ -115,7 +115,7 @@ public:
 
     AudioCapture& enableBuffer(bool enable);
 
-    AudioCapture& setFrequency(uint32_t value, error_e* error);
+    AudioCapture& setFrequency(uint32_t value, audioCaptError_e& error);
 
     inline bool isFull() {
         return AudioCapture::status->bufferFull;
@@ -136,7 +136,7 @@ public:
 
     uint16_t readSample();
 
-    uint32_t readAudioStream(uint16_t* buffer, uint32_t size, error_e* error); 
+    uint32_t readAudioStream(uint16_t* buffer, uint32_t size, audioCaptError_e& error); 
 
 };
 

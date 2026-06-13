@@ -46,27 +46,6 @@ SD::~SD() {
     control->enableSD = 0;
 };
 
-#define STDOUT (*(volatile char *)0x10000000)
-
-/* Print string */
-static inline void print(const char *s) {
-    while (*s) STDOUT = *s++;
-}
-
-/* Print single char */
-static inline void putchar(char c) {
-    STDOUT = c;
-}
-
-/* Print hex value */
-static inline void print_hex(uint32_t val) {
-    const char hex[] = "0123456789abcdef";
-    print("0x");
-    for (int i = 28; i >= 0; i -= 4) {
-        putchar(hex[(val >> i) & 0xF]);
-    }
-}
-
 
 SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool& isHighCapacity, errorType_e& error) {
     uint8_t resp[17] = {0};
@@ -127,6 +106,12 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
 
         ++attempts;
     } while (!cardReady && attempts < 200);
+
+    /* Exit init */
+    if (!cardReady) {
+        error = SD::CARD_ERR;
+        return *this;
+    }
 
 
     /* ----------- OCR Register Reading ----------- */
@@ -275,8 +260,6 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
     sendCommand(55, ((uint32_t) cardRCA) << 16);
     flushResponseBuffer();
     
-    uint8_t resp51[6];
-
     /* ACMD51: SEND_SCR */
     sendCommand(51, 0);
     flushResponseBuffer();
@@ -284,25 +267,31 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
     
     /* Read SCR as two 32-bit words directly */
     uint32_t* scrPtr = reinterpret_cast<uint32_t*>(&this->cardSCR);
-        
+    
+
+    uint32_t timeout = 0;
+
     /* Store first half */
     while (status->rxBufferEmpty) { 
-        uint32_t timeout = 0;
-
         if (++timeout > 100000) {
+            error = SD::DAT_TIMEOUT;
             return *this;
         }
     }
+
+    timeout = 0;
     scrPtr[1] = *rxBuffer;
         
     /* Store second half */
     while (status->rxBufferEmpty) { 
-        uint32_t timeout = 0;
-
         if (++timeout > 100000) {
+            error = SD::DAT_TIMEOUT;
             return *this;
+       
         }
     }
+
+    timeout = 0;
     scrPtr[0] = *rxBuffer;
         
     flushDataBuffer();
@@ -311,7 +300,12 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
     /* ----------- Final Setup ----------- */
 
     /* Wait until both command and data FSMs are idle */
-    while (!status->cmdIdle || !status->dataIdle) { }
+    while (!status->cmdIdle || !status->dataIdle) { 
+        if (++timeout > 100000) {
+            error = SD::DAT_TIMEOUT;
+            return *this;
+        }
+    }
 
     /* Flush any leftover bytes in response/data FIFOs */
     flushResponseBuffer();
@@ -344,7 +338,7 @@ SD& SD::setClockSpeed(clockSpeed_e speed) {
 };
 
 
-SD& SD::setBusWidth(busWidth_e width) {
+SD& SD::setBusWidth(busWidth_e width, errorType_e& error) {
     /* Send CMD55: APP_CMD */
     sendCommand(55, SD::cardRCA << 16);
     flushResponseBuffer();
@@ -354,6 +348,51 @@ SD& SD::setBusWidth(busWidth_e width) {
 
     /* Wait for both FSMs to be idle */
     while (!status->cmdIdle || !status->dataIdle) {  }
+
+    if (status->cmdTimeout) {
+        error = SD::CMD_TIMEOUT;
+        status->cmdTimeout = false;
+
+        flushResponseBuffer(); flushDataBuffer();
+
+        return *this;
+    }
+
+    if (status->cmdCRC_Error) {
+        error = SD::CMD_CRC_ERR;
+        status->cmdCRC_Error = false;
+
+        flushResponseBuffer(); flushDataBuffer();
+
+        return *this;
+    }
+
+    if (status->dataTimeout) {
+        error = SD::DAT_TIMEOUT;
+        status->cmdTimeout = false;
+
+        flushResponseBuffer(); flushDataBuffer();
+
+        return *this;
+    }
+
+    if (status->dataCRC_Error) {
+        error = SD::DAT_CRC_ERR;
+        status->cmdCRC_Error = false;
+
+        flushResponseBuffer(); flushDataBuffer();
+
+        return *this;
+    }
+
+    if (status->dataError) {
+        error = SD::DAT_ERR;
+        status->dataError = false;
+
+        flushResponseBuffer(); flushDataBuffer();
+
+        return *this;
+    }
 
     /* Flush buffers to delete data */
     flushResponseBuffer(); flushDataBuffer();
@@ -420,6 +459,8 @@ SD& SD::readResponse(uint8_t* responseBuffer, errorType_e& error) {
     while (!status->respBufferEmpty) {
         /* Read response byte */
         responseBuffer[i++] = *this->responseBuffer;
+
+        if (i >= 16) break;
     }
 
     return *this;
@@ -456,6 +497,8 @@ SD& SD::readBlock(uint32_t blockAddress, uint32_t* blockRead, uint8_t* responseB
     while (!status->rxBufferEmpty) {
         /* Read data word */
         blockRead[i++] = *rxBuffer;
+
+        if (i >= SD::MAX_32_BIT_BLOCK) break;
     }
 
     return *this;
@@ -676,7 +719,7 @@ SD& SD::readCSD(uint8_t* csdBuffer, errorType_e& error) {
     return *this;
 };
 
-SD& SD::readSCR(uint8_t* scrBuffer) {
+SD& SD::readSCR(uint8_t* scrBuffer, errorType_e& error) {
     /* Select card */
     sendCommand(7, cardRCA << 16);
     flushResponseBuffer();
@@ -691,7 +734,17 @@ SD& SD::readSCR(uint8_t* scrBuffer) {
     
     /* Read 8 bytes from RX buffer */
     for (int i = 0; i < 2; i++) {
-        while (status->rxBufferEmpty) { } // MIGHT ADD A TIMEOUT HERE
+        while (status->rxBufferEmpty && !status->dataTimeout) { }
+
+        if (status->dataTimeout) {
+            error = SD::DAT_TIMEOUT;
+            status->dataTimeout = false;
+
+            flushDataBuffer();
+
+            return *this;
+        }
+
         uint32_t word = *rxBuffer;
         
         /* Convert to big-endian bytes */
@@ -725,5 +778,48 @@ SD& SD::readOCR(uint8_t* ocrBuffer, errorType_e& error) {
     
     return *this;
 };
+
+bool SD::isCardInserted() {
+    return status->cardDetected;
+};
+
+uint64_t SD::getCardCapacity() {
+    /* Big endian, so cardCSD[0] holds bits 127...64 */
+    uint8_t csdVersion = (cardCSD[0] >> 62) & 0x3;
+
+    if (csdVersion == 0) {
+        /* CSD v1.0 (SDSC) */
+
+        /* Extract block length */
+        uint32_t blkLen = (cardCSD[0] >> 16) & 0xF;
+
+        /* Extract card capacity */
+        uint32_t cSize = ((cardCSD[0] & 0x3FF) << 2) | ((cardCSD[1] >> 62) & 0x3);
+        uint32_t cSizeMult = (cardCSD[1] >> 47) & 0x7;
+
+        return ((uint64_t) (cSize + 1)) << (cSizeMult + 2 + blkLen);
+    } else {
+        /* CSD v2.0 (SDHC / SDXC) */
+        
+        uint32_t cSize = ((cardCSD[0] & 0x3F) << 16) | ((cardCSD[1] >> 48) & 0xFFFF);
+
+        return ((uint64_t) (cSize + 1)) * 512 * 1024;
+    }
+};
+
+uint32_t getCardStatus(errorType_e& error) {
+    uint8_t resp[6];
+
+    /* SEND_STATUS: argument is in RCA upper 16 bits */
+    sendCommand(13, (uint32_t) cardRCA << 16);
+    readResponse(resp, error);
+
+    if (error != SD::NO_ERROR) {
+        return *this;
+    }
+
+
+    
+}
 
 #endif 

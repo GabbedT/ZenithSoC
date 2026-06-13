@@ -24,7 +24,25 @@ public:
     enum clockSpeed_e { CLK_400KHZ, CLK_25MHZ };
 
     /* Error type */
-    enum errorType_e { NO_ERROR, CMD_TIMEOUT, CMD_CRC_ERR, DAT_TIMEOUT, DAT_CRC_ERR, DAT_ERR };
+    enum errorType_e { NO_ERROR, CMD_TIMEOUT, CMD_CRC_ERR, DAT_TIMEOUT, DAT_CRC_ERR, DAT_ERR, CARD_ERR };
+
+    /* Card State */
+    enum cardState_e { IDLE, READY, IDENT, STBY, TRAN, DATA, RECV, PROG, DISC };
+
+
+    /* Card Status Register */
+    union cardStatus_u {
+        struct fields {
+            unsigned int reserved0;
+            unsigned int ready4data : 1;
+            cardState_e  cardState : 4;
+            unsigned int eraseReset : 1
+            unsigned int
+
+        };
+        
+    };
+    
 
 
     /* Configuration Register bitmap */
@@ -170,7 +188,7 @@ public:
 
     SD& setClockSpeed(clockSpeed_e speed);
 
-    SD& setBusWidth(busWidth_e width);
+    SD& setBusWidth(busWidth_e width, errorType_e& error);
 
     SD& setInterruptEnable(bool enable, uint32_t position);
 
@@ -180,6 +198,10 @@ public:
 /*****************************************************************/
 
     inline bool isCardInserted();
+
+    uint32_t getCardStatus(errorType_e& error);
+
+    uint64_t getCardCapacity();
 
 
 /*****************************************************************/
@@ -224,7 +246,7 @@ public:
 /*                           CARD INFO                           */
 /*****************************************************************/
 
-    SD& readCID(uint8_t* cidBuffer, errorType_e& error);    // 16 bytes
+    SD& readCID(uint8_t* cidBuffer, errorType_e& error);    // 15 bytes
 
     SD& readCSD(uint8_t* csdBuffer, errorType_e& error);    // 16 bytes  
 

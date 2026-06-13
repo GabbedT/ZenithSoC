@@ -20,10 +20,12 @@ GPIO::GPIO(uint32_t gpioNumber) :
     gpioBaseAddress ( (uint32_t * volatile) (GPIO_BASE + gpioNumber) ),
 
     /* Initialize register addresses based on the base address */
-    value           ( (uint8_t * volatile)  gpioBaseAddress      ),
-    direction       ( (uint8_t * volatile) (gpioBaseAddress + 1) ),
-    interruptEnable ( (uint8_t * volatile) (gpioBaseAddress + 2) ),
-    triggerLevel    ( (uint8_t * volatile) (gpioBaseAddress + 3) ) {
+    value            ( (uint8_t * volatile)   gpioBaseAddress       ),
+    direction        ( (uint8_t * volatile)  (gpioBaseAddress + 1)  ),
+    interruptEnable  ( (uint8_t * volatile)  (gpioBaseAddress + 2)  ),
+    triggerLevelLow  ( (uint8_t * volatile)  (gpioBaseAddress + 3)  ),
+    triggerLevelHigh ( (uint8_t * volatile)  (gpioBaseAddress + 4)  ),
+    interruptPending ( (uint8_t * volatile)  (gpioBaseAddress + 5)  ) {
 
     /* Disable interrupts */
     *interruptEnable = false;
@@ -32,8 +34,8 @@ GPIO::GPIO(uint32_t gpioNumber) :
     *direction = GPIO::OUTPUT;
     *value = 0;
 
-    /* Interrupt on 0 to 1 transition */
-    *triggerLevel = 1;
+    *triggerLevelLow = 0;
+    *triggerLevelHigh = 0;
 };
 
 
@@ -50,7 +52,8 @@ GPIO::~GPIO() {
     *value = 0;
 
     /* Interrupt on 0 to 1 transition */
-    *triggerLevel = 0;
+    *triggerLevelLow = 0;
+    *triggerLevelHigh = 0;
 }
 
 
@@ -64,7 +67,7 @@ GPIO::~GPIO() {
  * 
  * @return The GPIO object itself to chain the function call.
  */
-GPIO& GPIO::init(uint8_t value, uint8_t direction, uint8_t interruptEnable, uint8_t triggerLevel) {
+GPIO& GPIO::init(uint8_t value, uint8_t direction, uint8_t interruptEnable, triggerLevel_e level) {
     /* Disable interrupts */
     *this->interruptEnable = false;
     
@@ -75,8 +78,9 @@ GPIO& GPIO::init(uint8_t value, uint8_t direction, uint8_t interruptEnable, uint
     /* Disable interrupts */
     *this->interruptEnable = interruptEnable;
 
-    /* Interrupt on 0 to 1 transition */
-    *this->triggerLevel = triggerLevel;
+    for (int i = 0; i < 8; ++i) {
+        setTriggerLevel(i, level);
+    }
 
     return *this;
 };
@@ -95,6 +99,23 @@ GPIO& GPIO::setPinValue(uint32_t index, bool pinLevel) {
 
     /* Set the bit to the parameter's value */
     *value = (*value & ~mask) | (pinLevel << index);
+
+    return *this;
+};
+
+
+/**
+ * @brief Toggle the value of a specific pin in the GPIO group.
+ * 
+ * @param index Index of the pin inside the GPIO group (0 - 7).
+ * @return The GPIO object itself to chain the function call.
+ */
+GPIO& GPIO::togglePin(uint32_t index) {
+    /* Create a mask to clear the bit at the i-th position */
+    uint8_t mask = 1 << index; 
+
+    /* Set the bit to the parameter's value */
+    *value ^= mask;
 
     return *this;
 };
@@ -142,7 +163,7 @@ GPIO::pinDirection_e GPIO::getPinDirection(uint32_t index) {
     /* Create a mask to clear the bit at the i-th position */
     uint8_t mask = 1 << index; 
 
-    return (pinDirection_e) ((*direction & ~mask) >> index);
+    return (pinDirection_e) ((*direction & mask) >> index);
 };
 
 
@@ -174,7 +195,39 @@ bool GPIO::getInterruptEnable(uint32_t index) {
     /* Create a mask to clear the bit at the i-th position */
     uint8_t mask = 1 << index; 
 
-    return (*interruptEnable & ~mask) >> index;
+    return (*interruptEnable & mask) >> index;
+};
+
+
+/**
+ * @brief Set interrupt pending register.
+ * 
+ * @param index Index of the pin inside the GPIO group (0 - 7).
+ * @param enable Enable / Disable interrupting.
+ * @return The GPIO object itself to chain the function call.
+ */
+GPIO& GPIO::setInterruptPending(uint32_t index, bool enable) {
+    /* Create a mask to clear the bit at the i-th position */
+    uint8_t mask = 1 << index; 
+
+    /* Set the bit to the parameter's value */
+    *interruptPending = (*interruptPending & ~mask) | (enable << index);
+
+    return *this;
+};
+
+
+/**
+ * @brief Read the interrupt pending register of the i-th pin of the GPIO group.
+ * 
+ * @param index Index of the pin inside the GPIO group (0 - 7).
+ * @return The register value.
+ */
+bool GPIO::getInterruptPending(uint32_t index) {
+    /* Create a mask to clear the bit at the i-th position */
+    uint8_t mask = 1 << index; 
+
+    return (*interruptPending & mask) >> index;
 };
 
 
@@ -190,7 +243,8 @@ GPIO& GPIO::setTriggerLevel(uint32_t index, triggerLevel_e level) {
     uint8_t mask = 1 << index; 
 
     /* Set the bit to the parameter's value */
-    *triggerLevel = (*triggerLevel & ~mask) | (level << index);
+    *triggerLevelLow = (*triggerLevelLow & ~mask) | ((level & 0x1) << index);
+    *triggerLevelHigh = (*triggerLevelHigh & ~mask) | (((level & 0x2) >> 1) << index);
 
     return *this;
 };
@@ -206,7 +260,7 @@ GPIO::triggerLevel_e GPIO::getTriggerLevel(uint32_t index) {
     /* Create a mask to clear the bit at the i-th position */
     uint8_t mask = 1 << index; 
 
-    return (triggerLevel_e) ((*triggerLevel & ~mask) >> index);
+    return (triggerLevel_e) ((((*triggerLevelHigh & mask) >> index) << 1) | ((*triggerLevelLow & mask) >> index));
 };
 
 #endif 

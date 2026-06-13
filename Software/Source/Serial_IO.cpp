@@ -71,6 +71,44 @@ void Serial_IO::write(const char* str, uint32_t size) {
     }
 };
 
+void Serial_IO::write(float num, uint32_t digits) {
+    /* Extract raw bits */
+    uint32_t bits = *(uint32_t*)&num;
+
+    /* Extract significand and exponent, check for NAN */
+    if ((bits & 0x7F800000u) == 0x7F800000u) && ((bits & 0x007FFFFFu) != 0) {
+        write("nan");
+
+        return;
+    }
+
+    if (num < 0.0f) {
+        *bufferTX = '-';
+        num = -num;
+    }
+
+    uint32_t intPart = (uint32_t) num;
+    float fracPart = num - (float) intPart;
+
+    /* Write unsigned */
+    writeD(intPart, false);
+
+    if (digits == 0) {
+        return;
+    }
+
+    write('.');
+
+    for (uint32_t i = 0; i < digits; i++) {
+        fracPart *= 10.0f;
+
+        uint32_t digit = (uint32_t)fracPart;
+        *txBuffer = char('0' + digit);
+
+        fracPart -= (float)digit;
+    }
+};
+
 
 /****************************************************************/
 /*                      FORMATTED WRITE                         */
@@ -253,8 +291,6 @@ void Serial_IO::vprintf(const char *format, va_list args) {
             write(format[i]);
         }
     }
-
-    va_end(args);
 };
 
 void Serial_IO::println(const char *format, ...) {
@@ -288,6 +324,10 @@ void Serial_IO::printf(const char *format, ...) {
 
 uint32_t Serial_IO::readString(char *str, uint32_t size) {
     uint32_t count = 0;
+
+    if (size == 0) {
+        size = 1;
+    }
 
     /* Size - 1 to accomodate the last character "\0" */
     while (count < size - 1) {
@@ -328,10 +368,16 @@ uint32_t Serial_IO::readNumber(Serial_IO::base_e base, bool *error) {
         switch (base) {
             case DEC: {
                 if (digit[i] == '-') {
-                    isNegative = true;
+                    if (i == 0) {
+                        isNegative = true;
 
-                    /* Next iteration */
-                    continue;
+                        /* Next iteration */
+                        continue;
+                    } else {
+                        *error = true;
+
+                        break;
+                    }
                 }
                 
                 if (digit[i] >= '0' && digit[i] <= '9') {
@@ -371,9 +417,11 @@ uint32_t Serial_IO::readNumber(Serial_IO::base_e base, bool *error) {
                 } else {
                     /* Error: illegal character */
                     *error = true;
+
+                    break;
                 }
 
-                number = (number << 4) | (digit[i] - number);
+                number = (number << 4) | (digit[i] - converter);
 
                 break;
             }

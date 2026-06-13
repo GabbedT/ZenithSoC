@@ -35,7 +35,19 @@ uint64_t PRNG::random() {
 };
 
 
+uint64_t PRNG::randomBool() {
+    return *lfsr & 1;
+};
+
+
 uint64_t PRNG::random(uint64_t min, uint64_t max) {
+    if (min > max) {
+        uint tmp = min;
+
+        min = max;
+        max = tmp;
+    }
+
     return min + (*lfsr % (max - min + 1));
 };
 

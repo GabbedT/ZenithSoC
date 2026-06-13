@@ -24,6 +24,7 @@ public:
     static uint64_t random();
 
     static uint64_t random(uint64_t min, uint64_t max);
-};
+    
+    static bool randomBool();
 
 #endif 

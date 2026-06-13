@@ -28,7 +28,9 @@ SPI::SPI(uint32_t spiNumber) :
     /* Set operation mode */
     status->bitOrder = MSB_FIRST;
     setMode(MODE0);
-    setFrequency(1'000'000, nullptr); 
+
+    spiError_e dummy;
+    setFrequency(1'000'000, dummy); 
 };
 
 
@@ -68,7 +70,7 @@ SPI& SPI::connect(uint32_t slaveIndex, spiError_e* error) {
     while (!status->idle) {  }
 
     /* Clear slaves */
-    *slaveSelect &= 0;
+    *slaveSelect = 0;
 
     /* Set new slave */
     *slaveSelect |= 1 << slaveIndex;
@@ -131,7 +133,7 @@ inline bool SPI::isEmptyTX() {
 
 
 inline bool SPI::isFullRX() {
-    return status->fullTX;
+    return status->fullRX;
 };
 
 
@@ -180,6 +182,9 @@ SPI& SPI::retrieve(uint8_t* rxBuf, uint32_t size, spiError_e* error) {
 
 void SPI::unloadBufferRX (uint8_t* data, uint32_t size) {
     for (int i = 0; i < size; ++i) {
+        /* Wait for bytes in buffer */
+        while (!status->emptyRX) {  }
+
         /* Store byte */
         data[i] = *bufferRX;
     }

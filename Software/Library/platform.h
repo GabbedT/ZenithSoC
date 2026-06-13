@@ -8,7 +8,7 @@
 #define TIMER_NUMBER 1
 
 /* Maximum time count */
-#define TIMER_MAX_TIME -1
+#define TIMER_MAX_TIME UINT64_MAX
 
 /* Number of GPIO groups */
 #define GPIO_GROUP_NUMBER 1

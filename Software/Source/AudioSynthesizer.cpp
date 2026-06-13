@@ -202,7 +202,7 @@ AudioSynthesizer& AudioSynthesizer::setGain(uint16_t gain) {
 };
 
 AudioSynthesizer& AudioSynthesizer::setSquareDutyCycle(float dutyCycle, error_e *error) {
-    if (dutyCycle > 1.0 && dutyCycle < 0.0) {
+    if (dutyCycle > 1.0 || dutyCycle < 0.0) {
         *error = ILLEGAL_DUTY_CYCLE;
     } else {
         *squareDutyCycle = (uint32_t) (dutyCycle * UINT32_MAX);
@@ -222,7 +222,7 @@ AudioSynthesizer& AudioSynthesizer::setCustomWave(uint16_t *table, uint32_t size
     }
 
     /* Custom table size is 1024 */
-    if (size > 1024) {
+    if (size >= 1024) {
         *error = ILLEGAL_INDEX;
 
         return *this;
@@ -237,7 +237,7 @@ AudioSynthesizer& AudioSynthesizer::setCustomWave(uint16_t *table, uint32_t size
 
 AudioSynthesizer& AudioSynthesizer::setCustomWave(uint16_t sample, uint32_t index, error_e *error) {
     /* Custom table size is 1024 */
-    if (index > 1024) {
+    if (index >= 1024) {
         *error = ILLEGAL_INDEX;
     } else {
         customTable[index] = sample;
@@ -276,6 +276,8 @@ AudioSynthesizer& AudioSynthesizer::setADSR(bool enable) {
             squareControl->adsrEnable = enable;
             break;
         }
+
+        default: break;
     }
 
     return *this;
@@ -321,8 +323,6 @@ AudioSynthesizer& AudioSynthesizer::setModulation(uint32_t aTime, uint32_t dTime
             *customAttackLevel = attackLevel;
             *customSustainLevel = sustainLevel;
 
-            customControl->adsrStart = true;
-
             break;
         }
 
@@ -335,8 +335,6 @@ AudioSynthesizer& AudioSynthesizer::setModulation(uint32_t aTime, uint32_t dTime
 
             *sineAttackLevel = attackLevel;
             *sineSustainLevel = sustainLevel;
-
-            sineControl->adsrStart = true;
 
             break;
         }
@@ -351,8 +349,6 @@ AudioSynthesizer& AudioSynthesizer::setModulation(uint32_t aTime, uint32_t dTime
             *triangleAttackLevel = attackLevel;
             *triangleSustainLevel = sustainLevel;
 
-            triangleControl->adsrStart = true;
-
             break;
         }
 
@@ -366,13 +362,40 @@ AudioSynthesizer& AudioSynthesizer::setModulation(uint32_t aTime, uint32_t dTime
             *squareAttackLevel = attackLevel;
             *squareSustainLevel = sustainLevel;
 
-            squareControl->adsrStart = true;
-
             break;
         }
     }
 
     return *this;
+};
+
+
+AudioSynthesizer& AudioSynthesizer::startADSR() {
+    switch (selectedWave) {
+        case CUSTOM: {
+            customControl->adsrStart = true;
+
+            break;
+        }
+
+        case SINE: {
+            sineControl->adsrStart = true;
+
+            break;
+        }
+
+        case TRIANGLE: {
+            triangleControl->adsrStart = true;
+
+            break;
+        }
+
+        case SQUARE: {
+            squareControl->adsrStart = true;
+
+            break;
+        }
+    }
 };
 
 #endif 

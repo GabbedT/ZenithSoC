@@ -151,7 +151,8 @@ public:
     UART& disableInterrupt(uartEvent_e source);
 
     /**
-     * @brief Set UART baud rate.
+     * @brief Set UART baud rate. If 0 is passed then baudrate of 9600
+     * is set.
      * 
      * @param baudRate Baud rate value.
      * @return UART& to chain the function call.

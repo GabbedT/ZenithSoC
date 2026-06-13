@@ -139,6 +139,10 @@ UART& UART::setFlowControl(bool enable) {
  * @return The UART object itself to chain the function call.
  */
 UART& UART::setBaudRate(uint32_t baudRate) {
+    if (baudRate == 0) {
+        baudRate = 9600;
+    }
+    
     status->clockDivider = (SYSTEM_FREQUENCY / (baudRate * 16)) - 1;
 
     return *this;
