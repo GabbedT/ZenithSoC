@@ -13,12 +13,17 @@ module gpio (
 
     /* Write interface */
     input logic write_i,
-    input logic [1:0] write_address_i,
+    input logic [2:0] write_address_i,
     input logic write_data_i,
 
     /* Read interface */
-    input logic [1:0] read_address_i,
+    input logic read_i,
+    input logic [2:0] read_address_i,
     output logic read_data_o,
+
+    /* AXI errors */
+    output logic write_error_o,
+    output logic read_error_o,
 
     output logic interrupt_o
 );
@@ -27,9 +32,13 @@ module gpio (
 //      REGISTERS
 //====================================================================================
 
-    logic [3:0] enable_write; 
+    logic [5:0] enable_write; 
 
     assign enable_write = write_i ? (1'b1 << write_address_i) : '0;
+
+    assign write_error_o = write_i & (write_address_i > 5);
+    assign read_error_o = read_i & (read_address_i > 5);
+
 
     /* Select the direction of the GPIO pin (input / output) */
     logic direction;
@@ -76,15 +85,28 @@ module gpio (
         end 
 
 
+
+    typedef enum logic [1:0] {
+        HIGH    = 2'b00,
+        POSEDGE = 2'b01,
+        NEGEDGE = 2'b10,
+        BOTH    = 2'b11
+    } triggerLevel_t;
+
     /* Choose if send an interrupting signal on different transitions */
-    logic interrupt_level;
+    triggerLevel_t interrupt_level;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
-                /* 0 to 1 transition */
-                interrupt_level <= 1'b1;
-            end else if (enable_write[3]) begin 
-                interrupt_level <= write_data_i;
+                interrupt_level <= HIGH;
+            end else begin
+                if (enable_write[3]) begin 
+                    interrupt_level[0] <= write_data_i;
+                end
+
+                if (enable_write[4]) begin 
+                    interrupt_level[1] <= write_data_i;
+                end
             end 
         end 
 
@@ -104,7 +126,54 @@ module gpio (
         .sync_o   ( sync_pin )
     );
 
-    assign interrupt_o = interrupt_enable & (interrupt_level == pin_value);
+
+    logic prev_pin_value;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                prev_pin_value <= 1'b0;
+            end else  if (direction) begin 
+                prev_pin_value <= sync_pin;
+            end
+        end
+
+
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin 
+                interrupt_pending <= 1'b0;
+            end else if (enable_write[5]) begin 
+                interrupt_pending <= write_data_i;
+            end else if (interrupt_enable & direction) begin 
+                case (interrupt_level)
+                    HIGH: begin
+                        interrupt_pending <= sync_pin;
+                    end
+
+                    POSEDGE: begin
+                        if (!prev_pin_value & sync_pin) begin
+                            interrupt_pending <= 1'b1;
+                        end
+                    end
+
+                    NEGEDGE: begin
+                        if (prev_pin_value & !sync_pin) begin
+                            interrupt_pending <= 1'b1;
+                        end
+                    end
+
+                    BOTH: begin
+                        if (prev_pin_value ^ sync_pin) begin
+                            interrupt_pending <= 1'b1;
+                        end
+                    end
+                endcase
+            end else begin 
+                interrupt_pending <= 1'b0;
+            end
+        end
+
+    assign interrupt_o = interrupt_pending;
 
 
 //====================================================================================
@@ -119,7 +188,13 @@ module gpio (
 
                 'd2: read_data_o = interrupt_enable;
 
-                'd3: read_data_o = interrupt_level;
+                'd3: read_data_o = interrupt_level[0];
+
+                'd4: read_data_o = interrupt_level[1];
+
+                'd5: read_data_o = interrupt_pending;
+
+                default: read_data_o = '0;
             endcase 
         end
 
