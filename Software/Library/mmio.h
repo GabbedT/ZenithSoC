@@ -28,3 +28,6 @@
 
 /* SD Controller base address */
 #define SD_BASE (NC_MEMORY_BASE + DEVICE_INTERLEAVE)
+
+/* Trace Unit base address */
+#define TRACE_UNIT_BASE (SD_BASE + DEVICE_INTERLEAVE)

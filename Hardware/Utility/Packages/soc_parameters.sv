@@ -209,7 +209,25 @@ package soc_parameters;
     /* SD controller MMIO address */
     localparam SD_BASE_ADDRESS = NCMEM_BASE_ADDRESS + 2**13;
     localparam SD_END_ADDRESS = SD_BASE_ADDRESS + ((SD_DEVICE_SPACE - 1) * 4);
-    
+
+
+//====================================================================================
+//      TRACE UNIT PARAMETERS
+//====================================================================================
+
+    /* Packet buffer size */
+    localparam TRACE_UNIT_BUFFER_SIZE = 2**5;
+
+    /* Number of trace units (max 1) */
+    localparam TRACE_UNIT_DEVICE_NUMBER = 1;
+
+    /* Memory mapped registers */
+    localparam TRACE_UNIT_DEVICE_SPACE = 4;
+
+    /* Trace unit MMIO address */
+    localparam TRACE_UNIT_BASE_ADDRESS = SD_BASE_ADDRESS + 2**13;
+    localparam TRACE_UNIT_END_ADDRESS = TRACE_UNIT_BASE_ADDRESS + ((TRACE_UNIT_DEVICE_SPACE - 1) * 4 * TRACE_UNIT_DEVICE_NUMBER);
+
 
 //====================================================================================
 //      MMIO PARAMETERS
@@ -219,7 +237,7 @@ package soc_parameters;
     localparam BYTES_INTERLEAVE = 'd128;
 
     /* CPU interrupts */
-    localparam INTERRUPT_SOURCES = 8;
+    localparam INTERRUPT_SOURCES = 9;
 
     /* Devices connected to AXI network */
     localparam NETWORK_DEVICES = UART_DEVICE_NUMBER + 
@@ -231,12 +249,16 @@ package soc_parameters;
                                  PRNG_NUMBER +
                                  APU_NUMBER +
                                  NC_MEMORY_NUMBER + 
-                                 SD_DEVICE_NUMBER;
+                                 SD_DEVICE_NUMBER +
+                                 TRACE_UNIT_DEVICE_NUMBER;
 
 
     /* To add more than 1 device, increase the parameter and add the device address into 
-     * the array. For example with 3 UARTs: UART_BASE_ADDRESS, UART_BASE_ADDRESS + BYTES_INTERLEAVE
-     * UART_BASE_ADDRESS + 2 * BYTES_INTERLEAVE */
+     * the array. For example with 3 UARTs: 
+     *
+     * UART_BASE_ADDRESS (for UART0), 
+     * UART_BASE_ADDRESS + BYTES_INTERLEAVE (for UART1),
+     * UART_BASE_ADDRESS + 2 * BYTES_INTERLEAVE (for UART2) */
 
     localparam int LOW_SLAVE_ADDRESS [NETWORK_DEVICES] = '{
         `BOOT_START, 
@@ -257,7 +279,9 @@ package soc_parameters;
 
         NCMEM_BASE_ADDRESS,
 
-        SD_BASE_ADDRESS
+        SD_BASE_ADDRESS,
+
+        TRACE_UNIT_BASE_ADDRESS
     };
 
     localparam int HIGH_SLAVE_ADDRESS [NETWORK_DEVICES] = '{
@@ -279,7 +303,9 @@ package soc_parameters;
 
         NCMEM_END_ADDRESS,
 
-        SD_END_ADDRESS
+        SD_END_ADDRESS,
+
+        TRACE_UNIT_END_ADDRESS
     };
 
 endpackage : soc_parameters

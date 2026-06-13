@@ -36,7 +36,11 @@ module cpu_complex #(
 ) (
     input logic clk_i,
     input logic rst_n_i,
+    input logic halt_i,
 
+    /* Trace channel */
+    trace_channel.master trace_channel,
+    
     /* Boot ROM interface */
     fetch_interface.master rom_fetch_channel,
 
@@ -92,7 +96,9 @@ module cpu_complex #(
     ApogeoRV #(PREDICTOR_SIZE, BTB_SIZE, STORE_BUFFER_SIZE, INSTRUCTION_BUFFER_SIZE, ROB_DEPTH) system_cpu (
         .clk_i   ( clk_i   ),
         .rst_n_i ( rst_n_i ),
-        .halt_i  ( 1'b0    ),
+        .halt_i  ( halt_i  ),
+
+        .trace_channel ( trace_channel ),
 
         .fetch_channel ( cpu_fetch_channel ), 
 
