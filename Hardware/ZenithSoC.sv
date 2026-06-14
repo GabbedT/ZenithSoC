@@ -86,6 +86,9 @@ module ZenithSoC #(
     inout logic pwm_o,
     output logic audio_enable_o,
 
+    /* PWM from timer */
+    output logic tmr_pwm_o,
+
     /* SD Interface */
     input logic sd_cd_n_i,
     inout logic sd_cmd_io,
@@ -492,6 +495,8 @@ module ZenithSoC #(
                 .clk_i   ( sys_clk ),
                 .rst_n_i ( reset_n ),
 
+                .pwm_o ( tmr_pwm_o ),
+
                 .write_i         ( write_request[_TIMER_ + i]      ),
                 .write_data_i    ( write_data[_TIMER_ + i]         ),
                 .write_address_i ( write_address[_TIMER_ + i] >> 2 ),
@@ -532,6 +537,8 @@ module ZenithSoC #(
     assign read_error[_TIMER_] = 1'b0;
     assign write_done[_TIMER_] = write_request[_TIMER_];
     assign write_error[_TIMER_] = 1'b0;
+
+    assign tmr_pwm_o = 1'b0;
         
     `endif
 

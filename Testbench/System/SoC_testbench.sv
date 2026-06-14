@@ -99,6 +99,9 @@ module soc_testbench;
     wire pwm_o;
     logic audio_enable_o;
 
+    /* Timer pwm */
+    logic tmr_pwm_o;
+
     /* SMI interface */
     logic smi_mdc_o;
     wire  smi_mdio_io;
