@@ -1097,6 +1097,8 @@ module ZenithSoC #(
 
     `ifdef _DEF_DDR_MEMORY_
 
+        /** VIVADO ONLY **/
+        
         ddr_memory_interface ddr_controller (
             .clk_i       ( sys_clk     ),
             .rst_n_i     ( reset_n     ),
@@ -1151,6 +1153,8 @@ module ZenithSoC #(
         );
 
     `else
+
+    /** USED FOR SIMULATION **/
         
     localparam int DDR_SIZE_BYTES = 128 * 1024 * 1024;
     localparam int WORD_BYTES = 8;
