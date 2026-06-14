@@ -21,10 +21,13 @@ Original Author: Shay Gal-on
 */
 
 
-#include "../../../Library/Driver/UART.h"
-
 #ifndef CORE_PORTME_H
 #define CORE_PORTME_H
+
+#include <stdint.h>
+#include <stddef.h>
+#include "../../../Library/Driver/UART.h"
+
 /************************/
 /* Data types and settings */
 /************************/
@@ -32,7 +35,7 @@ Original Author: Shay Gal-on
         Define to 1 if the platform supports floating point.
 */
 #ifndef HAS_FLOAT
-#define HAS_FLOAT 1
+#define HAS_FLOAT 0
 #endif
 /* Configuration : HAS_TIME_H
         Define to 1 if platform has the time.h header file,
@@ -106,8 +109,8 @@ typedef size_t         ee_size_t;
 /* Configuration : CORE_TICKS
         Define type of return from the timing functions.
  */
-#define CORETIMETYPE ee_u32
-typedef ee_u32 CORE_TICKS;
+#define CORETIMETYPE uint64_t
+typedef uint64_t CORE_TICKS;
 
 /* Configuration : SEED_METHOD
         Defines method to get seed values that cannot be computed at compile
@@ -209,7 +212,7 @@ void portable_fini(core_portable *p);
 #endif
 #endif
 
-UART g_uart(0);
+extern UART g_uart;
 
 int ee_printf(const char *fmt, ...);
 
@@ -217,9 +220,6 @@ int ee_printf(const char *fmt, ...);
 /** 
  * PLATFORM SPECIFIC
  */
-
-/* For timer read */
-typedef uint64_t CORE_TICKS;
 
 /* System clock frequency */
 #define CLK_FREQUENCY 100000000
@@ -229,9 +229,6 @@ typedef uint64_t CORE_TICKS;
 
 /* GCC Version */
 #define COMPILER_VERSION "riscv32-unknown-elf-gcc 14.2.0"
-
-/* Request by coremark.h */
-typedef struct CORE_PORTABLE_S { uint8_t portable_id; } core_portable;
 
 void portable_init(core_portable *p, int *argc, char *argv[]);
 void portable_fini(core_portable *p);

@@ -20,6 +20,7 @@ limitations under the License.
 
 #include <coremark.h>
 #include <stdarg.h>
+#include <stdint.h>
 
 #define ZEROPAD   (1 << 0) /* Pad with zero */
 #define SIGN      (1 << 1) /* Unsigned/signed long */
@@ -682,7 +683,7 @@ ee_printf(const char *fmt, ...)
     p = buf;
     while (*p)
     {
-        g_uart.(*p);
+        uart_send_char(*p);
         n++;
         p++;
     }

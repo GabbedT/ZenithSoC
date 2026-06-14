@@ -18,6 +18,8 @@ Original Author: Shay Gal-on
 #include "coremark.h"
 #include "core_portme.h"
 
+#include <stdint.h>
+
 #include "../../../Library/Driver/UART.h"
 
 
@@ -26,9 +28,9 @@ static inline uint64_t rd_cycle64(void) {
     uint32_t hi, hi2, lo;
 
     do {
-        __asm__ volatile ("csrr %0, cycleh" : "=r"(hi));
-        __asm__ volatile ("csrr %0, cycle"  : "=r"(lo));
-        __asm__ volatile ("csrr %0, cycleh" : "=r"(hi2));
+        __asm__ volatile ("csrr %0, mcycleh" : "=r"(hi));
+        __asm__ volatile ("csrr %0, mcycle"  : "=r"(lo));
+        __asm__ volatile ("csrr %0, mcycleh" : "=r"(hi2));
     } while (hi != hi2);
 
     return ((uint64_t) hi << 32) | lo;
@@ -38,9 +40,9 @@ static inline uint64_t rd_instret64(void) {
     uint32_t hi, hi2, lo;
 
     do {
-        __asm__ volatile ("csrr %0, instreth" : "=r"(hi));
-        __asm__ volatile ("csrr %0, instret"  : "=r"(lo));
-        __asm__ volatile ("csrr %0, instreth" : "=r"(hi2));
+        __asm__ volatile ("csrr %0, minstreth" : "=r"(hi));
+        __asm__ volatile ("csrr %0, minstret"  : "=r"(lo));
+        __asm__ volatile ("csrr %0, minstreth" : "=r"(hi2));
     } while (hi != hi2);
 
     return ((uint64_t) hi << 32) | lo;
@@ -69,11 +71,8 @@ volatile ee_s32 seed5_volatile = 0;
    cpu clock cycles performance counter etc. Sample implementation for standard
    time.h and windows.h definitions included.
 */
-CORETIMETYPE
-barebones_clock()
-{
-#error \
-    "You must implement a method to measure time in barebones_clock()! This function should return current time.\n"
+CORETIMETYPE barebones_clock() {
+    return rd_cycle64();
 }
 /* Define : TIMER_RES_DIVIDER
         Divider to trade off timer resolution and total time that can be
@@ -87,7 +86,7 @@ barebones_clock()
 #define MYTIMEDIFF(fin, ini)       ((fin) - (ini))
 #define TIMER_RES_DIVIDER          1
 #define SAMPLE_TIME_IMPLEMENTATION 1
-#define EE_TICKS_PER_SEC           (CLOCKS_PER_SEC / TIMER_RES_DIVIDER)
+#define EE_TICKS_PER_SEC           CLK_FREQUENCY
 
 /** Define Host specific (POSIX), or target specific global time variables. */
 static CORETIMETYPE start_time_val, stop_time_val;
@@ -107,8 +106,8 @@ uint64_t instret() { return g_stop_ins - g_start_ins; };
    cycles to 0.
 */
 void start_time(void) {
-    g_start_ins = rd_instret64();
     g_start_cyc = rd_cycle64();
+    g_start_ins = rd_instret64();
 }
 /* Function : stop_time
         This function will be called right after ending the timed portion of the
@@ -119,8 +118,8 @@ void start_time(void) {
    cpu cycles counter.
 */
 void stop_time(void) {
-    g_stop_ins = rd_instret64();
     g_stop_cyc = rd_cycle64();
+    g_stop_ins = rd_instret64();
 }
 /* Function : get_time
         Return an abstract "ticks" number that signifies time on the system.
@@ -144,8 +143,7 @@ CORE_TICKS get_time(void) {
 secs_ret
 time_in_secs(CORE_TICKS ticks)
 {
-    secs_ret retval = ((secs_ret)ticks) / (secs_ret)EE_TICKS_PER_SEC;
-    return (secs_ret) ((float) ticks / (float) CLK_FREQUENCY);
+    return (secs_ret)ticks / (secs_ret)EE_TICKS_PER_SEC;
 }
 
 ee_u32 default_num_contexts = 1;
@@ -154,10 +152,9 @@ ee_u32 default_num_contexts = 1;
         Target specific initialization code
         Test for some common mistakes.
 */
-void
-portable_init(core_portable *p, int *argc, char *argv[])
-{
+UART g_uart(0);
 
+void portable_init(core_portable *p, int *argc, char *argv[]) {
     g_uart.init(115200, true, UART::EVEN, UART::STOP1, UART::BIT8);
 
     (void)argc; // prevent unused warning
@@ -178,16 +175,19 @@ portable_init(core_portable *p, int *argc, char *argv[])
 /* Function : portable_fini
         Target specific final code
 */
-void
-portable_fini(core_portable *p)
-{
-    ee_printf("CYCLES=%lu\n", (unsigned long) cycles());
-    ee_printf("INSTRET=%lu\n", (unsigned long) instret());
+void portable_fini(core_portable *p) {
+    uint64_t c = cycles();
+    uint64_t i = instret();
 
-    uint64_t c = cycles(); uint64_t i = instret();
+    ee_printf("CYCLES=0x%08x%08x\n", (ee_u32)(c >> 32), (ee_u32)c);
+    ee_printf("INSTRET=0x%08x%08x\n", (ee_u32)(i >> 32), (ee_u32)i);
 
     if (i) {
         ee_printf("CPIx1000=%lu\n", (unsigned long) ((c * 1000) / i));
+    }
+
+    if (c) {
+        ee_printf("IPCx1000=%u\n", (ee_u32)((i * 1000ULL) / c));
     }
     
     p->portable_id = 0;
