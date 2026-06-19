@@ -77,7 +77,7 @@ Original Author: Shay Gal-on
 #endif
 #ifndef COMPILER_FLAGS
 #define COMPILER_FLAGS \
-    "-O3 -flto -fno-exceptions -mno-fdiv -c -nostartfiles -march=rv32im_zicsr_zfinx_zba_zbs -mabi=ilp32" /* "Please put compiler flags here (e.g. -o3)" */
+    "-O3 -funroll-loops -finline-functions -march=rv32im_zicsr_zba_zbs -mabi=ilp32 -fno-common -ffreestanding"
 #endif
 #ifndef MEM_LOCATION
 #define MEM_LOCATION "STACK"
