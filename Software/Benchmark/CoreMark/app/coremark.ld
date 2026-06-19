@@ -1,7 +1,7 @@
 ENTRY(_app_start)
 
 MEMORY {
-    ddr (rwx) : ORIGIN = 0x8000000, LENGTH = 128M
+    ddr (rwx) : ORIGIN = 0x80000000, LENGTH = 128M
 }
 
 SECTIONS {
@@ -10,7 +10,7 @@ SECTIONS {
         *(.text*)
     } > ddr
 
-    .rodata : { *(.rodata*) *(.srodata) } > ddr
+    .rodata : { *(.rodata*) *(.srodata*) } > ddr
 
     .data : {
         *(.data*) *(.sdata*)
@@ -20,7 +20,7 @@ SECTIONS {
         __bss_start = .;
         *(.bss*) *(.sbss*) *(COMMON)
         __bss_end = .;
-    } >> ddr
+    } > ddr
 
     . = ALIGN(16);
     _end = .;
