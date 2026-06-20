@@ -1102,7 +1102,8 @@ module ZenithSoC #(
     );
 
 
-    `ifdef _DEF_DDR_MEMORY_
+    `ifdef _DEF_DDR_MEMORY_  
+    `ifdef _VIVADO_ 
 
         /** VIVADO ONLY **/
         
@@ -1158,6 +1159,8 @@ module ZenithSoC #(
             .ready_o ( ddr_ready ),
             .start_o (           )
         );
+        
+    `endif // _VIVADO_
 
     `else
 
