@@ -1,0 +1,538 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audio Processing Unit (APU) &mdash; ZenithSoC Documentation 04/05/2026 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=6a8dd3d6"></script>
+      <script src="../_static/doctools.js?v=888ff710"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Audio Capture Unit" href="audio_capture_unit.html" />
+    <link rel="prev" title="AXI Bus" href="../axi_bus.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            ZenithSoC Documentation
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">System Architecture</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../CPU%20Complex/cpu_complex.html">CPU Complex</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../CPU%20Complex/instruction_cache.html">Instruction Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../CPU%20Complex/data_cache.html">Data Cache</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../axi_bus.html">AXI Bus</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Audio Processing Unit (APU)</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Audio Processing Unit (APU)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#features">Features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#architecture">Architecture</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#address-space-organization">Address Space Organization</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#address-decoding-logic">Address Decoding Logic</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#data-interface">Data Interface</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#write-interface">Write Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#read-interface">Read Interface</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#external-interfaces">External Interfaces</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#pdm-microphone-interface-acu">PDM Microphone Interface (ACU)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pwm-audio-output-asu">PWM Audio Output (ASU)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#interrupt-interface">Interrupt Interface</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#subsystem-details">Subsystem Details</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#audio-capture-unit-acu">Audio Capture Unit (ACU)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#audio-synthesis-unit-asu">Audio Synthesis Unit (ASU)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="audio_capture_unit.html">Audio Capture Unit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="audio_synthesis_unit.html">Audio Synthesis Unit (ASU)</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">IO Devices</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/gpio.html">GPIO - General Purpose Input/Output</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/uart.html">UART - Universal Asynchronous Receiver/Transmitter</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/spi.html">SPI - Serial Peripheral Interface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/timer.html">Timer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/ethernet.html">Ethernet MAC Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/sd.html">SD - Secure Digital Card Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/prng.html">PRNG - Pseudo Random Number Generator</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../IO%20Devices/trace_unit.html">Trace Unit</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Legal</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">License</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">ZenithSoC Documentation</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Audio Processing Unit (APU)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/APU/apu.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="audio-processing-unit-apu">
+<h1>Audio Processing Unit (APU)<a class="headerlink" href="#audio-processing-unit-apu" title="Link to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The Audio Processing Unit (APU) is a comprehensive audio subsystem that integrates bidirectional audio capabilities: audio capture from external microphones via PDM interface and audio synthesis/playback via PWM output. The APU combines two independent but complementary subsystems—the Audio Capture Unit (ACU) and Audio Synthesis Unit (ASU)—into a unified memory-mapped peripheral with a common register interface.</p>
+</section>
+<section id="features">
+<h2>Features<a class="headerlink" href="#features" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Bidirectional Audio Processing</strong>: Simultaneous audio capture and synthesis</p></li>
+<li><p><strong>Audio Capture Unit (ACU)</strong>:</p>
+<ul>
+<li><p>PDM microphone interface with stereo support</p></li>
+<li><p>CIC filtering and decimation</p></li>
+<li><p>Programmable gain and sample rate</p></li>
+<li><p>Sample buffer with interrupt generation</p></li>
+</ul>
+</li>
+<li><p><strong>Audio Synthesis Unit (ASU)</strong>:</p>
+<ul>
+<li><p>4-channel waveform synthesis (sine, square, triangle, custom)</p></li>
+<li><p>ADSR envelope modulation per channel</p></li>
+<li><p>Audio mixing with automatic normalization</p></li>
+<li><p>PCM to PDM conversion for PWM output</p></li>
+</ul>
+</li>
+<li><p><strong>Unified Memory-Mapped Interface</strong>: Single 12-bit address space for both subsystems</p></li>
+<li><p><strong>Configurable Buffer Size</strong>: Parameterizable sample buffer depth (default 512 samples)</p></li>
+<li><p><strong>Interrupt Support</strong>: Hardware interrupt generation for capture events</p></li>
+</ul>
+</section>
+<section id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Link to this heading"></a></h2>
+<p>The APU integrates two major subsystems with address decoding and output multiplexing logic.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>┌─────────────────────────────────────────────────────────────────┐
+│                    Audio Processing Unit (APU)                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │           Audio Capture Unit (ACU)                        │ │
+│  │  Address: 0x000 - 0x007                                   │ │
+│  ├───────────────────────────────────────────────────────────┤ │
+│  │                                                            │ │
+│  │   PDM Mic ──▶ CIC Filter ──▶ Gain ──▶ Sample Buffer      │ │
+│  │   Interface      Decimation      Stage     (FIFO)         │ │
+│  │                                                │            │ │
+│  │                                                └───▶ INT   │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │        Audio Synthesis Unit (ASU)                         │ │
+│  │  Address: 0x008 - 0x828                                   │ │
+│  ├───────────────────────────────────────────────────────────┤ │
+│  │                                                            │ │
+│  │   ┌──────────┐    ┌──────┐    ┌─────────┐    ┌────────┐ │ │
+│  │   │ Wave Gen ├───▶│ ADSR ├───▶│  Mixer  ├───▶│ PCM2PDM├─┼─┼──▶ PWM
+│  │   │ (×4)     │    │ (×4) │    │ 4-ch    │    │        │ │ │
+│  │   └──────────┘    └──────┘    └─────────┘    └────────┘ │ │
+│  │                                                            │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │               Address Decoder &amp; Mux Logic                 │ │
+│  │  ┌──────────────┐        ┌──────────────┐                │ │
+│  │  │ ACU Address  │        │ ASU Address  │                │ │
+│  │  │ Decoder      │        │ Decoder      │                │ │
+│  │  │ (0x000-0x007)│        │ (0x008-0x828)│                │ │
+│  │  └──────────────┘        └──────────────┘                │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                          │                                       │
+│                          ▼                                       │
+│              Write/Read Data Multiplexer                        │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+       │                                          │
+       ▼                                          ▼
+Write Interface                           Read Interface
+(12-bit addr, 32-bit data)               (12-bit addr, 32-bit data)
+</pre></div>
+</div>
+</section>
+<section id="address-space-organization">
+<h2>Address Space Organization<a class="headerlink" href="#address-space-organization" title="Link to this heading"></a></h2>
+<p>The APU implements a 12-bit address space (4096 addresses) partitioned between the two subsystems:</p>
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">APU Address Map</span><a class="headerlink" href="#id1" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 25.0%" />
+<col style="width: 25.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Address Range</p></th>
+<th class="head"><p>Subsystem</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0x000 - 0x007</p></td>
+<td><p>Audio Capture Unit</p></td>
+<td><p>8 registers: status, control, gain, decimation, normalizer, sample buffer, threshold, event</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x008 - 0x828</p></td>
+<td><p>Audio Synthesis Unit</p></td>
+<td><p>2089 addresses: custom waveform table (2048) + 4 channel registers (32) + duty cycle (1)</p></td>
+</tr>
+<tr class="row-even"><td><p>0x829 - 0xFFF</p></td>
+<td><p>Reserved</p></td>
+<td><p>Future expansion</p></td>
+</tr>
+</tbody>
+</table>
+<section id="address-decoding-logic">
+<h3>Address Decoding Logic<a class="headerlink" href="#address-decoding-logic" title="Link to this heading"></a></h3>
+<p>The APU implements address-based routing with error detection:</p>
+<div class="highlight-systemverilog notranslate"><div class="highlight"><pre><span></span><span class="c1">// ACU address range: 0x000 - 0x007</span>
+<span class="n">acu_write</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">write_address</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">write_i</span>
+<span class="n">acu_read</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">read_address</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">read_i</span>
+
+<span class="c1">// ASU address range: 0x008 - 0x828</span>
+<span class="n">asu_write</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">write_address</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">write_address</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">2089</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">write_i</span>
+<span class="n">asu_read</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">read_address</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="p">(</span><span class="n">read_address</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">2089</span><span class="p">)</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">read_i</span>
+</pre></div>
+</div>
+<p><strong>Address Translation</strong>:</p>
+<ul class="simple">
+<li><p><strong>ACU</strong>: Uses lower 3 bits directly <code class="docutils literal notranslate"><span class="pre">[2:0]</span></code></p></li>
+<li><p><strong>ASU</strong>: Subtracts ACU_END_ADDRESS (8) from incoming address</p></li>
+</ul>
+<p><strong>Error Handling</strong>:</p>
+<ul class="simple">
+<li><p>Access to addresses ≥ 2089 generates <code class="docutils literal notranslate"><span class="pre">read_error</span></code> or <code class="docutils literal notranslate"><span class="pre">write_error</span></code></p></li>
+<li><p>Subsystem-specific errors propagate to top-level error outputs</p></li>
+</ul>
+</section>
+</section>
+<section id="data-interface">
+<h2>Data Interface<a class="headerlink" href="#data-interface" title="Link to this heading"></a></h2>
+<section id="write-interface">
+<h3>Write Interface<a class="headerlink" href="#write-interface" title="Link to this heading"></a></h3>
+<table class="docutils align-default" id="id2">
+<caption><span class="caption-text">Write Interface Signals</span><a class="headerlink" href="#id2" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Signal</p></th>
+<th class="head"><p>Width</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>write_i</p></td>
+<td><p>1</p></td>
+<td><p>Write enable</p></td>
+</tr>
+<tr class="row-odd"><td><p>write_address_i</p></td>
+<td><p>12</p></td>
+<td><p>Write address (byte-aligned)</p></td>
+</tr>
+<tr class="row-even"><td><p>write_data_i</p></td>
+<td><p>32</p></td>
+<td><p>Write data (little-endian byte array [3:0][7:0])</p></td>
+</tr>
+<tr class="row-odd"><td><p>write_strobe_i</p></td>
+<td><p>4</p></td>
+<td><p>Byte-enable strobe (1 = write byte)</p></td>
+</tr>
+<tr class="row-even"><td><p>write_done_o</p></td>
+<td><p>1</p></td>
+<td><p>Write completion acknowledgment</p></td>
+</tr>
+<tr class="row-odd"><td><p>write_error_o</p></td>
+<td><p>1</p></td>
+<td><p>Write error flag (address out of range or subsystem error)</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Write Operation</strong>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Clock Cycle:    1         2         3
+                │         │         │
+write_i      ───┘▔▔▔▔▔▔▔▔▔│▔▔▔▔▔▔▔▔▔│▔▔▔▔▔▔▔▔▔───
+write_addr   ───&lt;  ADDR   &gt;─────────────────────
+write_data   ───&lt;  DATA   &gt;─────────────────────
+write_strobe ───&lt; STROBE  &gt;─────────────────────
+write_done   ─────────────┘▔▔▔▔▔▔▔▔▔│▔▔▔▔▔▔▔▔▔───
+write_error  ─────────────┘▔ (if err)│─────────────
+</pre></div>
+</div>
+</section>
+<section id="read-interface">
+<h3>Read Interface<a class="headerlink" href="#read-interface" title="Link to this heading"></a></h3>
+<table class="docutils align-default" id="id3">
+<caption><span class="caption-text">Read Interface Signals</span><a class="headerlink" href="#id3" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Signal</p></th>
+<th class="head"><p>Width</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>read_i</p></td>
+<td><p>1</p></td>
+<td><p>Read enable</p></td>
+</tr>
+<tr class="row-odd"><td><p>read_address_i</p></td>
+<td><p>12</p></td>
+<td><p>Read address (byte-aligned)</p></td>
+</tr>
+<tr class="row-even"><td><p>read_data_o</p></td>
+<td><p>32</p></td>
+<td><p>Read data</p></td>
+</tr>
+<tr class="row-odd"><td><p>read_done_o</p></td>
+<td><p>1</p></td>
+<td><p>Read completion acknowledgment</p></td>
+</tr>
+<tr class="row-even"><td><p>read_error_o</p></td>
+<td><p>1</p></td>
+<td><p>Read error flag (address out of range or subsystem error)</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Read Operation</strong>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Clock Cycle:    1         2         3
+                │         │         │
+read_i       ───┘▔▔▔▔▔▔▔▔▔│▔▔▔▔▔▔▔▔▔│▔▔▔▔▔▔▔▔▔───
+read_addr    ───&lt;  ADDR   &gt;─────────────────────
+read_done    ─────────────┘▔▔▔▔▔▔▔▔▔│▔▔▔▔▔▔▔▔▔───
+read_data    ─────────────&lt; DATA OUT&gt;───────────
+read_error   ─────────────┘▔ (if err)│─────────────
+</pre></div>
+</div>
+</section>
+</section>
+<section id="external-interfaces">
+<h2>External Interfaces<a class="headerlink" href="#external-interfaces" title="Link to this heading"></a></h2>
+<section id="pdm-microphone-interface-acu">
+<h3>PDM Microphone Interface (ACU)<a class="headerlink" href="#pdm-microphone-interface-acu" title="Link to this heading"></a></h3>
+<table class="docutils align-default" id="id4">
+<caption><span class="caption-text">PDM Interface Signals</span><a class="headerlink" href="#id4" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Signal</p></th>
+<th class="head"><p>Direction</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>pdm_data_i</p></td>
+<td><p>Input</p></td>
+<td><p>PDM data input from microphone</p></td>
+</tr>
+<tr class="row-odd"><td><p>pdm_clk_o</p></td>
+<td><p>Output</p></td>
+<td><p>PDM clock output to microphone</p></td>
+</tr>
+<tr class="row-even"><td><p>pdm_lrsel_o</p></td>
+<td><p>Output</p></td>
+<td><p>Left/Right channel select (stereo mode)</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Clock Generation</strong>:</p>
+<div class="math notranslate nohighlight">
+\[f_{PDM\_CLK} = \frac{f_{system}}{2 \times (clock\_divisor + 1)}\]</div>
+<p><strong>Sample Rate</strong>:</p>
+<div class="math notranslate nohighlight">
+\[f_{sample} = \frac{f_{PDM\_CLK}}{decimation\_factor}\]</div>
+</section>
+<section id="pwm-audio-output-asu">
+<h3>PWM Audio Output (ASU)<a class="headerlink" href="#pwm-audio-output-asu" title="Link to this heading"></a></h3>
+<table class="docutils align-default" id="id5">
+<caption><span class="caption-text">PWM Interface Signals</span><a class="headerlink" href="#id5" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Signal</p></th>
+<th class="head"><p>Direction</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>pwm_o</p></td>
+<td><p>Output</p></td>
+<td><p>PWM/PDM audio output (tri-state: 1’bZ for high, 1’b0 for low)</p></td>
+</tr>
+<tr class="row-odd"><td><p>audio_enable_o</p></td>
+<td><p>Output</p></td>
+<td><p>Audio output enable (high when any ASU channel is active)</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Output Circuit</strong>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>       3.3V
+        │
+        ├─── 10kΩ Pull-up
+        │
+pwm_o ──┴───▶ To Class-D Amplifier Input
+
+(Tri-state: Z = High, 0 = Low)
+</pre></div>
+</div>
+</section>
+<section id="interrupt-interface">
+<h3>Interrupt Interface<a class="headerlink" href="#interrupt-interface" title="Link to this heading"></a></h3>
+<table class="docutils align-default" id="id6">
+<caption><span class="caption-text">Interrupt Signal</span><a class="headerlink" href="#id6" title="Link to this table"></a></caption>
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Signal</p></th>
+<th class="head"><p>Direction</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>interrupt_o</p></td>
+<td><p>Output</p></td>
+<td><p>Interrupt request (generated by ACU only)</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Interrupt Sources</strong> (ACU):</p>
+<ul class="simple">
+<li><p>Sample buffer full</p></li>
+<li><p>Left channel threshold high/low</p></li>
+<li><p>Right channel threshold high/low</p></li>
+<li><p>Capture error</p></li>
+</ul>
+<p><strong>Note</strong>: The ASU does not generate interrupts. Software must poll ADSR status if needed.</p>
+</section>
+</section>
+<section id="subsystem-details">
+<h2>Subsystem Details<a class="headerlink" href="#subsystem-details" title="Link to this heading"></a></h2>
+<section id="audio-capture-unit-acu">
+<h3>Audio Capture Unit (ACU)<a class="headerlink" href="#audio-capture-unit-acu" title="Link to this heading"></a></h3>
+<p><strong>Address Range</strong>: 0x000 - 0x007 (8 registers)</p>
+<p><strong>Key Features</strong>:</p>
+<ul class="simple">
+<li><p>PDM to PCM conversion with 5th-order CIC filter</p></li>
+<li><p>Programmable decimation factor (8 to 256)</p></li>
+<li><p>Programmable gain (Q1.15 format)</p></li>
+<li><p>Sample FIFO buffer (configurable depth, default 512)</p></li>
+<li><p>Dual-channel (stereo) or single-channel (mono) operation</p></li>
+<li><p>Threshold-based event generation</p></li>
+</ul>
+<p><strong>Detailed Documentation</strong>: See <code class="docutils literal notranslate"><span class="pre">audio_capture_unit.rst</span></code></p>
+</section>
+<section id="audio-synthesis-unit-asu">
+<h3>Audio Synthesis Unit (ASU)<a class="headerlink" href="#audio-synthesis-unit-asu" title="Link to this heading"></a></h3>
+<p><strong>Address Range</strong>: 0x008 - 0x828 (2089 addresses)</p>
+<p><strong>Key Features</strong>:</p>
+<ul class="simple">
+<li><p>4 independent waveform generators</p></li>
+<li><p>Waveform types: sine, square, triangle, custom</p></li>
+<li><p>ADSR envelope modulation per channel</p></li>
+<li><p>4-channel audio mixer with normalization</p></li>
+<li><p>PCM to PDM conversion</p></li>
+<li><p>Custom waveform double buffering (1024 samples per buffer)</p></li>
+</ul>
+<p><strong>Detailed Documentation</strong>: See <code class="docutils literal notranslate"><span class="pre">audio_synthesis_unit.rst</span></code></p>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../axi_bus.html" class="btn btn-neutral float-left" title="AXI Bus" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="audio_capture_unit.html" class="btn btn-neutral float-right" title="Audio Capture Unit" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, Tripi Gabriele.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

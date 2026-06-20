@@ -1,0 +1,90 @@
+[*]
+[*] GTKWave Analyzer v3.3.104 (w)1999-2020 BSI
+[*] Sun Jun  7 16:15:52 2026
+[*]
+[dumpfile] "/home/gabriele/Desktop/Projects/ZenithSoC/VirtualPlatform/out/waveform.fst"
+[dumpfile_mtime] "Sun Jun  7 15:36:41 2026"
+[dumpfile_size] 7200538
+[savefile] "/home/gabriele/Desktop/Projects/ZenithSoC/VirtualPlatform/config_gtk.gtkw"
+[timestart] 2198000
+[size] 2490 1369
+[pos] -51 -51
+*-17.859171 2620270 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] TOP.
+[treeopen] TOP.tb_top.
+[treeopen] TOP.tb_top.u_dut.
+[treeopen] TOP.tb_top.u_dut.dut.
+[treeopen] TOP.tb_top.u_dut.dut.register_interface.
+[treeopen] TOP.tb_top.u_dut.sd_model.
+[sst_width] 426
+[signals_width] 295
+[sst_expanded] 1
+[sst_vpaned_height] 839
+@28
+TOP.tb_top.u_dut.sd_cmd_io
+@22
+TOP.tb_top.u_dut.sd_data_io[3:0]
+@100000028
+[color] 2
+TOP.tb_top.u_dut.dut.command_controller.state_CRT[3:0]
+@28
+TOP.tb_top.u_dut.dut.command_controller.crc7_compute
+TOP.tb_top.u_dut.dut.command_controller.crc7_data
+TOP.tb_top.u_dut.dut.command_controller.crc7_initialize
+@22
+TOP.tb_top.u_dut.dut.command_controller.crc7_out[6:0]
+TOP.tb_top.u_dut.dut.command_controller.bit_counter[7:0]
+@28
+TOP.tb_top.u_dut.dut.command_controller.sample_i
+TOP.tb_top.u_dut.dut.command_controller.shift_i
+@22
+TOP.tb_top.u_dut.dut.command_controller.resp_CRT[7:0]
+TOP.tb_top.u_dut.dut.command_controller.resp_o[7:0]
+@28
+TOP.tb_top.u_dut.dut.command_controller.resp_valid_o
+TOP.tb_top.u_dut.dut.data_controller.error_o
+@29
+TOP.tb_top.u_dut.dut.data_controller.crc_error_o
+@24
+[color] 2
+TOP.tb_top.u_dut.dut.command_controller.cmd_number_i[5:0]
+@28
+TOP.tb_top.u_dut.dut.command_controller.crc_error_o
+@22
+TOP.tb_top.u_dut.sd_model.isdl.cmd_in_latch[47:0]
+@28
+TOP.tb_top.u_dut.dut.sd_cmd_io
+TOP.tb_top.u_dut.dut.data_controller.burst_i
+TOP.tb_top.u_dut.dut.data_controller.direction_i
+@100000028
+TOP.tb_top.u_dut.dut.data_controller.state_CRT[3:0]
+@28
+TOP.tb_top.u_dut.sd_model.isdl.phy_data_in_act
+TOP.tb_top.u_dut.sd_model.isdl.data_in_done_r
+TOP.tb_top.u_dut.sd_model.isdl.data_in_busy_s
+TOP.tb_top.u_dut.sd_model.isdl.phy_data_in_crc_good
+@22
+TOP.tb_top.u_dut.sd_model.sd_dat_i[3:0]
+TOP.tb_top.u_dut.sd_model.link_card_state[3:0]
+@24
+TOP.tb_top.u_dut.sd_model.isdl.card_state[3:0]
+TOP.tb_top.u_dut.sd_model.isdl.data_state[6:0]
+TOP.tb_top.u_dut.sd_model.isdl.state[6:0]
+@800022
+TOP.tb_top.u_dut.dut.data_controller.sd_data_io[3:0]
+@28
+(0)TOP.tb_top.u_dut.dut.data_controller.sd_data_io[3:0]
+(1)TOP.tb_top.u_dut.dut.data_controller.sd_data_io[3:0]
+(2)TOP.tb_top.u_dut.dut.data_controller.sd_data_io[3:0]
+(3)TOP.tb_top.u_dut.dut.data_controller.sd_data_io[3:0]
+@1001200
+-group_end
+@28
+TOP.tb_top.u_dut.dut.data_controller.tristate_enable
+TOP.tb_top.u_dut.dut.register_interface.reset_card_o
+TOP.tb_top.u_dut.dut.register_interface.reset_done_i
+TOP.tb_top.u_dut.dut.sd_reset_n_o
+@22
+TOP.tb_top.u_dut.dut.reset_counter[16:0]
+[pattern_trace] 1
+[pattern_trace] 0

@@ -1,1 +1,0 @@
-FW_SRCS += ../Software/Source/UART.cpp
