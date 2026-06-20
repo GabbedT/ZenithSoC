@@ -143,51 +143,36 @@ module recorder_audio_pipeline #(
     /* Fixed point product */
     logic [31:0] fxp_product;
 
-    `ifdef _VIVADO_
+    assign fxp_product = gain_i * pcm_sample;
+    
+    assign pcm_o = fxp_product[30:15];
 
-        /* Fixed point product: Q16.0 * Q1.15 = Q17.15 */
-        gain_multiplier gain_stage (
-            .CLK ( clk_i       ),
-            .A   ( pcm_sample  ),
-            .B   ( gain_i      ),
-            .CE  ( clk_en_i    ),
-            .P   ( fxp_product )
-        );
+    /* To match multiplier latency */
+    logic [1:0] valid_pipe;
 
-        assign pcm_o = fxp_product[30:15];
-
-        /* To match multiplier latency */
-        logic [1:0] valid_pipe;
-
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin 
-                valid_pipe <= '0;
-            end else begin 
-                valid_pipe <= {valid_pipe[0], normalized_valid};
-            end 
+    always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+        if (!rst_n_i) begin 
+            valid_pipe <= '0;
+        end else begin 
+            valid_pipe <= {valid_pipe[0], normalized_valid};
         end 
+    end 
 
-        assign valid_o = valid_pipe[1];
+    assign valid_o = valid_pipe[1];
 
 
-        /* Direction pipeline gain stage */
-        logic [1:0] channel_gain_stg;
+    /* Direction pipeline gain stage */
+    logic [1:0] channel_gain_stg;
 
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin 
-                channel_gain_stg <= 1'b0;
-            end else if (normalized_valid) begin 
-                channel_gain_stg <= {channel_gain_stg[0], channel_normalization_stg};
-            end
+    always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+        if (!rst_n_i) begin 
+            channel_gain_stg <= 1'b0;
+        end else if (normalized_valid) begin 
+            channel_gain_stg <= {channel_gain_stg[0], channel_normalization_stg};
         end
+    end
 
-        assign channel_o = channel_gain_stg[1];
-
-    `else 
-
-        // ADD MULTIPLIER DEFINITION
-
-    `endif 
+    assign channel_o = channel_gain_stg[1];
 
 endmodule : recorder_audio_pipeline
 
