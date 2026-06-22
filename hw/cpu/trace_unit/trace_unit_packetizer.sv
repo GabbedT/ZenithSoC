@@ -1,14 +1,6 @@
 `ifndef TRACE_UNIT_PACKETIZER_SV
     `define TRACE_UNIT_PACKETIZER_SV
 
-`include "../../CPU/ApogeoRV/Hardware/Include/Headers/apogeo_exception_vectors.svh"
-`include "../../CPU/ApogeoRV/Hardware/Include/Interfaces/trace_interface.sv"
-
-`include "../../System/synchronous_buffer.sv"
-
-`include "../../Utility/Packages/trace_unit_pkg.sv"
-
-
 module trace_unit_packetizer #(
     /* Buffer depth */
     parameter PACKET_BUFFER_SIZE = 512

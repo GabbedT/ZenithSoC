@@ -1,8 +1,6 @@
 `ifndef TRACE_UNIT_SERIALIZER_SV
     `define TRACE_UNIT_SERIALIZER_SV
 
-`include "../../Utility/Packages/trace_unit_pkg.sv"
-
 module trace_unit_serializer (
     /* Global signals */
     input logic clk_i,

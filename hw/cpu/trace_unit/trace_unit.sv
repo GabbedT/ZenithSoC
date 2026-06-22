@@ -1,10 +1,6 @@
 `ifndef TRACE_UNIT_SV
     `define TRACE_UNIT_SV
 
-`include "../../CPU/ApogeoRV/Hardware/Include/Interfaces/trace_interface.sv"
-
-`include "../../Utility/Packages/trace_unit_pkg.sv"
-
 module trace_unit #(
     /* Buffer depth */
     parameter PACKET_BUFFER_SIZE = 512

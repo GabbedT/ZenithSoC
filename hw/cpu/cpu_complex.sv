@@ -1,15 +1,6 @@
 `ifndef CPU_COMPLEX_SV
     `define CPU_COMPLEX_SV
 
-`include "../Memory/Cache/data_cache_complex.sv"
-`include "../Memory/Cache/instruction_cache_complex.sv"
-
-`include "ApogeoRV/Hardware/ApogeoRV.sv"
-
-`include "../System/edge_detector.sv"
-
-`include "ApogeoRV/Hardware/Include/Interfaces/bus_interface.sv"
-
 module cpu_complex #(
     /* Predictor table size */ 
     parameter PREDICTOR_SIZE = 512, 

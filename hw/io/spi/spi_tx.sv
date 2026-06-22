@@ -1,7 +1,7 @@
-`ifndef SPI_TRANSMITTER_SV
-    `define SPI_TRANSMITTER_SV
+`ifndef SPI_TX_SV
+    `define SPI_TX_SV
 
-module spi_transmitter (
+module spi_tx (
     /* Global Signals */
     input logic clk_i,
     input logic rst_n_i,
@@ -53,6 +53,6 @@ module spi_transmitter (
         .edge_o   ( transmit   )
     );
 
-endmodule : spi_transmitter
+endmodule : spi_tx
 
 `endif 

@@ -1,7 +1,7 @@
-`ifndef UART_TRANSMITTER_SV
-    `define UART_TRANSMITTER_SV
+`ifndef UART_TX_SV
+    `define UART_TX_SV
 
-module uart_transmitter (
+module uart_tx (
     /* Global signals */
     input logic clk_i,
     input logic rst_n_i,
@@ -230,6 +230,6 @@ module uart_transmitter (
             endcase 
         end
 
-endmodule : uart_transmitter
+endmodule : uart_tx
 
 `endif 

@@ -1,7 +1,7 @@
-`ifndef SPI_RECEIVER_SV
-    `define SPI_RECEIVER_SV
+`ifndef SPI_RX_SV
+    `define SPI_RX_SV
 
-module spi_receiver (
+module spi_rx (
     /* Global Signals */
     input logic clk_i,
 
@@ -26,6 +26,6 @@ module spi_receiver (
             end
         end 
 
-endmodule : spi_receiver
+endmodule : spi_rx
 
 `endif 

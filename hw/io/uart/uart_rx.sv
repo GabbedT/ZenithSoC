@@ -1,7 +1,7 @@
-`ifndef UART_RECEIVER_SV
-    `define UART_RECEIVER_SV
+`ifndef UART_RX_SV
+    `define UART_RX_SV
 
-module uart_receiver (
+module uart_rx (
     /* Global signals */
     input logic clk_i,
     input logic rst_n_i,
@@ -253,6 +253,6 @@ module uart_receiver (
             endcase 
         end 
 
-endmodule : uart_receiver
+endmodule : uart_rx
 
 `endif 

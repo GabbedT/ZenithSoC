@@ -1,10 +1,6 @@
 `ifndef TRACE_UNIT_REGISTERS_SV
     `define TRACE_UNIT_REGISTERS_SV
 
-`include "../../System/edge_detector.sv"
- 
-`include "../../Utility/Packages/trace_unit_pkg.sv"
-
 module trace_unit_registers (
     /* Global signals */
     input logic clk_i,
