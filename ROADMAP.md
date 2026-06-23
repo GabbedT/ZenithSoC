@@ -4,6 +4,7 @@ The project will be developed using an incremental approach, structured into fou
 
 ## Roadmap 
 
+-> Fix every interrupt interface in blocks
 -> Verify again every block extensively with SW driven tests thanks to Virtual Platform
 -> Add CPU cosimulation with Spike
 -> WFI instruction with verification
