@@ -133,7 +133,7 @@ module uart #(
 
     assign transmit = (flow_control ? uart_cts_i : 1'b1) & tx_idle & !tx_empty;
 
-    uart_transmitter transmitter (
+    uart_tx transmitter (
         .clk_i    ( clk_i     ),
         .rst_n_i  ( rst_n_i   ),
         .enable_i ( tx_enable ),
@@ -175,7 +175,7 @@ module uart #(
         .sync_o   ( rx_sync   )
     );
 
-    uart_receiver receiver (
+    uart_rx receiver (
         .clk_i    ( clk_i     ),
         .rst_n_i  ( rst_n_i   ),
         .enable_i ( rx_enable ),

@@ -1,8 +1,6 @@
 `ifndef SOC_PARAMETERS_SV
     `define SOC_PARAMETERS_SV
 
-`include "../../CPU/ApogeoRV/Hardware/Include/Headers/apogeo_memory_map.svh"
-
 package soc_parameters;
     
 //====================================================================================
