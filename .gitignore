@@ -4,5 +4,5 @@
 
 **/.vscode/settings.json
 
-VirtualPlatform/out/
-VirtualPlatform/obj_dir/
+vp/out/
+vp/obj_dir/
