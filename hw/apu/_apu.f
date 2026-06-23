@@ -11,7 +11,7 @@ synthesis_unit/square_wave_generator.sv
 synthesis_unit/audio_generation_pipeline.sv
 synthesis_unit/audio_synthesis_pipeline.sv
 
-intf/waveform_register.sv
+intf/waveform_registers.sv
 intf/ac_unit_registers.sv
 intf/as_unit_registers.sv
 intf/pcm2pdm_converter.sv
