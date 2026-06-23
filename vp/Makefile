@@ -8,10 +8,10 @@ TIMEOUT		?= 10s
 
 # --- Paths ---
 BLOCK_DIR    = blocks/$(BLOCK)
-BLOCK_RTL    = $(wildcard $(BLOCK_DIR)/rtl/*.sv)
 BLOCK_FW     = $(BLOCK_DIR)/sw/firmware.cpp
 
-COMMON_RTL   = common/tb/tb_top.sv
+TB_TOP 		 = common/tb/tb_top.sv
+ZENITH_F     = ../hw/_zenithSoC.f
 SIM_SRC      = common/sim/sim_main.cpp
 FW_STARTUP   = common/sw/startup.S
 FW_LINK      = common/sw/link.ld
@@ -71,18 +71,8 @@ VFLAGS       = --cc --exe --trace-fst --trace-structs \
 			   --timing \
                --top-module tb_top \
                -Wno-fatal \
-               -I$(ZENITH_HW) \
+               -y $(ZENITH_HW)/hw \
                -I$(ZENITH_HW)/hw \
-               -I$(ZENITH_HW)/hw/io/uart \
-               -I$(ZENITH_HW)/hw/io/spi \
-               -I$(ZENITH_HW)/hw/io/timer \
-               -I$(ZENITH_HW)/hw/io/gpio \
-               -I$(ZENITH_HW)/hw/io/prng \
-               -I$(ZENITH_HW)/hw/io/sd \
-               -I$(ZENITH_HW)/hw/io/ethernet \
-               -I$(ZENITH_HW)/hw/apu \
-               -I$(ZENITH_HW)/hw/System \
-               -I$(ZENITH_HW)/utils/pkg \
 			   -I$(BLOCK_DIR)/rtl \
                -CFLAGS "-std=c++17 -O2 -I$(SPIKE_DIR)/include" \
                -LDFLAGS "-L$(SPIKE_DIR)/lib -lriscv -lfesvr -lpthread -ldl"
@@ -100,7 +90,7 @@ all: verilate firmware
 # --- Verilate + compile C++ model ---
 verilate:
 	@echo "=== Verilating block: $(BLOCK) ==="
-	$(VERILATOR) $(VFLAGS) $(COMMON_RTL) $(BLOCK_RTL) $(SIM_SRC)
+	$(VERILATOR) $(VFLAGS) -F $(ZENITH_F) $(TB_TOP) $(SIM_SRC)
 	$(MAKE) -C obj_dir -f Vtb_top.mk -j$$(nproc)
 	@echo "=== Verilator build done ==="
 

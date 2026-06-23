@@ -1,1 +1,1 @@
-FW_SRCS += ../Software/Source/SD.cpp
+FW_SRCS += ../sw/src/SD.cpp
