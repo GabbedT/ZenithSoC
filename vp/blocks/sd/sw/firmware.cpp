@@ -86,11 +86,11 @@ extern "C" int main() {
                 if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
                     vp_print("[CONFIGURATION] Timeout!\n");
 
-                    return;
+                    return 0;
                 } else if (error == SD::DAT_CRC_ERR || error == SD::CMD_CRC_ERR) {
                     vp_print("[CONFIGURATION] CRC Error!\n");
 
-                    return;
+                    return 0;
                 }
             break;
 
@@ -103,11 +103,11 @@ extern "C" int main() {
                 if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
                     vp_print("[CONFIGURATION] Timeout!\n");
 
-                    return;
+                    return 0;
                 } else if (error == SD::DAT_CRC_ERR || error == SD::CMD_CRC_ERR) {
                     vp_print("[CONFIGURATION] CRC Error!\n");
 
-                    return;
+                    return 0;
                 }
             break;
 
@@ -120,11 +120,11 @@ extern "C" int main() {
                 if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
                     vp_print("[CONFIGURATION] Timeout!\n");
 
-                    return;
+                    return 0;
                 } else if (error == SD::DAT_CRC_ERR || error == SD::CMD_CRC_ERR) {
                     vp_print("[CONFIGURATION] CRC Error!\n");
 
-                    return;
+                    return 0;
                 }
             break;
 
@@ -137,11 +137,11 @@ extern "C" int main() {
                 if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
                     vp_print("[CONFIGURATION] Timeout!\n");
 
-                    return;
+                    return 0;
                 } else if (error == SD::DAT_CRC_ERR || error == SD::CMD_CRC_ERR) {
                     vp_print("[CONFIGURATION] CRC Error!\n");
 
-                    return;
+                    return 0;
                 }
             break;
         }
