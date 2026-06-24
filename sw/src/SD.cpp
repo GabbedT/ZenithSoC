@@ -340,7 +340,7 @@ SD& SD::setClockSpeed(clockSpeed_e speed) {
 
 SD& SD::setBusWidth(busWidth_e width, errorType_e& error) {
     /* Send CMD55: APP_CMD */
-    sendCommand(55, SD::cardRCA << 16);
+    sendCommand(55, (uint32_t) SD::cardRCA << 16);
     flushResponseBuffer();
 
     /* Send ACMD6 */
@@ -682,6 +682,10 @@ SD& SD::flushDataBuffer() {
 };
 
 
+uint32_t SD::getCardStatus(errorType_e& error) {
+    return 0;
+}
+
 SD& SD::readCID(uint8_t* cidBuffer, errorType_e& error) {
     sendCommand(10, SD::cardRCA << 16);
     
@@ -807,7 +811,7 @@ uint64_t SD::getCardCapacity() {
     }
 };
 
-uint32_t getCardStatus(errorType_e& error) {
+uint32_t SD::getCardStatus(errorType_e& error) {
     uint8_t resp[6];
 
     /* SEND_STATUS: argument is in RCA upper 16 bits */
@@ -815,7 +819,7 @@ uint32_t getCardStatus(errorType_e& error) {
     readResponse(resp, error);
 
     if (error != SD::NO_ERROR) {
-        return *this;
+        return 0;
     }
 
 

@@ -30,18 +30,18 @@ public:
     enum cardState_e { IDLE, READY, IDENT, STBY, TRAN, DATA, RECV, PROG, DISC };
 
 
-    /* Card Status Register */
-    union cardStatus_u {
-        struct fields {
-            unsigned int reserved0;
-            unsigned int ready4data : 1;
-            cardState_e  cardState : 4;
-            unsigned int eraseReset : 1
-            unsigned int
+    // /* Card Status Register */
+    // union cardStatus_u {
+    //     struct fields {
+    //         unsigned int reserved0;
+    //         unsigned int ready4data : 1;
+    //         cardState_e  cardState : 4;
+    //         unsigned int eraseReset : 1
+    //         unsigned int
 
-        };
+    //     };
         
-    };
+    // };
     
 
 
@@ -250,7 +250,7 @@ public:
 
     SD& readCSD(uint8_t* csdBuffer, errorType_e& error);    // 16 bytes  
 
-    SD& readSCR(uint8_t* scrBuffer);    // 8 bytes
+    SD& readSCR(uint8_t* scrBuffer, errorType_e& error);    // 8 bytes
 
     SD& readOCR(uint8_t* ocrBuffer, errorType_e& error);    // 4 bytes
 
