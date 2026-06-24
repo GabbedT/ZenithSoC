@@ -808,6 +808,8 @@ module ZenithSoC #(
         .fetch_done_o    ( rom_fetch_channel.valid        )
     );
 
+    assign rom_fetch_channel.stall = 1'b0;
+    
     assign write_busy[_BOOT_] = 1'b0;
     assign write_ready[_BOOT_] = 1'b1;
     assign write_error[_BOOT_] = 1'b0;

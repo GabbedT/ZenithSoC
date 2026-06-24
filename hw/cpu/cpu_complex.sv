@@ -30,7 +30,7 @@ module cpu_complex #(
     input logic halt_i,
 
     /* Trace channel */
-    trace_channel.master trace_channel,
+    trace_interface.master trace_channel,
     
     /* Boot ROM interface */
     fetch_interface.master rom_fetch_channel,
@@ -106,7 +106,6 @@ module cpu_complex #(
     assign rom_fetch_channel.fetch = cpu_fetch_channel.fetch & (cpu_fetch_channel.address <= `BOOT_END);
     assign rom_fetch_channel.address = cpu_fetch_channel.address;
     assign rom_fetch_channel.invalidate = cpu_fetch_channel.invalidate;
-    assign rom_fetch_channel.stall = 1'b0;
 
 
 //====================================================================================
