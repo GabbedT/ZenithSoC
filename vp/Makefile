@@ -28,8 +28,6 @@ FW_INCS = $(addprefix -I,$(FW_INC_DIRS))
 
 FW_SRC_DIRS = ../sw/src
 
-FW_INCS = $(addprefix -I,$(FW_INC_DIRS))
-
 # ZenithSoC hw source tree (for includes)
 ZENITH_HW    = ..
 
