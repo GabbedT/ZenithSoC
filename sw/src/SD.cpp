@@ -682,10 +682,6 @@ SD& SD::flushDataBuffer() {
 };
 
 
-uint32_t SD::getCardStatus(errorType_e& error) {
-    return 0;
-}
-
 SD& SD::readCID(uint8_t* cidBuffer, errorType_e& error) {
     sendCommand(10, SD::cardRCA << 16);
     
