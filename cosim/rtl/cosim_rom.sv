@@ -23,11 +23,11 @@ module cosim_rom #(
             instr_q <= '0;
         end else begin
             valid_q <= fetch_channel.fetch & ~fetch_channel.invalidate;
-            instr_q <= rom[fetch_channel.address[AW+1:2]];
+            instr_q <= rom[fetch_channel.address[AW + 1:2]];
         end
     end
 
-    assign fetch_channel.valid       = valid_q;
+    assign fetch_channel.valid       = valid_q & (fetch_channel.address[31:AW] == '0);
     assign fetch_channel.instruction = instr_q;
 
     /* ROM never stalls */

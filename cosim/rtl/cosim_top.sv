@@ -12,6 +12,8 @@ module cosim_top (
 
     `define LDU cpu.cpu_load_channel
     `define STU cpu.cpu_store_channel
+    
+    `define STRBUF `BE.execute_stage.LSU.stu.str_buffer
 
 
 //=============================================================================
@@ -101,31 +103,25 @@ module cosim_top (
 //      RVFI TAP
 //=============================================================================
 
+
+    /* Each retired instruction generates exactly one RVFI commit */
     import "DPI-C" function void rvfi_commit(
         input int unsigned is_exception,
         input int unsigned pc,
-        input int unsigned info,       // exception_vector (incl. STORE/LOAD/CSR op)
+        input int unsigned info,      // Instruction type info
         input int unsigned rd,
         input int unsigned rd_value,
         input int unsigned is_store,
         input int unsigned is_load,
         input int unsigned mem_addr,
         input int unsigned mem_data,
-        input int unsigned mem_width   // 0=BYTE 1=HALF_WORD 2=WORD
+        input int unsigned mem_width
     );
 
-    typedef struct packed {
-        logic [31:0] address;
-        logic [31:0] data;
-        logic [1:0]  width;    // store_width_t: 0=BYTE 1=HALF_WORD 2=WORD
-    } store_pkt_t;
+    /* The load buffer stores only the address */
+    logic [31:0] load_buffer [$];
 
-    /* The load buffer only stores the address: it is a queue of words,
-     * not a single-field struct */
-    store_pkt_t store_buffer[$];
-    logic [31:0] load_buffer[$];
-
-    /* LDU forward match */
+    /* LDU forward match, used to replicate the pop on invalidation */
     logic forward_match, forward_match_prev;
     assign forward_match = `BE.execute_stage.LSU.ldu.forward_match_i;
 
@@ -135,21 +131,12 @@ module cosim_top (
 
     always_ff @(posedge clk) begin
         if (!rst_n) begin
-            store_buffer.delete();
             load_buffer.delete();
         end else begin
-            /* Populate the memory access queues */
+
+            /* Fill the load queue using the LDU address at request time */
             if (`LDU.request) begin
                 load_buffer.push_back(`LDU.address);
-            end
-
-            if (`STU.request) begin
-                /* Field-by-field construction */
-                automatic store_pkt_t st_pkt;
-                st_pkt.address = `STU.address;
-                st_pkt.data    = `STU.data;
-                st_pkt.width   = `STU.width;
-                store_buffer.push_back(st_pkt);
             end
 
             if (`LDU.invalidate) begin
@@ -158,7 +145,6 @@ module cosim_top (
                 end
             end
 
-            /* Normal writeback: associate memory address/data and notify RVFI. */
             if (`BE.writeback_o) begin
                 automatic int unsigned ev     = `BE.exception_vector;
                 automatic int unsigned pc     = `BE.trap_iaddress;
@@ -168,24 +154,24 @@ module cosim_top (
                 automatic int unsigned is_l   = (ev == LOAD_OPERATION);
                 automatic int unsigned maddr  = 0;
                 automatic int unsigned mdata  = 0;
-                automatic int unsigned mwidth = 2;   // default WORD
+                automatic int unsigned mwidth = 2;   // Default WORD
 
-                if (is_s && (store_buffer.size() != 0)) begin
-                    automatic store_pkt_t s = store_buffer.pop_front();
-                    maddr  = s.address;
-                    mdata  = s.data;
-                    mwidth = s.width;
-                end
-                else if (is_l && (load_buffer.size() != 0)) begin
+                if (is_s) begin
+                    /* Read directly from the internal store buffer during the retire cycle.
+                     * valid_ptr points to the entry currently validated by BE. This is valid
+                     * because store buffer waits for instruction retirement before commiting a store */
+                    maddr  = `STRBUF.metadata_buffer[`STRBUF.valid_ptr].address;
+                    mdata  = `STRBUF.data_buffer[0][`STRBUF.valid_ptr];
+                    mwidth = `STRBUF.store_width_buffer[`STRBUF.valid_ptr];
+                end else if (is_l && (load_buffer.size() != 0)) begin
                     maddr = load_buffer.pop_front();
                 end
 
-                rvfi_commit(32'd0, pc, ev, rd, rdv, is_s, is_l,
-                            maddr, mdata, mwidth);
+                rvfi_commit(32'd0, pc, ev, rd, rdv, is_s, is_l, maddr, mdata, mwidth);
             end
 
-            /* A committed synchronous trap (e.g. M/U ecall) is still a retired
-             * event, therefore Spike must advance by one step. */
+            /* A committed synchronous trap, such as ecall M/U, is still
+             * a retired event, so Spike must execute one step. */
             if (`BE.exception_o) begin
                 rvfi_commit(32'd1, `BE.trap_iaddress, `BE.exception_vector,
                             32'd0, 32'd0, 32'd0, 32'd0, 32'd0, 32'd0, 32'd2);
