@@ -1,10 +1,4 @@
-// ============================================================================
-// Verilator configuration for the RVFI tap
-// ============================================================================
-
 `verilator_config
-
-// --- back_end: retire-stage signals (cpu_watcher) --------------------------
 
 public_flat_rd -module "back_end" -var "writeback_o"
 public_flat_rd -module "back_end" -var "exception_o"
@@ -12,7 +6,5 @@ public_flat_rd -module "back_end" -var "exception_vector"
 public_flat_rd -module "back_end" -var "trap_iaddress"
 public_flat_rd -module "back_end" -var "reg_destination_o"
 public_flat_rd -module "back_end" -var "writeback_result_o"
-
-// --- load_unit: forward_match --------------------------
 
 public_flat_rd -module "load_unit" -var "foward_match_i"
