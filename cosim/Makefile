@@ -34,6 +34,12 @@ N          ?= 2000
 CLASS      ?= arith,mem,branch
 MAX_RETIRE ?= 0          # 0 = unlimited
 
+# --- Tools ---
+VERILATOR     ?= verilator
+RISCV_GCC     ?= riscv32-unknown-elf-g++
+RISCV_OBJDUMP ?= riscv32-unknown-elf-objdump
+SPIKE_DIR     ?= 
+
 # --- Verilator flags -------------------------------------------------------
 VFLAGS = --cc --exe --trace-fst --trace-structs --timing \
           --top-module cosim_top \
