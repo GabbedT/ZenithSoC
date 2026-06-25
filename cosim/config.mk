@@ -11,18 +11,10 @@ EXT_ZBB    :=        # basic bit manipulation -> set "zbb" to enable
 EXT_ZFINX  := zfinx  # floating-point in GPRs (no F registers)
 
 # ----- Options --------------------------------------------------------------
-
 NO_FDIV    := 1      # 1 = pass -mno-fdiv to GCC and disable fdiv/fsqrt in generator
 PRIV       := mu     # "m" or "mu" (Machine + User). No interrupts in either case.
 
 # ----- ISA string construction (single source, three consumers) ------------
-# Current default result:
-#   rv32im_zfinx_zba_zbs_zicsr
-# (= firmware in the repository)
-#
-# NOTE: comments after EXT_* leave trailing spaces in the value;
-# $(strip) removes them.
-
 s_BASE  := $(strip $(ISA_BASE))
 s_M     := $(strip $(EXT_M))
 s_C     := $(strip $(EXT_C))
@@ -41,7 +33,6 @@ ISA := $(ISA)$(if $(s_ZICSR),_$(s_ZICSR),)
 ISA := $(strip $(ISA))
 
 # Derived flags ($(strip) removes spaces left by comments in variables)
-
 s_NO_FDIV := $(strip $(NO_FDIV))
 s_PRIV    := $(strip $(PRIV))
 
