@@ -85,9 +85,10 @@ module cpu_complex #(
 
     /* Core instantiation */
     ApogeoRV #(PREDICTOR_SIZE, BTB_SIZE, STORE_BUFFER_SIZE, INSTRUCTION_BUFFER_SIZE, ROB_DEPTH) system_cpu (
-        .clk_i   ( clk_i   ),
-        .rst_n_i ( rst_n_i ),
-        .halt_i  ( halt_i  ),
+        .clk_i    ( clk_i   ),
+        .rst_n_i  ( rst_n_i ),
+        .halt_i   ( halt_i  ),
+        .halted_o (         ),
 
         .trace_channel ( trace_channel ),
 

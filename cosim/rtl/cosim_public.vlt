@@ -1,0 +1,10 @@
+`verilator_config
+
+public_flat_rd -module "back_end" -var "writeback_o"
+public_flat_rd -module "back_end" -var "exception_o"
+public_flat_rd -module "back_end" -var "exception_vector"
+public_flat_rd -module "back_end" -var "trap_iaddress"
+public_flat_rd -module "back_end" -var "reg_destination_o"
+public_flat_rd -module "back_end" -var "writeback_result_o"
+
+public_flat_rd -module "load_unit" -var "forward_match_i"

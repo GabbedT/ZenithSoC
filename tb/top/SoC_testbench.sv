@@ -321,10 +321,10 @@ module soc_testbench;
 
     logic stopCondition;
 
-    logic fowardMatch, fowardMatch_prev; assign fowardMatch = `CPU.apogeo_backend.execute_stage.LSU.ldu.foward_match_i;
+    logic forwardMatch, forwardMatch_prev; assign forwardMatch = `CPU.apogeo_backend.execute_stage.LSU.ldu.forward_match_i;
 
         always_ff @(posedge clk_i) begin
-            fowardMatch_prev <= fowardMatch;
+            forwardMatch_prev <= forwardMatch;
         end 
 
 
@@ -441,7 +441,7 @@ module soc_testbench;
                     if (dut.ApogeoRV.cpu_load_channel.invalidate) begin
                         $fdisplay(memoryFile, "[CACHE][%t] Load invalidated!", $time);
 
-                        if (!fowardMatch_prev) begin
+                        if (!forwardMatch_prev) begin
                             load_buffer.pop_front();
                         end
                     end
@@ -496,7 +496,7 @@ module soc_testbench;
                     end
 
                     if (dut.ApogeoRV.cpu_load_channel.invalidate) begin
-                        if (!fowardMatch_prev) begin
+                        if (!forwardMatch_prev) begin
                             load_buffer.pop_front();
                         end
                     end
