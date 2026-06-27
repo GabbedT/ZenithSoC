@@ -1,29 +1,44 @@
-# ====================================================================
+#!/usr/bin/env bash
+# ============================================================================
+# ZenithSoC cosimulation environment
+#
 # Usage:
-#   source cosim/env.sh
-#   cd cosim && make build && make run SEED=42
-# ====================================================================
+#   source cosim/setenv.sh
+#   cd cosim
+#   make clean
+#   make build
+#   make run-notrace SEED=0 MAX_RETIRE=1000
+# ============================================================================
 
-# --- Host GCC 14.2.0 (Verilated harness compiler + libstdc++ runtime) ---
-export HOST_GCC=
-export PATH=
-export LD_LIBRARY_PATH=
-export CC=gcc
-export CXX=g++
+# Stop only if this script is executed directly, not when sourced
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    echo "Please source this file:"
+    echo "  source cosim/env.sh"
+    exit 1
+fi
 
-# --- riscv32 cross toolchain (firmware target) -------------------------------
-export PATH=
+# Directory of this env.sh file
+export COSIM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PROJECT_ROOT="$(cd "$COSIM_DIR/.." && pwd)"
 
-# --- Verilator 5.026 (ADI module) --------------------------------------------
-export VERILATOR_ROOT=
-export PATH=$VERILATOR_ROOT/bin:$PATH
+export CC="${CC:-gcc}"
+export CXX="${CXX:-g++}"
 
-# --- dtc (only needed when rebuilding Spike) ---------------------------------
-export PATH=
+export SPIKE_SRC="$HOME/riscv-isa-sim"
+export SPIKE_BUILD="$HOME/riscv-isa-sim/build"
 
-# --- Spike as a library ------------------------------------------------------
-export SPIKE_DIR=
-export LD_LIBRARY_PATH=
+export SPIKE_INC="$SPIKE_SRC"
+export SPIKE_LIB="$SPIKE_BUILD"
 
-echo "[cosim/env] verilator=$(which verilator) riscv-g++=$(which riscv32-unknown-elf-g++)"
-echo "[cosim/env] host g++=$(g++ --version | head -1) SPIKE_DIR=$SPIKE_DIR"
+# Needed at runtime if linking against .so instead of .a
+export LD_LIBRARY_PATH="$SPIKE_LIB:${LD_LIBRARY_PATH:-}"
+
+
+echo "[cosim/env] PROJECT_ROOT=$PROJECT_ROOT"
+echo "[cosim/env] COSIM_DIR=$COSIM_DIR"
+echo "[cosim/env] verilator=$(command -v verilator || echo NOT_FOUND)"
+echo "[cosim/env] riscv-g++=$(command -v riscv32-unknown-elf-g++ || echo NOT_FOUND)"
+echo "[cosim/env] host g++=$(g++ --version | head -1)"
+echo "[cosim/env] spike=$(command -v spike || echo NOT_FOUND)"
+echo "[cosim/env] SPIKE_INC=$SPIKE_INC"
+echo "[cosim/env] SPIKE_LIB=$SPIKE_LIB"

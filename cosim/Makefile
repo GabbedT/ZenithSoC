@@ -14,15 +14,23 @@
 
 include config.mk
 
+SHELL := /bin/bash
+.SHELLFLAGS := -o pipefail -c
+
+LOGDIR = logs
+VERILATOR_LOG = $(LOGDIR)/verilator.log
+BUILD_LOG = $(LOGDIR)/build.log
+RUN_LOG = $(LOGDIR)/run.log
+
 # --- Sources ---------------------------------------------------------------
 ZENITH_HW = ..
 COSIM_F   = rtl/cosim.f
-SIM_SRC   = sim/sim_cosim.cpp
+SIM_SRC   = sim/cosim.cpp
 
 # --- Software --------------------------------------------------------------
-CRT0      = sw/crt0_user.S
+CRT0      = sw/crt0_user.s
 LINK_USER = sw/link_user.ld
-BOOT_S    = sw/boot_rom.S
+BOOT_S    = sw/boot_rom.s
 BOOT_LD   = sw/boot_rom.ld
 
 OUT       = out
@@ -38,7 +46,14 @@ MAX_RETIRE ?= 0          # 0 = unlimited
 VERILATOR     ?= verilator
 RISCV_GCC     ?= riscv32-unknown-elf-g++
 RISCV_OBJDUMP ?= riscv32-unknown-elf-objdump
-SPIKE_DIR     ?= 
+
+SPIKE_INC ?= /home/gabriele/riscv-isa-sim
+SPIKE_LIB ?= /home/gabriele/riscv-isa-sim/build
+SIM_DIR   := $(abspath sim)
+
+# Passed to verilator C++ simulator
+COSIM_DEFS = -DCOSIM_ISA=\\\"$(ISA)\\\" \
+             -DCOSIM_PRIV=\\\"$(s_PRIV)\\\"
 
 # --- Verilator flags -------------------------------------------------------
 VFLAGS = --cc --exe --trace-fst --trace-structs --timing \
@@ -48,9 +63,8 @@ VFLAGS = --cc --exe --trace-fst --trace-structs --timing \
           -y $(ZENITH_HW)/hw \
           -I$(ZENITH_HW)/hw \
           -Mdir obj_dir \
-          -CFLAGS "-std=c++20 -O2 -I$(SPIKE_DIR)/include -Isim" \
-          -LDFLAGS "-L$(SPIKE_DIR)/lib -lriscv -lfesvr -lpthread -ldl" \
-          -CFLAGS "-DCOSIM_ISA=\"$(ISA)\" -DCOSIM_PRIV=\"$(s_PRIV)\""
+		  -CFLAGS "-std=c++20 -O2 -I$(SPIKE_INC) -I$(SIM_DIR) $(COSIM_DEFS)" \
+		  -LDFLAGS "-L$(SPIKE_LIB) -lriscv -lfesvr -lpthread -ldl" \
 
 .PHONY: all build gen firmware boot run regress info wave clean
 
@@ -58,10 +72,13 @@ all: build
 
 # --- Verilate + compile ----------------------------------------------------
 build:
+	@mkdir -p $(LOGDIR)
 	@echo "=== [COSIM] Verilating (ISA=$(ISA) priv=$(s_PRIV)) ==="
-	$(VERILATOR) $(VFLAGS) -F $(COSIM_F) $(SIM_SRC)
-	$(MAKE) -C obj_dir -f Vcosim_top.mk -j$$(nproc)
+	$(VERILATOR) $(VFLAGS) rtl/cosim_public.vlt -F $(COSIM_F) $(SIM_SRC) 2>&1 | tee $(VERILATOR_LOG)
+	$(MAKE) -C obj_dir -f Vcosim_top.mk -j$$(nproc) 2>&1 | tee $(BUILD_LOG)
 	@echo "=== [COSIM] build done -> obj_dir/Vcosim_top ==="
+	@echo "=== [COSIM] verilator log -> $(VERILATOR_LOG) ==="
+	@echo "=== [COSIM] build log     -> $(BUILD_LOG) ==="
 
 # --- Generate random program ----------------------------------------------
 gen:
