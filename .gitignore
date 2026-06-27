@@ -2,7 +2,11 @@
 **/*.hex
 **/*.txt
 
+**/*.log
+
 **/.vscode/settings.json
 
 vp/out/
 vp/obj_dir/
+
+cosim/obj_dir/
