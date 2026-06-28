@@ -292,34 +292,35 @@ module data_cache_complex #(
      *     so data from A overwrites data from B.
      *  4) Subsequent load to address B retrieves data from A instead of B.
      */
-    logic ld_lock_acquired, st_lock_acquired; cache_address_t lock_address;
+    logic ld_lock_acquired, st_lock_acquired; cache_address_t ld_lock_address, st_lock_address;
 
         always_ff @(posedge clk_i) begin
             if (!rst_n_i) begin
                 ld_lock_acquired <= 1'b0;
                 st_lock_acquired <= 1'b0;
                 
-                lock_address <= '0;
+                ld_lock_address <= '0;
+                st_lock_address <= '0;
             end else begin
                 if (st_lock_request) begin
                     st_lock_acquired <= 1'b1;
-                    lock_address <= sctrl_cache_address;
+                    st_lock_address <= sctrl_cache_address;
                 end
 
                 if (ld_lock_request) begin
                     ld_lock_acquired <= 1'b1;
-                    lock_address <= lctrl_cache_address;
+                    ld_lock_address <= lctrl_cache_address;
                 end
 
                 case ({stu_channel.request, ldu_channel.request})
                     2'b11, 2'b01: begin
                         ld_lock_acquired <= !st_lock_acquired;
-                        lock_address <= ldu_channel.address;
+                        ld_lock_address <= ldu_channel.address;
                     end
 
                     2'b10: begin
                         st_lock_acquired <= !ld_lock_acquired;
-                        lock_address <= stu_channel.address;
+                        st_lock_address <= stu_channel.address;
                     end
                 endcase
 
@@ -340,8 +341,8 @@ module data_cache_complex #(
     assign ldu_address_check = ldu_channel.address;
     assign stu_address_check = stu_channel.address;
         
-    assign ld_lock = (ldu_channel.request & !io_load_request) & ((ldu_address_check.index == lock_address.index) & st_lock_acquired);
-    assign st_lock = (stu_channel.request & !io_store_request) & ((stu_address_check.index == lock_address.index) & ld_lock_acquired);
+    assign ld_lock = (ldu_channel.request & !io_load_request) & ((ldu_address_check.index == st_lock_address.index) & st_lock_acquired);
+    assign st_lock = (stu_channel.request & !io_store_request) & ((stu_address_check.index == ld_lock_address.index) & ld_lock_acquired);
 
         always_ff @(posedge clk_i) begin
             if (!rst_n_i) begin
