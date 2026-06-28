@@ -456,10 +456,13 @@ int main(int argc, char** argv) {
                               : (d.mem_width == 1) ? 0xFFFFu
                               : 0xFFFFFFFFu;
 
+                uint32_t lane_shift = (d.mem_addr & 0x3) * 8;
+                uint32_t dut_data   = d.mem_data >> lane_shift;
+
                 if (saddr != d.mem_addr) {
                     ok = false;
                     what = "store addr";
-                } else if ((sdata & mask) != (d.mem_data & mask)) {
+                } else if ((sdata & mask) != (dut_data & mask)) {
                     ok = false;
                     what = "store data";
                 }

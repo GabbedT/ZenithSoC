@@ -50,7 +50,7 @@ module store_controller (
         end
 
 
-    typedef enum logic [2:0] {IDLE, WAIT_LOCK, OUTCOME, WRITE_THROUGH, WAIT} fsm_states_t;
+    typedef enum logic [2:0] {IDLE, WAIT_LOCK, WAIT_PORT, OUTCOME, WRITE_THROUGH, WAIT} fsm_states_t;
 
     fsm_states_t state_CRT, state_NXT;
 
@@ -93,10 +93,10 @@ module store_controller (
                     if (lock_i) begin
                         state_NXT = WAIT_LOCK;
                     end else if (request_i) begin
-                        state_NXT = OUTCOME;
+                        state_NXT = halt_i ? WAIT_PORT : OUTCOME;
 
                         /* Read cache */
-                        cache_read_o = '1; 
+                        cache_read_o = halt_i ? '0 : '1; 
                     end
                 end
 
@@ -111,6 +111,16 @@ module store_controller (
 
                         /* Read cache */
                         cache_read_o = '1; 
+                    end
+                end
+
+                /* The request was accepted (data already latched) but the cache
+                 * port was busy. Re-issue the read as soon as the port is free */
+                WAIT_PORT: begin
+                    if (!halt_i) begin
+                        state_NXT = OUTCOME;
+
+                        cache_read_o = '1;
                     end
                 end
 
