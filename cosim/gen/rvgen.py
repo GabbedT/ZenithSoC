@@ -29,7 +29,7 @@ def parse_ext(isa: str) -> set:
 
 
 # Usable GPRs
-SAFE_REGS = [f"x{i}" for i in range(5, 32)]  # x5..x31
+SAFE_REGS = [f"x{i}" for i in range(5, 31)]  # x5..x31
 
 def rreg(rng):
     return rng.choice(SAFE_REGS)
