@@ -115,7 +115,7 @@ run-notrace: build gen firmware boot
 
 # --- Regression: N programs with seeds 0..N-1 -----------------------------
 regress: build boot
-	@pass=0; fail=0; \
+	@pass=0; fail=0; failed=""; \
 	for s in $$(seq 0 $$(($(N)-1))); do \
 		$(PYTHON) gen/rvgen.py --seed $$s --n 2000 --class $(CLASS) $(GEN_FLAGS) --out $(PROG) >/dev/null; \
 		$(RISCV_GCC) $(MARCH_FLAGS) -fno-use-cxa-atexit -fno-exceptions -nostartfiles -O2 -ffreestanding \
@@ -123,10 +123,11 @@ regress: build boot
 		if ./obj_dir/Vcosim_top +firmware=$(OUT)/firmware.elf +boot=$(OUT)/boot.elf +notrace >/dev/null 2>&1; then \
 			pass=$$((pass+1)); echo "seed $$s : PASS"; \
 		else \
-			fail=$$((fail+1)); echo "seed $$s : FAIL (rerun: make run SEED=$$s)"; \
+			fail=$$((fail+1)); failed="$$failed $$s"; echo "seed $$s : FAIL (rerun: make run SEED=$$s)"; \
 		fi; \
 	done; \
-	echo "=== [COSIM] regress: $$pass PASS, $$fail FAIL ==="
+	echo "=== [COSIM] regress: $$pass PASS, $$fail FAIL ===" \
+	if [ $$fail -gt 0 ]; then echo "     failed seeds:$$failed"; fi
 
 # --- Configuration info ----------------------------------------------------
 info:
