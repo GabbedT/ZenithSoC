@@ -15,6 +15,10 @@ module cosim_top (
     
     `define STRBUF `BE.execute_stage.LSU.stu.str_buffer
 
+    `define RF cpu.system_cpu.apogeo_frontend.scheduler_unit.reg_file
+
+    `define DCACHE cpu.dcache.dcache
+
 
 //=============================================================================
 //      CHANNELS
@@ -178,6 +182,49 @@ module cosim_top (
             end
         end
     end
+
+
+//=============================================================================
+//      DPI STATE READBACK
+//=============================================================================
+
+    export "DPI-C" function dut_gpr;
+
+    function int unsigned dut_gpr(input int unsigned idx);
+        if (idx == 0)
+            return 32'd0;
+        else
+            return `RF.iregister[0][idx[4:0]];
+    endfunction
+
+
+    export "DPI-C" function dut_dcache_word;
+
+    function int unsigned dut_dcache_word(
+        input int unsigned addr,
+        output int unsigned hit
+    );
+        automatic logic [7:0]  index = addr[11:4];
+        automatic logic [19:0] tag   = addr[31:12];
+        automatic logic [1:0]  bank  = addr[3:2];
+
+        if (`DCACHE.valid_memory.valid_memory[index] &&
+            (`DCACHE.tag_memory.memory[index] == tag)) begin
+
+            hit = 32'd1;
+
+            case (bank)
+                2'd0: return `DCACHE.data_memory.genblk1[0].cache_block_bank.bank_memory[index];
+                2'd1: return `DCACHE.data_memory.genblk1[1].cache_block_bank.bank_memory[index];
+                2'd2: return `DCACHE.data_memory.genblk1[2].cache_block_bank.bank_memory[index];
+                2'd3: return `DCACHE.data_memory.genblk1[3].cache_block_bank.bank_memory[index];
+            endcase
+        end
+
+        hit = 32'd0;
+        
+        return 32'd0;
+    endfunction
 
 endmodule : cosim_top
 

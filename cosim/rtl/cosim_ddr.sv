@@ -100,7 +100,7 @@ module cosim_ddr #(
             burst_buf[0]  <= '0;
             burst_buf[1]  <= '0;
         end else begin
-            if (ddr_write && push_trx) begin
+            if (push_trx) begin
                 for (int i = 0; i < 8; i++) begin
                     if (ddr_mask[i]) begin
                         /* Write DDR */
@@ -170,6 +170,24 @@ module cosim_ddr #(
             end
         end
     endfunction
+
+
+    export "DPI-C" function ddr_peek_word;
+
+    /* Readback a 32-bit word for final memory diff */
+    function int unsigned ddr_peek_word(input int unsigned byte_addr);
+        automatic int unsigned idx = byte_addr >> 3;
+
+        if (idx >= DDR_WORDS) begin
+            return 0;
+        end
+
+        if (byte_addr[2]) begin
+            return ddr_memory[idx][63:32];
+        end else begin
+            return ddr_memory[idx][31:0];
+        end
+    endfunction : ddr_peek_word
 
 endmodule : cosim_ddr
 
