@@ -22,6 +22,10 @@ struct ElfImage {
 
     // HTIF "tohost" symbol address, or 0 if missing.
     uint32_t tohost = 0;
+
+    // Generator's data_area[] symbol
+    uint32_t data_area = 0;
+    uint32_t data_area_size = 0;
 };
 
 inline bool load_elf(const std::string& path, ElfImage& out) {
@@ -156,18 +160,25 @@ inline bool load_elf(const std::string& path, ElfImage& out) {
 
                 uint32_t st_name  = u32(syme + 0);
                 uint32_t st_value = u32(syme + 4);
+                uint32_t st_size  = u32(syme + 8);
 
                 if (st_name < str_size) {
                     const char* nm = &strtab[st_name];
 
                     if (std::string(nm) == "tohost") {
                         out.tohost = st_value;
-                        break;
+                    } else {
+                        out.data_area      = st_value;
+                        out.data_area_size = st_size;
                     }
+                }
+
+                if (out.tohost && out.data_area) {
+                    break;
                 }
             }
 
-            if (out.tohost) {
+            if (out.tohost && out.data_area) {
                 break;
             }
         }
