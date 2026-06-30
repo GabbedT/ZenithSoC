@@ -13,3 +13,7 @@ cosim/out/
 cosim/obj_dir/
 cosim/logs/
 cosim/tests/
+
+tb/verilator/out/
+tb/verilator/obj_dir/
+tb/verilator/logs/
