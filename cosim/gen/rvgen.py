@@ -4,6 +4,8 @@ import argparse
 import random
 import sys
 
+from collections import Counter
+
 # Parse extensions from the ISA string
 def parse_ext(isa: str) -> set:
     isa = isa.lower()
@@ -29,13 +31,49 @@ def parse_ext(isa: str) -> set:
 
 
 # Usable GPRs
-SAFE_REGS = [f"x{i}" for i in range(5, 31)]  # x5..x31
+SAFE_REGS = [f"x{i}" for i in range(5, 30)]  # x5..x30
+
+# Loop counter
+LOOP_REG = "x30"
+
+# Reserved data area
+MEM_BASE_REG = "x31"
+
+# To generate particular cache accesses
+DATA_BYTES = 32768
+CACHE_SIZE = 4096
+
+# Floating point enable
+NO_FDIV = False
+
+INTERESTING = [
+    0x00000000, 0x00000001, 0xFFFFFFFF, 0x80000000,
+    0x0000FFFF, 0xFFFF0000, 0x000000FF, 0x00000080,
+    0x40000000, 0xCAFEBABE, 
+
+    # Floats
+    0x3F800000,
+    0xBF800000,
+    0x7F800000,
+    0xFF800000,
+    0x7FC00000,
+    0x00800000,
+    0x40490FDB,
+]
+
+def init_value(rng):
+    if rng.random() < 0.5:
+        return rng.choice(INTERESTING)
+    return rng.randint(0, 0xFFFFFFFF)
 
 def rreg(rng):
     return rng.choice(SAFE_REGS)
 
 
-# Instruction families.
+# ===========================================================
+# Arithm / Logic
+# ===========================================================
+
 def g_arith_i(rng):
     op = rng.choice([
         "add", "sub", "and", "or", "xor",
@@ -101,10 +139,60 @@ def g_zbb(rng):
     return f"{op} {rreg(rng)}, {rreg(rng)}, {rreg(rng)}"
 
 
-# Memory:
-# use a fixed base register (x31) pointing to the reserved data area
 
-MEM_BASE_REG = "x31"
+def g_float(rng):
+    no_fdiv = NO_FDIV
+
+    # 3-operand arithmetic (need a rounding mode)
+    rm_ops = ["fadd.s", "fsub.s", "fmul.s"]
+    if not no_fdiv:
+        rm_ops += ["fdiv.s"]
+
+    # Sign-injection / min-max / compare (no rounding mode)
+    plain_ops = [
+        "fsgnj.s", "fsgnjn.s", "fsgnjx.s",
+        "fmin.s", "fmax.s",
+        "feq.s", "flt.s", "fle.s"
+    ]
+
+    # Conversions int<->float (rounding mode on the rounding forms)
+    cvt_to_int = ["fcvt.w.s", "fcvt.wu.s"]      # rd is int, needs rm
+    cvt_to_float = ["fcvt.s.w", "fcvt.s.wu"]    # rd is float-in-gpr, needs rm
+
+    # In zfinx, fmv.x.w / fmv.w.x do not exist (there are no separate F
+    # registers to move to/from), so only fclass.s remains as a plain move.
+    move_ops = ["fclass.s"]                     # no rm
+    unary_rm = [] if no_fdiv else ["fsqrt.s"]   # needs rm, single src
+
+    choice = rng.choice(["rm3", "plain", "cvt2i", "cvt2f", "mv", "unary", "fma"])
+
+    if choice == "rm3":
+        return f"{rng.choice(rm_ops)} {rreg(rng)}, {rreg(rng)}, {rreg(rng)}, rne"
+
+    if choice == "plain":
+        return f"{rng.choice(plain_ops)} {rreg(rng)}, {rreg(rng)}, {rreg(rng)}"
+
+    if choice == "cvt2i":
+        return f"{rng.choice(cvt_to_int)} {rreg(rng)}, {rreg(rng)}, rne"
+
+    if choice == "cvt2f":
+        return f"{rng.choice(cvt_to_float)} {rreg(rng)}, {rreg(rng)}, rne"
+
+    if choice == "mv":
+        return f"{rng.choice(move_ops)} {rreg(rng)}, {rreg(rng)}"
+
+    if choice == "unary" and unary_rm:
+        return f"{rng.choice(unary_rm)} {rreg(rng)}, {rreg(rng)}, rne"
+
+    # fused multiply-add (4 regs + rm)
+    fma = rng.choice(["fmadd.s", "fmsub.s", "fnmadd.s", "fnmsub.s"])
+    return f"{fma} {rreg(rng)}, {rreg(rng)}, {rreg(rng)}, {rreg(rng)}, rne"
+
+
+
+# ===========================================================
+# Memory
+# ===========================================================
 
 def g_mem(rng):
 
@@ -143,7 +231,59 @@ def g_mem(rng):
         return f"{lw} {rreg(rng)}, {off}({MEM_BASE_REG})"
 
 
-# Branch/jump:
+# Index aliasing: two accesses to addresses that differ by exactly one
+# cache stride (CACHE_SIZE) collide on the cache index but carry different tags.
+def g_mem_alias(rng):
+    base = rng.randrange(0, 2048, 16)          # near access, fits the immediate
+    treg = rreg(rng)
+    return (
+        f"li {treg}, {base + CACHE_SIZE}\n"          # far offset (same index)
+        f"add {treg}, {treg}, {MEM_BASE_REG}\n"      # treg = &data_area + far
+        f"sw {rreg(rng)}, 0({treg})\n"               # store to far alias
+        f"lw {rreg(rng)}, {base}({MEM_BASE_REG})\n"  # load from near
+        f"sw {rreg(rng)}, 0({treg})\n"               # store to far alias again
+        f"lw {rreg(rng)}, {base}({MEM_BASE_REG})"    # load from near
+    )
+
+
+# Picks one 16-byte-aligned block inside data area and emits a short interleaved
+# burst of loads and stores into it, mixing widths and byte lanes. Every access
+# maps to the same cache index, so this deliberately stresses the dcache
+def g_mem_sameline(rng):
+    block = rng.randrange(0, 1024, 16)     # 16-byte aligned base in data_area
+    segs = []
+
+    for _ in range(rng.randint(3, 6)):
+        width = rng.choice(["w", "h", "hu", "b", "bu"])
+        align = {"w": 4, "h": 2, "hu": 2, "b": 1, "bu": 1}[width]
+        off = block + rng.randrange(0, 16, align)   # stays inside the block
+
+        if rng.random() < 0.5:
+            sw = {
+                "w": "sw",
+                "h": "sh",
+                "hu": "sh",
+                "b": "sb",
+                "bu": "sb"
+            }[width]
+            segs.append(f"{sw} {rreg(rng)}, {off}({MEM_BASE_REG})")
+        else:
+            lw = {
+                "w": "lw",
+                "h": "lh",
+                "hu": "lhu",
+                "b": "lb",
+                "bu": "lbu"
+            }[width]
+            segs.append(f"{lw} {rreg(rng)}, {off}({MEM_BASE_REG})")
+
+    return "\n".join(segs)
+
+
+# ===========================================================
+# Branch/jump
+# ===========================================================
+
 def g_branch(rng, label_id):
     op = rng.choice(["beq","bne","blt","bge","bltu","bgeu"])
     lbl = f"L{label_id}"
@@ -152,6 +292,49 @@ def g_branch(rng, label_id):
         f"{op} {rreg(rng)}, {rreg(rng)}, {lbl}\n"
         f"    nop\n"
         f"{lbl}:"
+    )
+
+
+# ===========================================================
+# Control flow (jal / jalr / bounded backward loops)
+# ===========================================================
+
+# Forward jal: unconditional skip-ahead, link to a throwaway reg.
+def g_jal_fwd(rng, label_id):
+    lbl = f"JF{label_id}"
+    return (
+        f"jal {rreg(rng)}, {lbl}\n"
+        f"    nop\n"          # skipped
+        f"{lbl}:"
+    )
+
+
+# Bounded backward loop: covers backward branch + backward control flow.
+def g_loop_back(rng, label_id):
+    lbl = f"LB{label_id}"
+    k = rng.randint(1, 4)
+    body = g_arith_imm(rng)
+    return (
+        f"li {LOOP_REG}, {k}\n"
+        f"{lbl}:\n"
+        f"    {body}\n"
+        f"    addi {LOOP_REG}, {LOOP_REG}, -1\n"
+        f"    bne {LOOP_REG}, x0, {lbl}"
+    )
+
+
+# jalr as a forward call to a materialized known target (never a random
+# address, which would jump anywhere and crash). la the target, jalr to it,
+# land just past a skipped nop.
+def g_jalr_call(rng, label_id):
+    tgt = f"JC{label_id}"
+    treg = rreg(rng)
+    link = rreg(rng)
+    return (
+        f"la {treg}, {tgt}\n"
+        f"    jalr {link}, {treg}, 0\n"
+        f"    nop\n"          # not executed (jalr lands on tgt)
+        f"{tgt}:"
     )
 
 
@@ -168,9 +351,18 @@ FAMILIES = [
     ("arith",  "zbs", g_zbs,       False),
     ("arith",  "zbb", g_zbb,       False),
 
-    ("mem",    None,  g_mem,       False),
+    ("mem",    None,  g_mem,          False),
+    ("mem",    None,  g_mem_sameline, False),
+
+    ("memalias", None,  g_mem_alias, False),
 
     ("branch", None,  g_branch,    True),
+
+    ("ctrl", None,  g_jal_fwd,   True),
+    ("ctrl", None,  g_loop_back, True),
+    ("ctrl", None,  g_jalr_call, True),
+
+    ("float", "zfinx",  g_float, True),
 ]
 
 def build_pool(classes: set, exts: set):
@@ -197,8 +389,8 @@ def main():
 
     ap.add_argument("--class",
                     dest="classes",
-                    default="arith,mem,branch",
-                    help="classes: arith,mem,branch (csv)")
+                    default="arith,mem,branch,ctrl",
+                    help="classes: arith,mem,branch,ctrl,float (csv)")
 
     ap.add_argument("--ext",
                     default="rv32im_zfinx_zba_zbs_zicsr",
@@ -212,8 +404,17 @@ def main():
 
     ap.add_argument("--out",
                     default="cosim/tests/prog.c")
+    
+    ap.add_argument("--cov-out",
+                    dest="cov_out",
+                    default="",
+                    help="write a per-mnemonic histogram. Counts reset each rvgen.py"
+                         "invocation.")
 
     args = ap.parse_args()
+
+    global NO_FDIV
+    NO_FDIV = args.no_fdiv
 
     rng = random.Random(args.seed)
 
@@ -234,6 +435,17 @@ def main():
         )
         sys.exit(1)
 
+
+    opcounts = Counter()
+
+    def count_line(line):
+        tok = line.strip().split()[0] if line.strip() else ""
+
+        # Skip lables and empty lines; Count mnemonics
+        if tok and not tok.endswith(":"):
+            opcounts[tok] += 1
+
+
     # Each "line" may contain multiple instructions
     # (e.g. branch + label).
     # Split them and emit them as separate C string fragments
@@ -247,6 +459,7 @@ def main():
             ln = ln.strip()
 
             if ln:
+                count_line(ln)
                 segs.append(f'        "{ln}\\n"')
 
         return segs
@@ -270,6 +483,12 @@ def main():
 
     init_segs = []
 
+    for i in range(5, 30):
+        count_line("li")
+        init_segs.append(
+            f'        "li x{i}, {init_value(rng)}\\n"'
+        )
+
     for i in range(5, 31):
         init_segs.append(
             f'        "li x{i}, {rng.randint(0, 0x7fffffff)}\\n"'
@@ -283,8 +502,8 @@ def main():
 // seed={args.seed} ext={args.ext} priv={args.priv}
 
 // Data area reserved for load/store operations (aligned).
-static volatile unsigned char data_area[1280]
-    __attribute__((aligned(64)));
+static volatile unsigned char data_area[{DATA_BYTES}]
+    asm("data_area") __attribute__((aligned(64)));
 
 void main(void)
 {{
@@ -313,6 +532,11 @@ void main(void)
     );
 }}
 """)
+
+    if args.cov_out:
+        with open(args.cov_out, "w") as cf:
+            for op, n in sorted(opcounts.items()):
+                cf.write(f"{op} {n}\n")
 
     print(
         f"rvgen: wrote {args.out} "
