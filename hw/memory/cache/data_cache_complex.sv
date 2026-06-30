@@ -314,12 +314,12 @@ module data_cache_complex #(
 
                 case ({stu_channel.request, ldu_channel.request})
                     2'b11, 2'b01: begin
-                        ld_lock_acquired <= !st_lock_acquired;
+                        ld_lock_acquired <= 1'b1;
                         ld_lock_address <= ldu_channel.address;
                     end
 
                     2'b10: begin
-                        st_lock_acquired <= !ld_lock_acquired;
+                        st_lock_acquired <= 1'b1;
                         st_lock_address <= stu_channel.address;
                     end
                 endcase
@@ -349,13 +349,17 @@ module data_cache_complex #(
                 lctrl_stall <= 1'b0;
                 sctrl_stall <= 1'b0;
             end else begin
-                if (ld_lock & !stu_channel.done) begin 
+                if (ldu_channel.invalidate) begin
+                    lctrl_stall <= 1'b0;
+                end else if (ld_lock & !stu_channel.done) begin 
                     lctrl_stall <= 1'b1;
                 end else if (stu_channel.done) begin
                     lctrl_stall <= 1'b0;
                 end
 
-                if (st_lock & !ldu_channel.valid) begin 
+                if (ldu_channel.invalidate) begin
+                    sctrl_stall <= 1'b0;
+                end else if (st_lock & !ldu_channel.valid) begin 
                     sctrl_stall <= 1'b1;
                 end else if (ldu_channel.valid) begin
                     sctrl_stall <= 1'b0;
