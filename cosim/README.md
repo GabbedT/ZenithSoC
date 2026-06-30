@@ -3,8 +3,14 @@
 Instruction-by-instruction co-simulation that runs the **CPU Complex** RTL with ApogeoRV core
 in lockstep against the **Spike** golden ISA model. For
 every instruction the DUT retires, the simulator steps Spike once and compares
-PC, destination register value, and memory access address/data. The simulation
-stops at the first mismatch (printing diagnostics) or on HTIF termination.
+PC, destination register value, and memory access address/data. 
+
+In addition:
+
+* A full achitectural GPR comparison is done once the commit queue drains
+* End of run memory diff to spot caching problems
+
+The simulation stops at the first mismatch (printing diagnostics) or on HTIF termination.
 
 > CSR comparison is intentionally excluded (`mcycle`, `minstret`, ... are expected
 > to diverge). There are no interrupts in either privilege configuration.
@@ -89,13 +95,16 @@ Run `make info` to see the resolved configuration.
 ## 5. Make targets
 
 | Target | Description |
-| `make build` | Verilate `cosim_top` + `sim/cosim.cpp`.. |
+| `make build` | Verilate `cosim_top` + `sim/cosim.cpp`. Add COVERAGE=1 to build with `--coverage` option |
 | `make gen` | Generate a random program (`SEED`, `N`, `CLASS`) -> `tests/prog.c`. |
 | `make firmware` | Compile `tests/prog.c` + `crt0_user.s` -> `out/firmware.elf`. |
 | `make boot` | Compile the boot ROM stub -> `out/boot.elf`. |
 | `make run` | `build + gen + firmware + boot`, then lockstep with FST waveform. |
 | `make run-notrace` | Same as `run` but without waveform dump (faster). |
-| `make regress` | Generate + run `N` programs (`seeds 0..N-1`), report PASS/FAIL. |
+| `make regress` | Generate + run `N` programs in parallel (sweep `seeds 0..N-1`), report PASS/FAIL and exit non zero if seed failed. |
+| `make regress-one SEED=<n>` | Run a single seed |
+| `make coverage-report` | Aggregate the per seed generator opcode histogram (`out/cov/*.cov`). |
+| `make verilator-report` | Annotate Verilator structural coverage (`out/cov_annotated`). |
 | `make info` | Print the resolved ISA / priv / tool configuration. |
 | `make wave` | Convert and open `out/cosim.fst` in GTKWave. |
 | `make clean` | Remove `obj_dir`, `out`, `tests/prog.c`. |
@@ -105,8 +114,11 @@ Run `make info` to see the resolved configuration.
 | Variable | Default | Meaning |
 | `SEED` | `0` | Random seed for the program generator. |
 | `N` | `2000` | Number of generated instructions / program count for `regress`. |
-| `CLASS` | `arith,mem,branch` | Instruction classes to generate (CSV). |
-| `MAX_RETIRE` | `0` | Stop after N retired instructions (`0` = unlimited). |
+| `PROG_LEN` | `2000` | Number of instructions per program during a `regress` sweep. |
+| `CLASS` | `arith,mem,branch,ctrl,float` | Instruction classes to generate (CSV). |
+| `JOBS` | `$(nprocs)` | Parallel seeds for `regress` |
+| `COVERAGE` | `0` | Build verilator with `--coverage` |
+| `MAX_RETIRE` | `0` | Stop after N retired instructions (`0` is infinite) |
 | `PROG` | `tests/prog.c` | Program source to compile. |
 
 ---
@@ -124,7 +136,7 @@ Expected tail on success:
 
 [COSIM] start lockstep (firmware=out/firmware.elf)
 [COSIM] tohost write detected (value=0x1)
-[COSIM] PASS - <N> instructions compared, no mismatch.
+[COSIM] PASS - <N> instructions compared, memory verified, no mismatch.
 
 
 ### Run an existing binary directly
