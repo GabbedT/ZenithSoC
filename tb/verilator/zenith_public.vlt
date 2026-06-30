@@ -1,0 +1,13 @@
+`verilator_config
+
+// Commit / writeback signals tapped for the execution trace.
+// Same set already validated by the cosim flow (cosim/rtl/cosim_public.vlt).
+public_flat_rd -module "back_end" -var "writeback_o"
+public_flat_rd -module "back_end" -var "exception_o"
+public_flat_rd -module "back_end" -var "exception_vector"
+public_flat_rd -module "back_end" -var "trap_laddress"
+public_flat_rd -module "back_end" -var "reg_destination_o"
+public_flat_rd -module "back_end" -var "writeback_result_o"
+
+// Load/Store Unit forward match, used to replicate the load-address queue pop.
+public_flat_rd -module "load_unit" -var "forward_match_i"
