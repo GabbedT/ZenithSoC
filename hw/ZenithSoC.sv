@@ -116,7 +116,15 @@ module ZenithSoC #(
 
     logic sys_clk, ddr_clk, locked, ddr_ready;
 
-    `ifdef _DEF_DDR_MEMORY_
+    `ifdef VERILATOR
+
+        assign sys_clk = clk_i;
+        assign ddr_clk = clk_i;
+
+        assign locked = 1'b1;
+        assign ddr_ready = 1'b1;
+
+    `elsif _DEF_DDR_MEMORY_
 
         clock_source clock_generator (
             /* External clock source */
@@ -1078,6 +1086,14 @@ module ZenithSoC #(
     );
 
 
+    `ifdef VERILATOR
+        `define _DDR_BEHAVIOURAL_
+    `endif
+    `ifndef _DEF_DDR_MEMORY_
+        `define _DDR_BEHAVIOURAL_
+    `endif
+
+
     `ifdef _DEF_DDR_MEMORY_  
     `ifdef _VIVADO_ 
 
@@ -1137,73 +1153,103 @@ module ZenithSoC #(
         );
         
     `endif // _VIVADO_
+    `endif // _DEF_DDR_MEMORY_
 
-    `else
+    `ifdef _DDR_BEHAVIORAL_
 
     /** USED FOR SIMULATION **/
-        
-    localparam int DDR_SIZE_BYTES = 128 * 1024 * 1024;
-    localparam int WORD_BYTES = 8;
-    localparam int DDR_WORDS = DDR_SIZE_BYTES / WORD_BYTES;
-    localparam int DDR_LATENCY = 4;
+    localparam int DDR_SIZE_BYTES  = 128 * 1024 * 1024;
+    localparam int DDR_WORDS       = DDR_SIZE_BYTES / 8;
+    localparam int BEATS_PER_BURST = 2;
+    localparam int LAT_MIN         = 2;
+    localparam int LAT_MAX         = 16;
 
-    /* Memory to hold data */
+    /* Memory to hold data (64-bit words) */
     logic [63:0] ddr_memory [0:DDR_WORDS-1];
 
-    /* Used for latency modeling */
-    logic [26:0] read_address_q;
-    logic [$clog2(DDR_LATENCY + 1) - 1:0] latency_count;
-    logic read_pending;
-    
-    /* DDR Address */
-    logic [$clog2(DDR_WORDS)-1:0] word_address;
-    assign word_address = ddr_address[$clog2(DDR_WORDS)+2:3];
+    typedef enum logic [1:0] {
+        DDR_IDLE,
+        DDR_LAT,
+        DDR_WAIT,
+        DDR_BURST
+    } ddr_burst_state_t;
+
+    ddr_burst_state_t ddr_state;
+
+    logic [63:0] ddr_burst_buf [0:BEATS_PER_BURST-1];
+    logic        ddr_beat_current;
+    logic [$clog2(LAT_MAX + 1) - 1:0] ddr_lat_cnt;
 
 
-        always_ff @(posedge sys_clk or negedge reset_n) begin
-            if (!reset_n) begin
-                ddr_data_valid  <= 1'b0;
-                ddr_data_read   <= '0;
+    logic [$clog2(DDR_WORDS) - 1:0] ddr_word_address;
 
-                read_address_q <= '0;
-                latency_count <= '0;
-                read_pending  <= 1'b0;
-            end else begin
+    assign ddr_word_address = ddr_address[$clog2(DDR_WORDS)+1:2];
 
-                if (ddr_write && push_trx) begin
-                    for (int i = 0; i < 8; i = i + 1) begin
-                        if (ddr_mask[i]) begin
-                            ddr_memory[word_address][8*i +: 8] <= ddr_data_write[8*i +: 8];
+    assign ddr_data_valid = (ddr_state == DDR_WAIT) || (ddr_state == DDR_BURST);
+    assign ddr_data_read  = ddr_burst_buf[ddr_beat_current];
+
+    always_ff @(posedge sys_clk or negedge reset_n) begin
+        if (!reset_n) begin
+            ddr_state <= DDR_IDLE;
+            ddr_beat_current <= '0;
+            ddr_lat_cnt <= '0;
+            ddr_burst_buf[0] <= '0;
+            ddr_burst_buf[1] <= '0;
+        end else begin
+
+            /* Commit a write-data beat on every push */
+            if (push_trx) begin
+                for (int i = 0; i < 8; i++) begin
+                    if (ddr_mask[i]) begin
+                        ddr_memory[ddr_word_address][8*i +: 8] <= ddr_data_write[8*i +: 8];
+                    end
+                end
+            end
+
+            case (ddr_state)
+                DDR_IDLE: begin
+                    if (ddr_read) begin
+                        ddr_burst_buf[0] <= ddr_memory[ddr_word_address];
+                        ddr_burst_buf[1] <= ddr_memory[ddr_word_address + 1'b1];
+                        ddr_beat_current <= '0;
+                        ddr_lat_cnt <= $urandom_range(LAT_MIN, LAT_MAX);
+                        ddr_state <= DDR_LAT;
+                    end
+                end
+
+                DDR_LAT: begin
+                    if (ddr_lat_cnt != '0) begin
+                        ddr_lat_cnt <= ddr_lat_cnt - 1'b1;
+                    end else begin
+                        ddr_state <= DDR_WAIT;
+                    end
+                end
+
+                DDR_WAIT: begin
+                    if (pull_trx) begin
+                        ddr_beat_current <= '0;
+                        ddr_state <= DDR_BURST;
+                    end
+                end
+
+                DDR_BURST: begin
+                    if (pull_trx) begin
+                        if (ddr_beat_current == BEATS_PER_BURST - 1) begin
+                            ddr_beat_current <= '0;
+                            ddr_state <= DDR_IDLE;
+                        end else begin
+                            ddr_beat_current <= ddr_beat_current + 1'b1;
                         end
                     end
                 end
 
-                if (ddr_read && !read_pending && !ddr_data_valid) begin
-                    read_address_q <= ddr_address;
-                    read_pending <= 1'b1;
-                    latency_count <= DDR_LATENCY;
-                end
-
-                if (read_pending) begin
-                    if (latency_count != 0) begin
-                        latency_count <= latency_count - 1'b1;
-                    end else begin
-                        ddr_data_read <= ddr_memory[read_address_q[26:3]];
-
-                        ddr_data_valid <= 1'b1;
-                        read_pending <= 1'b0;
-                    end
-                end
-
-              
-                if (ddr_data_valid && pull_trx) begin
-                    ddr_data_valid <= 1'b0;
-                end
-            end
+                default: ddr_state <= DDR_IDLE;
+            endcase
         end
+    end
 
-    `endif
+    `endif // _DDR_BEHAVIORAL_
 
 endmodule : ZenithSoC
 
-`endif 
+`endif
