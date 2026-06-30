@@ -125,7 +125,7 @@ module gpio (
     );
 
 
-    logic prev_pin_value;
+    logic prev_pin_value, interrupt_pending;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 

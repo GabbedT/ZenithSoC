@@ -272,7 +272,7 @@ module spi #(
     );
 
 
-    spi_receiver receiver (
+    spi_rx receiver (
         .clk_i   ( clk_i   ),
 
         .sample_i  ( sample_data ),
@@ -288,7 +288,7 @@ module spi #(
 //      TRANSMITTER
 //====================================================================================
 
-    spi_transmitter transmitter (
+    spi_tx transmitter (
         .clk_i   ( clk_i   ),
         .rst_n_i ( rst_n_i ),
 
