@@ -1,6 +1,6 @@
 [submodule "hw/cpu/ApogeoRV"]
 	path = hw/cpu/ApogeoRV
 	url = https://github.com/GabbedT/ApogeoRV.git
-[submodule "Software/Benchmark/CoreMark/coremark"]
-	path = Software/Benchmark/CoreMark/coremark
+[submodule "sw/benchmark/CoreMark/coremark"]
+	path = sw/benchmark/CoreMark/coremark
 	url = https://github.com/eembc/coremark.git
