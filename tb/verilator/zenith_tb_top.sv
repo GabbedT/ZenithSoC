@@ -237,6 +237,18 @@ module zenith_tb_top (
     endfunction;
 
 
+    import "DPI-C" function void zenith_uart_tx_byte(input int unsigned data);
+
+    localparam UART_IDX = 1;
+    localparam UART_TX_BUF_ADDR = 2'b01;
+
+    always_ff @(posedge clk) begin
+        if (dut.write_request[UART_IDX] && dut.write_address[UART_IDX][3:2] == UART_TX_BUF_ADDR) begin
+            zenith_uart_tx_byte({24'b0, dut.write_data[UART_IDX][7:0]});
+        end
+    end
+
+
     import "DPI-C" function void zenith_trace_commit(
         input int unsigned is_exception,
         input int unsigned pc,

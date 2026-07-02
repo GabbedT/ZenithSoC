@@ -16,6 +16,7 @@
 #include <string>
 #include <deque>
 #include <csignal>
+#include <fstream>
 
 #include "Vzenith_tb_top.h"
 #include "Vzenith_tb_top__Dpi.h"
@@ -31,6 +32,34 @@
 #ifndef COSIM_ISA
 #define COSIM_ISA "rv32im_zicsr"
 #endif
+
+
+// -----------------------------------------------------------------------------
+//      UART
+// -----------------------------------------------------------------------------
+
+static std::ofstream g_uart_file;
+
+static void uart_capture_open(const std::string& dir) {
+    std::string path = dir + "/stdout.txt";
+
+    g_uart_file.open(path, std::ios::out | std::ios::trunc);
+
+    if (!g_uart_file.is_open()) {
+        std::cerr << "[ZTB] WARN: cannot open " << path << " for UART capture\n";
+    }
+}
+
+
+extern "C" void zenith_uart_tx_byte(uint32_t data) {
+    char c = static_cast<char> (data & 0xFF);
+
+    std::cout << c << std::flush;
+
+    if (g_uart_file.is_open()) {
+        g_uart_file << c << std::flush;
+    }
+}
 
 // -----------------------------------------------------------------------------
 //      MEMORY MAP (apogeo_memory_map.svh)
@@ -358,8 +387,14 @@ static void signal_handler(int s) {
               << s
               << " -> exit\n";
 
-    if (g_sim)
+    if (g_sim) {
         delete g_sim;
+    }
+
+    if (g_uart_file.is_open()) {
+        g_uart_file.flush();
+        g_uart_file.close();
+    }
 
     std::exit(128 + s);
 }
@@ -408,6 +443,8 @@ int main(int argc, char** argv) {
         return 2;
     }
 
+    uart_capture_open("out");
+
     g_sim = new Sim(enable_wave, enable_print, max_cycles);
     if (!g_sim->scope()) {
         std::cerr << "[ZTB] FATAL: DPI scope zenith_tb_top not found\n";
@@ -441,6 +478,11 @@ int main(int argc, char** argv) {
 
     delete g_sim;
     g_sim = nullptr;
+
+    if (g_uart_file.is_open()) {
+        g_uart_file.flush();
+        g_uart_file.close();
+    }
 
     return rc;
 }
