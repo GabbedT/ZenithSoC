@@ -17,3 +17,5 @@ cosim/tests/
 tb/verilator/out/
 tb/verilator/obj_dir/
 tb/verilator/logs/
+
+sw/benchmark/CoreMark/out
