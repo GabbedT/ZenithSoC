@@ -96,6 +96,22 @@ module load_controller #(
 
 
 //====================================================================================
+//      LOAD PERFORMANCE (SIMULATION ONLY)
+//====================================================================================
+
+    logic [31:0] load_access_CRT, load_access_NXT, load_hit_CRT, load_hit_NXT;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                load_access_CRT <= '0;
+                load_hit_CRT <= '0;
+            end else if (!stall_i) begin
+                load_access_CRT <= load_access_NXT;
+                load_hit_CRT <= load_hit_NXT;
+            end
+        end
+
+//====================================================================================
 //      FSM LOGIC
 //====================================================================================
 
@@ -140,6 +156,9 @@ module load_controller #(
             word_counter_NXT = word_counter_CRT;
             state_NXT = state_CRT;
 
+            load_access_NXT = load_access_CRT;
+            load_hit_NXT = load_hit_CRT;
+
             load_channel.address = '0;
             load_channel.request = 1'b0; 
             store_channel.address = '0;
@@ -173,6 +192,8 @@ module load_controller #(
                         state_NXT = WAIT_LOCK;
                     end else if (request_i) begin
                         state_NXT = OUTCOME;
+
+                        load_access_NXT = load_access_CRT + 1'b1;
 
                         /* Read cache */
                         cache_read_o = '1; 
@@ -214,6 +235,8 @@ module load_controller #(
                 OUTCOME: begin
                     if (cache_hit_i) begin
                         state_NXT = IDLE;
+
+                        load_hit_NXT = load_hit_CRT + 1'b1;
 
                         force_state = 1'b1;
 

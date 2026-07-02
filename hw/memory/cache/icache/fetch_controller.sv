@@ -77,6 +77,23 @@ module fetch_controller #(
 
 
 //====================================================================================
+//      LOAD PERFORMANCE (SIMULATION ONLY)
+//====================================================================================
+
+    logic [31:0] fetch_access_CRT, fetch_access_NXT, fetch_hit_CRT, fetch_hit_NXT;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                fetch_access_CRT <= '0;
+                fetch_hit_CRT <= '0;
+            end else if (!stall_i) begin
+                fetch_access_CRT <= fetch_access_NXT;
+                fetch_hit_CRT <= fetch_hit_NXT;
+            end
+        end
+
+
+//====================================================================================
 //      FSM LOGIC
 //====================================================================================
 
@@ -119,6 +136,9 @@ module fetch_controller #(
             state_NXT = state_CRT;
             word_counter_NXT = word_counter_CRT;
 
+            fetch_access_NXT = fetch_access_CRT;
+            fetch_hit_NXT = fetch_hit_CRT;
+
             instruction_o = '0; 
             valid_o = 1'b0;
             stall_fetch_o = 1'b1;
@@ -142,6 +162,8 @@ module fetch_controller #(
                     if (fetch_i) begin
                         state_NXT = OUTCOME;
 
+                        fetch_access_NXT = fetch_access_CRT + 1'b1;
+
                         /* Read cache */
                         cache_read_o = '1; 
 
@@ -162,6 +184,8 @@ module fetch_controller #(
                 OUTCOME: begin
                     if (cache_hit_i) begin
                         state_NXT = IDLE; 
+
+                        fetch_hit_NXT = fetch_hit_CRT + 1'b1;
                         
                         /* Load in bundle */
                         valid_o = !invalidate_i & !invalidate_pending;

@@ -38,6 +38,23 @@ module store_controller (
 );
 
 //====================================================================================
+//      STORE PERFORMANCE (SIMULATION ONLY)
+//====================================================================================
+
+    logic [31:0] store_access_CRT, store_access_NXT, store_hit_CRT, store_hit_NXT;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                store_access_CRT <= '0;
+                store_hit_CRT <= '0;
+            end else begin
+                store_access_CRT <= store_access_NXT;
+                store_hit_CRT <= store_hit_NXT;
+            end
+        end
+
+
+//====================================================================================
 //      FSM LOGIC
 //====================================================================================
 
@@ -67,6 +84,9 @@ module store_controller (
             /* Default values */
             state_NXT = state_CRT;
 
+            store_access_NXT = store_access_CRT;
+            store_hit_NXT = store_hit_CRT;
+
             store_channel.request = 1'b0;
 
             cache_read_o = '0;
@@ -92,8 +112,12 @@ module store_controller (
                 IDLE: begin
                     if (lock_i) begin
                         state_NXT = WAIT_LOCK;
+
+                        store_access_NXT = store_access_CRT + 1'b1;
                     end else if (request_i) begin
                         state_NXT = halt_i ? WAIT_PORT : OUTCOME;
+
+                        store_access_NXT = store_access_CRT + 1'b1;
 
                         /* Read cache */
                         cache_read_o = halt_i ? '0 : '1; 
@@ -134,8 +158,10 @@ module store_controller (
                         if (!halt_i & !stall_i) begin
                             state_NXT = IDLE; 
                             valid_o = 1'b1;
+
+                            store_hit_NXT = store_hit_CRT + 1'b1;
                         end
-                            
+
                         /* Write data and update status bits */
                         cache_write_o.data = 1'b1;
                         cache_write_o.dirty = 1'b1;
