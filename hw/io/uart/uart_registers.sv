@@ -158,8 +158,8 @@ module uart_registers #(
     assign tx_full_o = tx_full;
 
         always_ff @(posedge clk_i) begin
-            status_register.TX_empty <= rx_empty;
-            status_register.TX_full <= rx_full;
+            status_register.TX_empty <= tx_empty;
+            status_register.TX_full <= tx_full;
         end
 
 
