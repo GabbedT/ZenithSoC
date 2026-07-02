@@ -20,8 +20,6 @@ Original Author: Shay Gal-on
 
 #include <stdint.h>
 
-#include "../../../Library/Driver/UART.h"
-
 
 /* CSR Readings */
 static inline uint64_t rd_cycle64(void) {
@@ -152,10 +150,24 @@ ee_u32 default_num_contexts = 1;
         Target specific initialization code
         Test for some common mistakes.
 */
-UART g_uart(0);
+
 
 void portable_init(core_portable *p, int *argc, char *argv[]) {
-    g_uart.init(115200, true, UART::EVEN, UART::STOP1, UART::BIT8);
+    volatile struct uartCtrlStatus_s* status = (volatile struct uartCtrlStatus_s*) (UART_BASE);
+
+    /* Initialize UART */
+    status->parityEnable = 1;
+    status->dataBits = BIT8;
+    status->stopBits = STOP1;
+    status->parityMode = EVEN;
+    status->clockDivider = (CLK_FREQUENCY / (BAUDRATE * 16)) - 1;
+    status->enableTX = 1;
+
+    ee_printf("\n======== CoreMark Benchmark Starting ========\n");
+    ee_printf(" Iterations : %d\n", ITERATIONS);
+    ee_printf(" Clock      : %d Hz", CLK_FREQUENCY);
+    ee_printf("\n=============================================\n\n");
+
 
     (void)argc; // prevent unused warning
     (void)argv; // prevent unused warning

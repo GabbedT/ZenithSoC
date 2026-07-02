@@ -1,6 +1,5 @@
-#include "../../Library/Driver/SD.h"
-#include "../../Library/Driver/UART.h"
-#include "../../Library/Serial_IO.h"
+#include "../../../lib/driver/SD.h"
+#include "../../../lib/driver/UART.h"
 
 #define IMG_BLK_START  0x2000       /* Start SD block */
 #define IMG_BLOCKS     64           /* Number of blocks to load */
@@ -9,26 +8,32 @@
 extern "C" void boot_sd() {
     /* UART for logging */
     UART uart(0);
-
-    Serial_IO::println("[BOOT] ZenithSoC SD Boot...");
+    uart.init();
+    
+    const char msg_start[] = "[BOOT] ZenithSoC SD Boot...\r\n";
+    for (const char *c = msg_start; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
 
     SD::errorType_e err = SD::NO_ERROR;
     uint8_t cmd8[6] = {0};
     bool highCap = false;
 
     SD card;
-    card.init(SD::CLK_25MHZ, SD::BUS_NARROW, cmd8, err, highCap);
+    card.init(SD::CLK_25MHZ, SD::BUS_NARROW, cmd8, highCap, err);
 
     if (err != SD::NO_ERROR) {
-        Serial_IO::println("[BOOT] SD Initialization failed!");
+        const char msg_init_fail[] = "[BOOT] SD Initialization failed!\r\n";
+        for (const char *c = msg_init_fail; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
+
         while (1) {  }
     }
 
 
     if (highCap) {
-        Serial_IO::println("[BOOT] SD OK, High Capacity!");
+        const char msg_cap[] = "[BOOT] SD OK, High Capacity!\r\n";
+        for (const char *c = msg_cap; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
     } else {
-        Serial_IO::println("[BOOT] SD OK, No High Capacity!");
+        const char msg_cap[] = "[BOOT] SD OK, No High Capacity!\r\n";
+        for (const char *c = msg_cap; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
     }
 
     /* DDR */
@@ -47,7 +52,9 @@ extern "C" void boot_sd() {
         card.readBlock(blkAddr, block, nullptr, err);
 
         if (err != SD::NO_ERROR) {
-            Serial_IO::printf("[BOOT] Fail reading block %d\n", blk);
+            const char msg_fail_blk[] = "[BOOT] Fail reading block\r\n";
+            for (const char *c = msg_fail_blk; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
+
             while (1) {  }
         }
 
@@ -56,10 +63,11 @@ extern "C" void boot_sd() {
         }
     }
 
-    Serial_IO::println("[BOOT] Image loaded! Jumping to CoreMark benchmark...\n\n");
+    const char msg_boot_end[] = "[BOOT] Image loaded! Jumping to CoreMark benchmark...\r\n";
+    for (const char *c = msg_boot_end; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
 
     void (*entry)() = (void(*)()) DDR_ENTRY;
     entry();
 
     while (1) {  }
-}
+};

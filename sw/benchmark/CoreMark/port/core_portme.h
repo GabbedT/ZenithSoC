@@ -26,7 +26,6 @@ Original Author: Shay Gal-on
 
 #include <stdint.h>
 #include <stddef.h>
-#include "../../../Library/Driver/UART.h"
 
 /************************/
 /* Data types and settings */
@@ -68,16 +67,9 @@ Original Author: Shay Gal-on
 /* Definitions : COMPILER_VERSION, COMPILER_FLAGS, MEM_LOCATION
         Initialize these strings per platform
 */
-#ifndef COMPILER_VERSION
-#ifdef __GNUC__
-#define COMPILER_VERSION "GCC"__VERSION__
-#else
-#define COMPILER_VERSION "Please put compiler version here (e.g. gcc 4.1)"
-#endif
-#endif
 #ifndef COMPILER_FLAGS
 #define COMPILER_FLAGS \
-    "-O3 -funroll-loops -finline-functions -march=rv32im_zicsr_zba_zbs -mabi=ilp32 -fno-common -ffreestanding"
+    "-O3 -funroll-loops -finline-functions -march=rv32im_zicsr_zba_zbs_zicsr -mabi=ilp32 -fno-common -ffreestanding"
 #endif
 #ifndef MEM_LOCATION
 #define MEM_LOCATION "STACK"
@@ -99,7 +91,6 @@ typedef unsigned char  ee_u8;
 typedef unsigned int   ee_u32;
 typedef ee_u32         ee_ptr_int;
 typedef size_t         ee_size_t;
-#define NULL ((void *)0)
 /* align_mem :
         This macro is used to align an offset to point to a 32b value. It is
    used in the Matrix algorithm to initialize the input memory blocks.
@@ -212,7 +203,6 @@ void portable_fini(core_portable *p);
 #endif
 #endif
 
-extern UART g_uart;
 
 int ee_printf(const char *fmt, ...);
 
@@ -223,6 +213,41 @@ int ee_printf(const char *fmt, ...);
 
 /* System clock frequency */
 #define CLK_FREQUENCY 100000000
+
+#define BIT8  3
+#define STOP1 0
+#define EVEN  0
+
+#define BAUDRATE 115200
+
+#define UART_BASE 0x00004000
+
+struct uartCtrlStatus_s {
+    /* Buffer status */
+    unsigned int emptyRX : 1;
+    unsigned int fullRX : 1;
+    unsigned int emptyTX : 1;
+    unsigned int fullTX : 1;
+
+    /* Enable interrupt for each event */
+    unsigned int interruptEnable : 5;
+    
+    /* Operation enable */
+    unsigned int enableRX : 1;
+    unsigned int enableTX : 1;
+
+    /* Communication config */
+    unsigned int parityEnable : 1;
+    unsigned int parityMode : 1;
+    unsigned int stopBits : 1;
+    unsigned int dataBits : 2;
+
+    /* Enable CTS - RTS flow control */
+    unsigned int flowControl : 1;
+
+    /* Clock divider to generate the right baud rate */
+    unsigned int clockDivider : 15;
+};
 
 /* Start of DDR memory location */
 #define MEM_LOCATION_STR "DDR2 @0x80000000"

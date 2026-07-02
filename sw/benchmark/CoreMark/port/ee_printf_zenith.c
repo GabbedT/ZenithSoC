@@ -16,8 +16,6 @@ limitations under the License.
 
 #include "core_portme.h"
 
-#include "../../../Library/Driver/UART.h"
-
 #include <coremark.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -667,7 +665,9 @@ ee_vsprintf(char *buf, const char *fmt, va_list args)
 void
 uart_send_char(char c)
 {
-    g_uart.sendByte((uint8_t) c);
+    volatile uint8_t* txbuf = (volatile uint8_t*) (UART_BASE + 0x4);
+
+    *txbuf = c;
 }
 
 int

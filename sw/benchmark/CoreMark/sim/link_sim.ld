@@ -1,11 +1,10 @@
-ENTRY(_app_start)
+ENTRY(_start)
 
 MEMORY {
-    ddr (rwx) : ORIGIN = 0x80000000, LENGTH = 128M
+    ddr (rwx) : ORIGIN = 0x80000000, LENGTH = 64M
 }
 
 SECTIONS {
-
     .text : {
         *(.text.init)
         *(.text*)
@@ -23,12 +22,20 @@ SECTIONS {
         *(.data*) *(.sdata*)
     } > ddr
 
-    .bss (NOLOAD) : {
+    .bss (NOLOAD) : ALIGN(4) {
         __bss_start = .;
         *(.bss*) *(.sbss*) *(COMMON)
         __bss_end = .;
     } > ddr
 
-    . = ALIGN(16);
-    _end = .;
+    /* HTIF termination symbols (read by the Verilator harness) */
+    .htif (NOLOAD) : ALIGN(8) {
+        PROVIDE(tohost = .); . = . + 8;
+        PROVIDE(fromhost = .); . = . + 8;
+    } > ddr
+
+    .stack (NOLOAD) : ALIGN(16) {
+        . = . + 0x8000;
+        __stack_top = .;
+    } > ddr
 }

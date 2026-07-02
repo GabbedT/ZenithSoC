@@ -6,7 +6,7 @@ MEMORY {
 
 SECTIONS {
     .boot : {
-        boot_start.o (.boot)
+        KEEP(*(.boot))
         *(.text*) *(.rodata*)
         *(.data*) *(.bss*) *(COMMON)
     } > boot
