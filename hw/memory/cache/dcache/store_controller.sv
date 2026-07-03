@@ -141,7 +141,7 @@ module store_controller (
                 /* The request was accepted (data already latched) but the cache
                  * port was busy. Re-issue the read as soon as the port is free */
                 WAIT_PORT: begin
-                    if (!halt_i) begin
+                    if (!halt_i & !stall_i) begin
                         state_NXT = OUTCOME;
 
                         cache_read_o = '1;
@@ -154,13 +154,13 @@ module store_controller (
                  * is invalidated and a store operation to memory   *
                  * is initiated.                                    */
                 OUTCOME: begin
-                    if (cache_hit_i) begin
-                        if (!halt_i & !stall_i) begin
-                            state_NXT = IDLE; 
-                            valid_o = 1'b1;
+                    if (halt_i | stall_i) begin
+                        state_NXT = WAIT_PORT; 
+                    end else if (cache_hit_i) begin
+                        state_NXT = IDLE; 
+                        valid_o = 1'b1;
 
-                            store_hit_NXT = store_hit_CRT + 1'b1;
-                        end
+                        store_hit_NXT = store_hit_CRT + 1'b1;
 
                         /* Write data and update status bits */
                         cache_write_o.data = 1'b1;
