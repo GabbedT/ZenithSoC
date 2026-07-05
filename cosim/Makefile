@@ -168,8 +168,10 @@ regress-one:
 		$(if $(filter-out 0,$(MAX_RETIRE)),+max_retire=$(MAX_RETIRE),) \
 		>$$d/log 2>&1; then \
 		echo "seed $(SEED) : PASS"; \
+		rm -rf $$d; \
 	else \
-		echo "seed $(SEED) : FAIL (rerun: make run SEED=$(SEED))"; exit 1; \
+		echo "seed $(SEED) : FAIL (log: $$d/log, rerun: make run SEED=$(SEED))"; \
+		exit 1; \
 	fi
 
 # Parallel sweep of seeds 0..N-1. Each seed reuses the same N for its program
