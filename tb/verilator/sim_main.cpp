@@ -33,6 +33,9 @@
 #define COSIM_ISA "rv32im_zicsr"
 #endif
 
+static volatile std::sig_atomic_t g_stop_requested = 0;
+static volatile std::sig_atomic_t g_stop_signal = 0;
+
 
 // -----------------------------------------------------------------------------
 //      UART
@@ -224,36 +227,44 @@ public:
         tick();
     }
 
+
     // --- Main run loop ------------------------------------------------------
     int run(uint32_t tohost_addr) {
         std::cout << "[ZTB] start (max_cycles="
-                  << (max_cycles_
-                          ? std::to_string(max_cycles_)
-                          : std::string("inf"))
-                  << ")\n";
+                << (max_cycles_
+                        ? std::to_string(max_cycles_)
+                        : std::string("inf"))
+                << ")\n";
 
         reset();
 
-        while (!finished_) {
+        while (!finished_ && !g_stop_requested) {
             tick();
 
             if (tohost_addr_ && tohost_hit_) {
                 std::cout << "[ZTB] tohost write (value=0x"
-                          << std::hex
-                          << tohost_value_
-                          << std::dec
-                          << ") -> stop\n";
+                        << std::hex
+                        << tohost_value_
+                        << std::dec
+                        << ") -> stop\n";
 
                 return (tohost_value_ == 1) ? 0 : 1;
             }
 
             if (max_cycles_ && cycles_ >= max_cycles_) {
                 std::cout << "[ZTB] reached max_cycles="
-                          << std::dec
-                          << max_cycles_
-                          << " -> stop\n";
+                        << std::dec
+                        << max_cycles_
+                        << " -> stop\n";
                 return 0;
             }
+        }
+
+        if (g_stop_requested) {
+            std::cout << "\n[ZTB] signal "
+                    << g_stop_signal
+                    << " -> graceful stop\n";
+            return 128 + g_stop_signal;
         }
 
         return 0;
@@ -383,20 +394,8 @@ private:
 static Sim* g_sim = nullptr;
 
 static void signal_handler(int s) {
-    std::cout << "\n[ZTB] signal "
-              << s
-              << " -> exit\n";
-
-    if (g_sim) {
-        delete g_sim;
-    }
-
-    if (g_uart_file.is_open()) {
-        g_uart_file.flush();
-        g_uart_file.close();
-    }
-
-    std::exit(128 + s);
+    g_stop_requested = 1;
+    g_stop_signal = s;
 }
 
 // ============================================================================
