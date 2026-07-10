@@ -4,32 +4,55 @@ The project will be developed using an incremental approach, structured into fou
 
 ## Roadmap 
 
--> Delete relative path and substitute with .f file ✅
--> Add CPU cosimulation with Spike ✅
--> Run multiple regressions and fix bugs in Cache Complex
--> Run multiple regressions and fix C extension bugs
--> Run multiple regressions and fix Zfinx extension bugs
 
--> Add an easy way to sync SoC Memory Map and Parameters to VP - SW - TB
--> Add a verilator testbench for fast software testing
+### Project Structure
 
--> Coremark porting for SoC
--> Run Coremark on verilator testbench and extract performance
+* Delete relative path and substitute with .f file ✅
+* Add CPU cosimulation with Spike ✅
 
--> Verify again every block extensively with SW driven tests thanks to Virtual Platform
--> Trace Unit design and verification
+* Add an easy way to sync SoC Memory Map and Parameters to VP - SW - TB
 
--> Port SW driven test on VP to firmware for test to do a regression suite
 
--> WFI instruction with verification
--> Fix every interrupt interface in blocks (with C1W pending)
--> Modify interrupt unit (add level / edges detection)
--> CPU level test interrupts verification
--> Add external interrupts
--> SoC level interrupt verification
+### Testing
 
--> I2C design and verification
+* Improve Python generator
 
--> GPU design
+* Run multiple regressions and fix bugs in Cache Complex ✅
+* Run multiple regressions and fix C extension bugs
+* Run multiple regressions and fix Zfinx extension bugs
 
--> ADC System
+* Add a verilator testbench for fast software testing ✅
+
+* Verify again every block extensively with SW driven tests thanks to Virtual Platform
+
+* Trace Unit design and verification
+
+* Port SW driven test on VP to firmware for test to do a regression suite
+
+* WFI instruction with verification
+* CPU level test interrupts verification
+* SoC level interrupt verification
+
+
+### Benchmark & Performance
+
+* Coremark porting for SoC ✅
+* Run Coremark on verilator testbench and extract performance ✅
+* Embench-IoT porting for SoC ✅
+* Embench-IoT Bugfix as one test FAIL and another is stuck in a loop due to exception 
+* STREAM porting for SoC ✅
+
+* Improve performances on ApogeoRV (See pipelined LSU maybe)
+
+
+### Design
+
+* Fix every interrupt interface in blocks (with C1W pending)
+* Modify interrupt unit (add level / edges detection)
+* Add external interrupts
+
+* I2C design and verification
+
+* GPU design
+
+* ADC System
