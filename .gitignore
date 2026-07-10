@@ -19,3 +19,4 @@ tb/verilator/obj_dir/
 tb/verilator/logs/
 
 sw/benchmark/CoreMark/out
+sw/benchmark/Embench-IoT/out
