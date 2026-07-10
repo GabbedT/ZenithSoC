@@ -189,6 +189,7 @@ SIM_OBJS := \
     $(SIM_OUT)/cm_core_portme.o \
     $(SIM_OUT)/cm_ee_printf_zenith.o
 
+
 .PHONY: sim
 
 sim: $(SIM_ELF) $(BOOT_ROM_ELF)
@@ -196,6 +197,7 @@ sim: $(SIM_ELF) $(BOOT_ROM_ELF)
 	@echo "  Firmware : $(SIM_ELF)"
 	@echo "  Boot ROM : $(BOOT_ROM_ELF)"
 	@echo "Run: cd tb/verilator && make run DDR=$(SIM_ELF) BOOT=$(BOOT_ROM_ELF)"
+	@rmdir $(SIM_OUT) 2>/dev/null || true
 
 $(SIM_OUT)/crt0_sim.o: $(SIM_DIR)/crt0_sim.s | $(SIM_OUT)
 	$(AS) -march=$(MARCH) -mabi=$(MABI) $< -o $@
@@ -222,15 +224,15 @@ $(SIM_OUT)/cm_ee_printf_zenith.o: $(PORT_DIR)/ee_printf_zenith.c | $(SIM_OUT)
 	$(CC) $(CFLAGS_BASE) $(SIM_DEFS) -c $< -o $@
 
 $(SIM_ELF): $(SIM_OBJS) | $(OUT)
-	$(LD) $(LFLAGS_BASE) -T $(SIM_DIR)/link_sim.ld -o $@ $^ $(LIBGCC)
+	$(LD) $(LFLAGS_BASE) -T $(SIM_DIR)/crt0_sim.ld -o $@ $^ $(LIBGCC)
 	$(SIZE) $@
 	$(DUMP) -d $@ > $(OUT)/coremark_sim.dump
 
-$(SIM_OUT)/boot_rom.o: $(COSIM_SW)/boot_rom.s | $(SIM_OUT)
+$(SIM_OUT)/boot_rom.o: $(SIM_DIR)/boot_rom.s | $(SIM_OUT)
 	$(AS) -march=$(MARCH) -mabi=$(MABI) $< -o $@
 
 $(BOOT_ROM_ELF): $(SIM_OUT)/boot_rom.o | $(OUT)
-	$(RISCV_PREFIX)ld -T $(COSIM_SW)/boot_rom.ld -o $@ $<
+	$(RISCV_PREFIX)ld -T $(SIM_DIR)/boot_rom.ld -o $@ $<
 
 # ============================================================================
 # Directories and clean
@@ -243,3 +245,16 @@ $(OUT) $(SD_OUT) $(SIM_OUT):
 
 clean:
 	rm -rf $(OUT)
+
+
+# ============================================================================
+# TEMPORARY OBJS
+# ============================================================================
+
+TEMP_SIM_OBJS := \
+    $(APP_OBJS) \
+    $(BOOT_OBJS) \
+    $(SIM_OBJS) \
+    $(SIM_OUT)/boot_rom.o
+
+.INTERMEDIATE: $(TEMP_SIM_OBJS)
