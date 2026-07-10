@@ -242,13 +242,20 @@ public:
             tick();
 
             if (tohost_addr_ && tohost_hit_) {
+                uint32_t exit_code = tohost_value_ >> 1;
+
                 std::cout << "[ZTB] tohost write (value=0x"
-                        << std::hex
-                        << tohost_value_
-                        << std::dec
+                        << std::hex << tohost_value_
+                        << ", exit_code=" << std::dec << exit_code
                         << ") -> stop\n";
 
-                return (tohost_value_ == 1) ? 0 : 1;
+                if (exit_code == 0) {
+                    std::cout << "[ZTB] PASS\n";
+                    return 0;
+                } else {
+                    std::cout << "[ZTB] FAIL\n";
+                    return 1;
+                }
             }
 
             if (max_cycles_ && cycles_ >= max_cycles_) {
