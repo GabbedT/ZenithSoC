@@ -6,7 +6,6 @@ TRACE=$2
 # Move to Embench-IoT directory
 cd ../../../sw/benchmark/Embench-IoT
 
-make clean
 make sim
 
 # Collect each benchmark ELF: out/sim/benchname/benchname.elf
