@@ -42,6 +42,7 @@ static volatile std::sig_atomic_t g_stop_signal = 0;
 // -----------------------------------------------------------------------------
 
 static std::ofstream g_uart_file;
+static std::ofstream g_trace_file;
 
 static void uart_capture_open(const std::string& dir) {
     std::string path = dir + "/stdout.txt";
@@ -263,7 +264,7 @@ public:
                         << std::dec
                         << max_cycles_
                         << " -> stop\n";
-                return 0;
+                return 1;
             }
         }
 
@@ -312,15 +313,18 @@ private:
     }
 
     void print_event(const TraceEvent& e) {
-        std::cout << std::hex << std::setfill('0');
-        std::cout << "0x" << std::setw(8) << e.pc << " : ";
+        std::ostream& os = g_trace_file.is_open() ? g_trace_file : std::cout;
+
+        os << std::hex << std::setfill('0');
+        os << "0x" << std::setw(8) << e.pc << " : ";
+        
 
         if (e.is_exception) {
-            std::cout << "<exception vec="
-                      << std::dec
-                      << e.info
-                      << ">\n";
-            std::cout << std::setfill(' ');
+            os << "<exception vec="
+               << std::dec
+               << e.info
+               << ">\n";
+            os << std::setfill(' ');
             return;
         }
 
@@ -328,21 +332,23 @@ private:
         uint32_t word = peek_insn(e.pc);
         insn_t insn(word);
 
-        std::cout << std::setfill(' ')
-                  << std::left
-                  << std::setw(28)
-                  << dis_.disassemble(insn)
-                  << std::right;
+        os << std::setfill(' ')
+           << std::left
+           << std::setw(28)
+           << dis_.disassemble(insn)
+           << std::right;
 
         if (e.rd != 0) {
-            std::cout << " x"
-                      << std::dec
-                      << std::setw(2)
-                      << e.rd
-                      << " <= 0x"
-                      << std::hex
-                      << std::setw(8)
-                      << e.rd_value;
+            os << " x"
+               << std::dec
+               << std::setfill('0')
+               << std::setw(2)
+               << e.rd
+               << " <= 0x"
+               << std::hex
+               << std::setfill('0')
+               << std::setw(8)
+               << e.rd_value;
         }
 
         if (e.is_store || e.is_load) {
@@ -353,25 +359,27 @@ private:
                     ? w[e.mem_width]
                     : "?";
 
-            std::cout << " | "
-                      << (e.is_store ? "ST" : "LD")
-                      << "."
-                      << ws
-                      << " @0x"
-                      << std::hex
-                      << std::setw(8)
-                      << e.mem_addr;
+            os << " | "
+               << (e.is_store ? "ST" : "LD")
+               << "."
+               << ws
+               << " @0x"
+               << std::hex
+               << std::setfill('0')
+               << std::setw(8)
+               << e.mem_addr;
 
             if (e.is_store) {
-                std::cout << " data 0x"
-                          << std::setw(8)
-                          << e.mem_data;
+                os << " data 0x"
+                   << std::setfill('0')
+                   << std::setw(8)
+                   << e.mem_data;
             }
         }
 
-        std::cout << std::setfill(' ')
-                  << std::dec
-                  << "\n";
+        os << std::setfill(' ')
+           << std::dec
+           << "\n";
     }
 
     Vzenith_tb_top* dut_ = nullptr;
@@ -450,6 +458,7 @@ int main(int argc, char** argv) {
     }
 
     uart_capture_open("out");
+    g_trace_file.open("out/trace.txt", std::ios::out | std::ios::trunc);
 
     g_sim = new Sim(enable_wave, enable_print, max_cycles);
     if (!g_sim->scope()) {
@@ -484,6 +493,11 @@ int main(int argc, char** argv) {
 
     delete g_sim;
     g_sim = nullptr;
+
+    if (g_trace_file.is_open()) {
+        g_trace_file.flush();
+        g_trace_file.close();
+    }
 
     if (g_uart_file.is_open()) {
         g_uart_file.flush();
