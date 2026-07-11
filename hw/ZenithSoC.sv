@@ -1155,7 +1155,7 @@ module ZenithSoC #(
     `endif // _VIVADO_
     `endif // _DEF_DDR_MEMORY_
 
-    `ifdef _DDR_BEHAVIORAL_
+    `ifdef _DDR_BEHAVIOURAL_
 
     /** USED FOR SIMULATION **/
     localparam int DDR_SIZE_BYTES  = 128 * 1024 * 1024;
@@ -1248,7 +1248,7 @@ module ZenithSoC #(
         end
     end
 
-    `endif // _DDR_BEHAVIORAL_
+    `endif // _DDR_BEHAVIOURAL_
 
 endmodule : ZenithSoC
 
