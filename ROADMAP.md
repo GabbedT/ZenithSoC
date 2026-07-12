@@ -11,15 +11,13 @@ The project will be developed using an incremental approach, structured into fou
 * Add CPU cosimulation with Spike ✅
 
 * Add an easy way to sync SoC Memory Map and Parameters to VP - SW - TB
+* 
+* Update documentation on ZenithSoC and ApogeoRV
 
 
 ### Testing
 
 * Improve Python generator
-
-* Run multiple regressions and fix bugs in Cache Complex ✅
-* Run multiple regressions and fix C extension bugs
-* Run multiple regressions and fix Zfinx extension bugs
 
 * Add a verilator testbench for fast software testing ✅
 
@@ -39,10 +37,17 @@ The project will be developed using an incremental approach, structured into fou
 * Coremark porting for SoC ✅
 * Run Coremark on verilator testbench and extract performance ✅
 * Embench-IoT porting for SoC ✅
-* Embench-IoT Bugfix as one test FAIL and another is stuck in a loop due to exception 
-* STREAM porting for SoC ✅
+* STREAM porting for SoC
 
 * Improve performances on ApogeoRV (See pipelined LSU maybe)
+
+
+### Bugfix
+
+* Embench-IoT bug on huffbench as test FAIL
+* Fix bugs in Cache Complex ✅
+* Fix C extension bugs
+* Fix Zfinx extension bugs
 
 
 ### Design
