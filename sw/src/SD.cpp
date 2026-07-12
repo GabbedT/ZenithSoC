@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 
-
 SD::SD() :
     /* Initialize the base address considering that each device has 4 registers of 1 byte */
     sdBaseAddress ( (uint32_t * volatile) SD_BASE ),
@@ -122,11 +121,11 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
 
     if (error == SD::NO_ERROR) {
         /* Store OCR in class variable, pack 4 bytes into uint32_t */
-        this->cardOCR = (((uint32_t) resp[1]) << 24) | (((uint32_t) resp[2]) << 16) |
-                        (((uint32_t) resp[3]) << 8)  | ((uint32_t) resp[4]);
+        this->cardOCR = (((uint32_t) resp[0]) << 24) | (((uint32_t) resp[1]) << 16) |
+                        (((uint32_t) resp[2]) << 8)  | ((uint32_t) resp[3]);
 
         /* CCS (Card Capacity Status) is bit 30 of OCR which tell us if the card is SDSC vs SDHC/SDXC */
-        isHighCapacity = (resp[1] & 0x40) != 0;
+        isHighCapacity = (resp[0] & 0x40) != 0;
     } else {
         /* Assume SDSC if OCR not available */
         isHighCapacity = false;
@@ -159,10 +158,9 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
         /* Store CID in class variable (15 bytes = 120 bits) */
         uint8_t* cidBytes = reinterpret_cast<uint8_t*>(this->cardCID);
 
-        /* Copy every byte of the response except the first and the last which contain
-         * command index and CRC, so byte 1 to 15 of a 128 bit response */
+        /* The response reader has already removed the transmission/header byte. */
         for (int i = 0; i < 16; i++) {
-            cidBytes[15 - i] = resp[i + 1];
+            cidBytes[15 - i] = resp[i];
         }
     } else {
         this->cardCID[0] = this->cardCID[1] = 0;
@@ -184,7 +182,7 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
 
     if (error == SD::NO_ERROR) {
         /* Extract RCA from bits [39:24] of response */
-        this->cardRCA = (((uint32_t) resp[1]) << 8) | resp[2];
+        this->cardRCA = (((uint32_t) resp[0]) << 8) | resp[1];
     }
 
     if (error == SD::CMD_CRC_ERR) {
@@ -207,10 +205,9 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
         /* Store CSD in class variable (15 bytes = 120 bits) */
         uint8_t* csdBytes = reinterpret_cast<uint8_t*>(this->cardCSD);
 
-        /* Copy every byte of the response except the first and the last which contain
-         * command index and CRC, so byte 1 to 15 of a 128 bit response */
+        /* The response reader has already removed the transmission/header byte. */
         for (int i = 0; i < 16; i++) {
-            csdBytes[15 - i] = resp[i + 1];
+            csdBytes[15 - i] = resp[i];
         }
     } else {
         this->cardCSD[0] = this->cardCSD[1] = 0;
@@ -453,15 +450,21 @@ SD& SD::readResponse(uint8_t* responseBuffer, errorType_e& error) {
         return *this;
     }
 
-    /* Pointer to array */
-    unsigned int i = 0;
+    const unsigned int responseLength = status->cmdResponseType == R136 ? 17 : 6;
 
-    while (!status->respBufferEmpty) {
-        /* Read response byte */
-        responseBuffer[i++] = *this->responseBuffer;
+    /* The response FIFO has a registered read port: each MMIO access returns
+     * the byte requested by the preceding access. Discard the initial stale
+     * value while issuing exactly responseLength reads, so the FIFO pointers
+     * remain aligned. The omitted final byte contains only CRC7 and the end bit. */
+    for (unsigned int i = 0; i < responseLength; ++i) {
+        uint8_t byte = *this->responseBuffer;
 
-        if (i >= 16) break;
+        if (i != 0) {
+            responseBuffer[i - 1] = byte;
+        }
     }
+
+    responseBuffer[responseLength - 1] = 0;
 
     return *this;
 };
@@ -491,12 +494,12 @@ SD& SD::readBlock(uint32_t blockAddress, uint32_t* blockRead, uint8_t* responseB
         return *this;
     }
 
-    /* Pointer to array */
     unsigned int i = 0;
 
     while (!status->rxBufferEmpty) {
-        /* Read data word */
-        blockRead[i++] = *rxBuffer;
+        /* SD serial data is MSB-first while the MMIO FIFO is exposed as
+         * native little-endian words. Normalize the word for the driver API. */
+        blockRead[i++] = __builtin_bswap32(*rxBuffer);
 
         if (i >= SD::MAX_32_BIT_BLOCK) break;
     }
@@ -566,7 +569,7 @@ SD& SD::readBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstRea
             /* Wait until buffer is not empty */
             while (status->rxBufferEmpty) {  }
 
-            burstRead[i * MAX_32_BIT_BLOCK + j] = *rxBuffer;
+            burstRead[i * MAX_32_BIT_BLOCK + j] = __builtin_bswap32(*rxBuffer);
         }
 
         /* Error Checks */
@@ -609,22 +612,32 @@ SD& SD::writeBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstWr
     }
 
     for (int i = 1; i < burstLength; ++i) {
-        /* Wait until all data has been consumed */
-        while (!status->txBufferEmpty) {  
-            /* Error Checks */
-            if (status->dataError) {
-                error = SD::DAT_ERR;
-                status->dataError = false;
+        /* Refill as soon as space becomes available. Waiting for a completely
+         * empty FIFO starves a fast (wide/25 MHz) CMD25 transfer before the
+         * next 512-byte block can be queued. */
+        for (int j = 0; j < MAX_32_BIT_BLOCK; ++j) {
+            while (status->txBufferFull) {
+                /* Error Checks */
+                if (status->dataError) {
+                    error = SD::DAT_ERR;
+                    status->dataError = false;
 
+                    break;
+                }
+
+                if (status->dataCRC_Error) {
+                    error = SD::DAT_CRC_ERR;
+                    status->dataCRC_Error = false;
+
+                    break;
+                }
+            }
+
+            if (error != SD::NO_ERROR) {
                 break;
             }
 
-            if (status->dataCRC_Error) {
-                error = SD::DAT_CRC_ERR;
-                status->dataCRC_Error = false;
-
-                break;
-            }
+            *txBuffer = burstWrite[i * MAX_32_BIT_BLOCK + j];
         }
 
         if (error != SD::NO_ERROR) {
@@ -639,9 +652,24 @@ SD& SD::writeBurst(uint32_t baseAddress, uint32_t burstLength, uint32_t* burstWr
 
             return *this;
         }
+    }
 
-        for (int j = 0; j < MAX_32_BIT_BLOCK; ++j) {
-            *txBuffer = burstWrite[i * MAX_32_BIT_BLOCK + j];
+    /* The last block has only been queued at this point.  Wait until the data
+     * controller has consumed it before issuing CMD12; otherwise CMD12 can
+     * force the data FSM to IDLE with bytes still left in the TX FIFO. */
+    while (!status->txBufferEmpty) {
+        if (status->dataError) {
+            error = SD::DAT_ERR;
+            status->dataError = false;
+
+            break;
+        }
+
+        if (status->dataCRC_Error) {
+            error = SD::DAT_CRC_ERR;
+            status->dataCRC_Error = false;
+
+            break;
         }
     }
 
@@ -692,9 +720,9 @@ SD& SD::readCID(uint8_t* cidBuffer, errorType_e& error) {
         return *this;
     }
     
-    /* Copy 16 bytes of CID (skip command index) */
+    /* Copy CID payload bytes. */
     for (int i = 0; i < 15; i++) {
-        cidBuffer[i] = responseBuffer[i + 1];
+        cidBuffer[i] = responseBuffer[i];
     }
     
     return *this;
@@ -711,9 +739,9 @@ SD& SD::readCSD(uint8_t* csdBuffer, errorType_e& error) {
         return *this;
     }
 
-    /* Copy 15 bytes of CSD (skip command index) */
+    /* Copy CSD payload bytes. */
     for (int i = 0; i < 15; i++) {
-        csdBuffer[i] = responseBuffer[i + 1];
+        csdBuffer[i] = responseBuffer[i];
     }
     
     return *this;
@@ -771,9 +799,9 @@ SD& SD::readOCR(uint8_t* ocrBuffer, errorType_e& error) {
         return *this;
     }
     
-    /* OCR is in bytes 1-4 of response */
+    /* OCR occupies the first four payload bytes. */
     for (int i = 0; i < 4; i++) {
-        ocrBuffer[i] = responseBuffer[i + 1];
+        ocrBuffer[i] = responseBuffer[i];
     }
     
     return *this;
@@ -807,19 +835,24 @@ uint64_t SD::getCardCapacity() {
     }
 };
 
-uint32_t SD::getCardStatus(errorType_e& error) {
-    uint8_t resp[6];
+SD::cardStatus_u SD::getCardStatus(errorType_e& error) {
+    uint8_t resp[6] = {0};
+    cardStatus_u cardStatus = {0};
 
     /* SEND_STATUS: argument is in RCA upper 16 bits */
     sendCommand(13, (uint32_t) cardRCA << 16);
     readResponse(resp, error);
 
     if (error != SD::NO_ERROR) {
-        return 0;
+        return cardStatus;
     }
 
+    cardStatus.raw = (static_cast<uint32_t>(resp[0]) << 24)
+                   | (static_cast<uint32_t>(resp[1]) << 16)
+                   | (static_cast<uint32_t>(resp[2]) << 8)
+                   |  static_cast<uint32_t>(resp[3]);
 
-    
+    return cardStatus;
 }
 
-#endif 
+#endif

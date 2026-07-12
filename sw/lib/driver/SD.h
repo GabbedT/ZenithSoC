@@ -30,18 +30,39 @@ public:
     enum cardState_e { IDLE, READY, IDENT, STBY, TRAN, DATA, RECV, PROG, DISC };
 
 
-    // /* Card Status Register */
-    // union cardStatus_u {
-    //     struct fields {
-    //         unsigned int reserved0;
-    //         unsigned int ready4data : 1;
-    //         cardState_e  cardState : 4;
-    //         unsigned int eraseReset : 1
-    //         unsigned int
+    /* Card Status Register (R1 response payload, SD status bits [31:0]). */
+    union cardStatus_u {
+        uint32_t raw;
 
-    //     };
-        
-    // };
+        struct {
+            unsigned int reserved0          : 3;
+            unsigned int akeSeqError        : 1;
+            unsigned int reserved4          : 1;
+            unsigned int appCmd             : 1;
+            unsigned int fxEvent            : 1;
+            unsigned int reserved7          : 1;
+            unsigned int readyForData       : 1;
+            unsigned int currentState       : 4;
+            unsigned int eraseReset         : 1;
+            unsigned int cardEccDisabled    : 1;
+            unsigned int wpEraseSkip        : 1;
+            unsigned int csdOverwrite       : 1;
+            unsigned int reserved17         : 2;
+            unsigned int error              : 1;
+            unsigned int ccError            : 1;
+            unsigned int cardEccFailed      : 1;
+            unsigned int illegalCommand     : 1;
+            unsigned int commandCrcError    : 1;
+            unsigned int lockUnlockFailed   : 1;
+            unsigned int cardIsLocked       : 1;
+            unsigned int wpViolation        : 1;
+            unsigned int eraseParam         : 1;
+            unsigned int eraseSequenceError : 1;
+            unsigned int blockLengthError   : 1;
+            unsigned int addressError       : 1;
+            unsigned int outOfRange         : 1;
+        } fields;
+    };
     
 
 
@@ -199,7 +220,7 @@ public:
 
     inline bool isCardInserted();
 
-    uint32_t getCardStatus(errorType_e& error);
+    cardStatus_u getCardStatus(errorType_e& error);
 
     uint64_t getCardCapacity();
 
@@ -210,8 +231,8 @@ public:
 
     SD& sendCommand(uint32_t commandNumber, uint32_t argument);
 
-    /* Get all the bytes from the response, from the byte that has been received first (MSB) (which is placed on the first position of the buffer)
-     * to the last */
+    /* Read response bytes MSB-first after removing the transmission/header
+     * byte. The final array slot is cleared because it contains no payload. */
     SD& readResponse(uint8_t* responseBuffer, errorType_e& error);
 
 
@@ -256,4 +277,4 @@ public:
 
 };
 
-#endif 
+#endif
