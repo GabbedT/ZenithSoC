@@ -13,7 +13,7 @@
 # Stop only if this script is executed directly, not when sourced
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     echo "Please source this file:"
-    echo "  source cosim/env.sh"
+    echo "  source cosim/setenv.sh"
     exit 1
 fi
 
