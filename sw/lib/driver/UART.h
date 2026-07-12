@@ -116,6 +116,39 @@ public:
      */
     UART& setModeRX(bool enable);
 
+
+    /**
+     * @brief Set the data length of a transaction
+     * 
+     * @param dataLen length of a transaction
+     * @return UART& to chain the function call.
+     */
+    UART& setDataLength(dataLenght_e dataLen);
+
+    /**
+     * @brief Set the parity mode
+     * 
+     * @param parityMode parity mode
+     * @return UART& to chain the function call.
+     */
+    UART& setParityMode(parityMode_e parityMode);
+
+    /**
+     * @brief Set the number of stop bits
+     * 
+     * @param stopBits number of stop bits
+     * @return UART& to chain the function call.
+     */
+    UART& setStopBits(stopBits_e stopBits);
+
+    /**
+     * @brief Enable or disable parity
+     * 
+     * @param enable enable bit
+     * @return UART& to chain the function call.
+     */
+    UART& enableParity(bool enable);
+
     /**
      * @brief Set communication settings.
      * 
@@ -213,4 +246,4 @@ public:
     UART& unloadBufferRX (uint8_t* data, uint32_t size);
 };
 
-#endif 
+#endif

@@ -93,6 +93,55 @@ UART& UART::setModeRX(bool enable) {
 
 
 /**
+ * @brief Set the data length of a transaction
+ * 
+ * @param dataLen length of a transaction
+ * @return UART& to chain the function call.
+ */
+UART& UART::setDataLength(dataLenght_e dataLen) {
+    status->dataBits = dataLen;
+
+    return *this;
+};
+
+/**
+ * @brief Set the parity mode
+ * 
+ * @param parityMode parity mode
+ * @return UART& to chain the function call.
+ */
+UART& UART::setParityMode(parityMode_e parityMode) {
+    status->parityMode = parityMode;
+
+    return *this;
+};
+
+/**
+ * @brief Set the number of stop bits
+ * 
+ * @param stopBits number of stop bits
+ * @return UART& to chain the function call.
+ */
+UART& UART::setStopBits(stopBits_e stopBits) {
+    status->stopBits = stopBits;
+
+    return *this;
+};
+
+/**
+ * @brief Enable or disable parity
+ * 
+ * @param enable enable bit
+ * @return UART& to chain the function call.
+ */
+UART& UART::enableParity(bool enable) {
+    status->parityEnable = enable;
+
+    return *this;
+};
+
+
+/**
  * @brief Set communication settings.
  * 
  * @param baudRate UART baudrate for transmission / reception.
