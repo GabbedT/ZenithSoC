@@ -34,10 +34,3 @@ Other targets: `make build`, `make wave` (open the latest FST in GTKWave),
 ```
 
 PC · disassembled instruction · `rd <= value` · memory access (`LD/ST.<b|h|w> @addr [data]`).
-
-## Future: interactive manual control
-
-The `Sim` class and the wrapper already expose the seams (pause between ticks,
-DPI-driven `dut` access) to add manual commands — poke memory, force an
-interrupt, inspect registers — then resume. See the scaffolding comments in
-`zenith_tb_top.sv` and `sim_main.cpp`.

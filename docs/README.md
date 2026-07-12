@@ -1,61 +1,36 @@
-# ZenithSoC Documentation
+# ZenithSoC documentation
 
-This directory contains the Sphinx-based documentation for ZenithSoC.
+The documentation is built with Sphinx. It covers the SoC architecture, CPU complex, AXI interconnect, memory map, peripherals, and audio processing unit. The source index is [`index.rst`](index.rst); generated HTML belongs in `_build/html/` and should not be edited by hand.
 
-## Building the Documentation
+## Install and build
 
-### Prerequisites
-
-Install the required Python packages:
+From the repository root:
 
 ```bash
-pip install -r requirements.txt
-```
-
-### Building HTML Documentation
-
-On Linux/Mac:
-```bash
+python3 -m pip install -r docs/requirements.txt
+cd docs
 make html
 ```
 
-On Windows:
+Open `docs/_build/html/index.html`. For a strict build suitable for CI:
+
 ```bash
-make.bat html
+python3 -m sphinx -W -b html . _build/html
 ```
 
-The generated HTML documentation will be in `_build/html/`. Open `_build/html/index.html` in a web browser to view it.
-
-### Other Output Formats
-
-Sphinx supports multiple output formats:
-
-- `make html` - HTML pages
-- `make latexpdf` - PDF via LaTeX
-- `make epub` - EPUB e-book
-- `make help` - List all available targets
-
-## Documentation Structure
-
-- `index.rst` - Main documentation index
-- `introduction.rst` - Introduction and overview
-- `architecture.rst` - SoC architecture description
-- `memory_map.rst` - Memory address map
-- `peripherals.rst` - Peripherals overview
-- `axi.rst`, `uart.rst`, `spi.rst`, etc. - Individual peripheral documentation
-- `conf.py` - Sphinx configuration
-- `requirements.txt` - Python dependencies
-
-## Live Preview
-
-For automatic rebuilding during development:
+For live editing, install `sphinx-autobuild` from `requirements.txt` and run:
 
 ```bash
 sphinx-autobuild . _build/html
 ```
 
-Then open http://127.0.0.1:8000 in your browser.
+Other Sphinx targets are available through `make help`, including `latexpdf` and `epub`. On Windows use `make.bat html`.
 
-## Read the Docs Integration
+## Source layout
 
-This documentation is configured for Read the Docs hosting via `.readthedocs.yaml`.
+- `cpu_complex/`, `io_devs/`, and `apu/`: subsystem reference pages.
+- `conf.py`: Sphinx configuration and extensions.
+- `requirements.txt`: pinned documentation dependencies.
+- `DOCUMENTATION_SUMMARY.md`: overview of the current documentation set.
+
+When changing a register map or memory address, update both the RTL packages and the relevant RST page.

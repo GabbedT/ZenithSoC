@@ -1,178 +1,76 @@
 # ZenithSoC
 
-> A complete System-on-Chip featuring a RISC-V CPU, comprehensive peripheral suite, and integrated audio processing
+ZenithSoC is a modular 32-bit RISC-V system-on-chip written in SystemVerilog and targeted primarily at FPGA-based embedded systems. The repository combines the RTL, software drivers and examples, simulation environments, a virtual platform, and Sphinx documentation in one development tree.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![RISC-V](https://img.shields.io/badge/RISC--V-32bit-blue.svg)](https://riscv.org/)
-[![SystemVerilog](https://img.shields.io/badge/Language-SystemVerilog-purple.svg)]()
+## What is included
 
-## Overview
+- `hw/`: synthesizable SoC RTL, including the ApogeoRV CPU integration, AXI interconnect, caches, memories, audio processing unit, and peripherals.
+- `sw/`: bare-metal drivers, examples, and benchmarks porting.
+- `tb/`: simulation models and testbenches. The Verilator flow is the quickest way to run firmware against the full SoC.
+- `vp/`: block-oriented virtual platform for software-driven peripheral tests.
+- `cosim/`: lockstep RTL/Spike co-simulation for CPU and memory-system verification.
+- `docs/`: Sphinx sources for the architecture, memory map, peripherals, and programming reference.
+- `constraint/`: FPGA pin and memory-controller constraints.
 
-**ZenithSoC** is a high-performance System-on-Chip designed around the [ApogeoRV](Hardware/CPU/ApogeoRV) RISC-V processor core. It provides a complete platform for embedded systems development, featuring an extensive collection of peripherals, memory subsystems, and specialized processing units for audio applications.
+The integrated design currently includes a RISC-V CPU complex, instruction and data caches, on-chip and DDR memory interfaces, AXI, UART, SPI, Ethernet, SD, GPIO, timer, PRNG, VGA, tracing, and audio capture/synthesis blocks. See [`ROADMAP.md`](ROADMAP.md) for status and planned work.
 
-The design emphasizes modularity, allowing developers to configure and synthesize only the components needed for their specific application. Optimized primarily for FPGA deployment (verified on Xilinx devices), ZenithSoC delivers an excellent balance of performance, resource utilization, and ease of integration.
+## Repository status
 
-## Key Features
+This is an active hardware project. Some flows depend on local FPGA tools, a RISC-V cross-compiler, Verilator, and Spike installations. Generated simulation output is intentionally kept out of version control.
 
-### Core Architecture
-- **CPU**: [ApogeoRV](Hardware/CPU/ApogeoRV) 32-bit RISC-V processor @ 100 MHz
-  - ISA: RV32IMC + Zicsr, Zfinx, Zba, Zbs, partial Zbb
-  - Out-of-order execution with in-order issue and writeback
-  - Branch prediction (GSHARE + BTB)
-  - Store buffer with load forwarding
-  - Machine and User privilege modes
-- **Memory System**
-  - Separate instruction and data caches
-  - On-chip memory for fast execution
-  - DDR2 controller for external memory
-  - Boot ROM support
-- **Interconnect**: AXI4-Lite network
+## Quick start: Verilator
 
-### Audio Processing Unit (APU)
-- **Audio Capture**: PDM to PCM conversion with CIC filtering
-- **Audio Synthesis**: 4-channel waveform generation
-  - Sine, square, triangle, and custom waveform generators
-  - ADSR envelope modulation
-  - Multi-channel audio mixer
-- **Integrated full-duplex audio pipeline**
-
-### Communication Interfaces
-- **UART**: Serial communication with hardware flow control (CTS/RTS)
-- **SPI**: Master/slave serial peripheral interface
-- **Ethernet**: 10/100 MAC controller with DMA support
-- **SD Card**: SDIO/SPI interface with DMA capabilities
-
-### Peripherals
-- **GPIO**: 32 configurable I/O pins with interrupt support
-- **Timer**: 64-bit timer with compare functionality
-- **PWM**: Pulse-width modulation outputs
-- **PRNG**: Hardware pseudo-random number generator
-- **PDM2PCM**: Standalone PDM to PCM converter
-- **VGA**: Video output controller (under integration)
-- **Trace Unit**: Real-time instruction tracing for debugging
-
-### Development Support
-- **Interrupt Controller**: Centralized interrupt management
-- **Debug Infrastructure**: Trace unit for execution monitoring
-- Comprehensive documentation with register maps and programming examples
-
-## Project Structure
-
-```
-ZenithSoC/
-├── Hardware/
-│   ├── CPU/
-│   │   └── ApogeoRV/          # RISC-V processor core (submodule)
-│   ├── Memory/
-│   │   └── Cache/             # Instruction and data caches
-│   ├── Bus/                   # AXI interconnect
-│   ├── APU/                   # Audio Processing Unit
-│   ├── IO/                    # Peripheral devices
-│   │   ├── UART/
-│   │   ├── SPI/
-│   │   ├── Ethernet/
-│   │   ├── GPIO/
-│   │   ├── Timer/
-│   │   ├── SD/
-│   │   ├── PRNG/
-│   │   ├── PWM/
-│   │   ├── VGA/
-│   │   └── PDM2PCM/
-│   └── GPU/                   # Graphics Processing Unit (in development)
-├── Software/
-│   ├── Examples/              # Sample applications and drivers
-│   └── Doc/                   # Software documentation and build instructions
-├── Constraints/               # FPGA constraint files
-└── Doc/                       # Hardware documentation (Sphinx)
-```
-
-## Documentation
-
-Comprehensive documentation is available covering all subsystems:
-
-- **[Online Documentation](Doc/_build/html/index.html)**: Complete hardware reference
-  - System architecture
-  - Register maps for all peripherals
-  - Programming examples
-  - Integration guidelines
-- **[ApogeoRV CPU](Hardware/CPU/ApogeoRV/README.md)**: Detailed processor documentation
-- **[Roadmap](ROADMAP.md)**: Feature status and development plan
-
-### Building Documentation
+The full-SoC Verilator testbench loads an ELF into the simulated DDR and optionally a boot ELF into the boot ROM. Build the firmware first, for example with the co-simulation flow:
 
 ```bash
-cd Doc
-make html
-# Open Doc/_build/html/index.html in a browser
+source setenv.sh
+cd tb/verilator
+make run DDR=../../cosim/out/firmware.elf BOOT=../../cosim/out/boot.elf
 ```
 
-## Current Status
+Useful options include `WAVE=1` to write a waveform, `TRACE=1` to write trace file, and `MAX_CYCLES=N` to bound a run. See [`tb/verilator/README.md`](tb/verilator/README.md).
 
-See [ROADMAP.md](ROADMAP.md) for complete feature list.
+## Quick start: Cosimulator
 
-**Implemented and Verified:**
-- Core processor with caches
-- Memory subsystem with DDR2 support
-- AXI interconnect
-- UART, SPI, GPIO, Timer, Ethernet
-- Audio Processing Unit (capture + synthesis)
-- PRNG, PWM
-- SD Card controller
-- Trace unit
+Run CPU lockstep co-simulation with Spike:
 
-**In Development:**
-- I²C interface
-- I²S interface
-- DMA controller
-- VGA integration
-- ADC system
+```bash
+source setenv.sh
+cd cosim
+make info
+make run-notrace SEED=0 N=2000
+make regress N=100 JOBS=4
+```
 
-## Examples
+## Quick start: Virtual Platform
 
-Explore practical examples in the `Software/Examples/` directory:
+Run a peripheral block on the virtual platform:
 
-- **[Audio Record](Software/Examples/Audio%20Record/)**: Capture audio using the APU
-- **[Ethernet](Software/Examples/Ethernet/)**: Network communication demos
-- **[SPI](Software/Examples/SPI/)**: SPI device interfacing
-- **[Debug Print](Software/Examples/Debug%20Print/)**: UART debugging utilities
-- **[Floating Point](Software/Examples/Floating%20Point/)**: FPU usage with Zfinx
-- **[PRNG](Software/Examples/PNRG/)**: Hardware random number generation
+```bash
+cd vp
+make info BLOCK=uart
+make run-notrace BLOCK=uart
+```
 
-Each example includes a README with build and usage instructions.
+## Quick start: Documentation
+
+Build the documentation:
+
+```bash
+cd docs
+python3 -m pip install -r requirements.txt
+make html
+# Open docs/_build/html/index.html
+```
+
+## Working with the RTL
+
+The top-level filelist is [`hw/_zenithSoC.f`](hw/_zenithSoC.f), and the top-level RTL module is [`hw/ZenithSoC.sv`](hw/ZenithSoC.sv). Component filelists such as `hw/io/uart/_uart.f` keep each subsystem’s source list close to its implementation. Address and interface packages live under `hw/utils/pkg/`.
 
 ## Contributing
 
-Contributions are welcome! Whether you're fixing bugs, adding features, or improving documentation:
+When changing RTL, update the relevant documentation and add or extend a simulation or software-driven test. Keep generated files in the ignored output directories, use clear commits, and verify the narrowest applicable flow before opening a pull request. New peripherals should include their register map, software driver, and a documented test path.
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Submit a pull request
+## Licensing
 
-Please ensure that:
-- Code follows the existing style conventions
-- New peripherals include documentation and register maps
-- Hardware changes are verified through simulation
-- Software examples are tested on hardware when possible
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Architecture Philosophy
-
-ZenithSoC is designed with several core principles:
-
-- **Modularity**: Each component can be included or excluded based on application needs
-- **Performance**: Out-of-order CPU execution with intelligent caching
-- **Ease of Use**: Well-documented register interfaces and comprehensive examples
-- **Flexibility**: Highly configurable parameters for power, area, and performance tuning
-- **Real-World Ready**: Includes practical peripherals for common embedded applications
-
-## Support
-
-For questions, bug reports, or feature requests:
-
-- **Email**: tripi.gabriele2002@gmail.com
-- **Issues**: Open an issue on GitHub
-- **Documentation**: Start with the [documentation index](Doc/_build/html/index.html)
+The repository includes third-party components with their own license files, notably [`hw/cpu/ApogeoRV/LICENSE`](hw/cpu/ApogeoRV/LICENSE) and the imported benchmark trees. Add or consult the project-level license metadata before redistributing the complete repository, and preserve the terms of every included component.
