@@ -106,9 +106,11 @@ firmware:
 # --- Run simulation with waveform ---
 run: all
 	@echo "=== Running VP: BLOCK=$(BLOCK) IO_BASE=$(IO_BASE) ==="
+	@mkdir -p out
 	./obj_dir/Vtb_top +firmware=out/firmware.elf \
 		+io_base=$(IO_BASE) +io_size=$(IO_SIZE) \
-		+trace_start=$(TRACE_START) +trace_end=$(TRACE_END)
+		+trace_start=$(TRACE_START) +trace_end=$(TRACE_END) \
+		> out/stdout.txt 2>&1
 	@echo "=== Simulation done ==="
 
 # --- Run simulator with waveform and a timeout when the FW get stuck (easy debug) ---
@@ -144,7 +146,7 @@ new-block:
 	    echo "Usage: make new-block NAME=my_block"; exit 1; \
 	fi
 	@cp -r blocks/_template blocks/$(NAME)
-	@echo "Created blocks/$(NAME)/ — edit dut_wrapper.sv and firmware.c"
+	@echo "Created blocks/$(NAME)/ — edit dut_wrapper.sv and firmware.cpp"
 
 # --- Clean ---
 clean:
