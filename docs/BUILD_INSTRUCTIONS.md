@@ -10,7 +10,7 @@
 Install the required Python packages:
 
 ```bash
-cd Doc
+cd docs
 pip install -r requirements.txt
 ```
 
@@ -19,14 +19,14 @@ pip install -r requirements.txt
 ### Using Sphinx directly
 
 ```bash
-cd Doc
+cd docs
 python -m sphinx -b html . _build/html
 ```
 
 ### Using Make (Linux/macOS)
 
 ```bash
-cd Doc
+cd docs
 make html
 ```
 
@@ -41,7 +41,7 @@ make.bat html
 
 After building, open the generated HTML in your browser:
 
-- **Main page**: `Doc/_build/html/index.html`
+- **Main page**: `docs/_build/html/index.html`
 
 Or start a local web server:
 
@@ -226,7 +226,7 @@ The `-W` flag treats warnings as errors.
 
 ## Development Workflow
 
-1. Edit RST files in the `Doc/` directory
+1. Edit RST files in the `docs/` directory
 2. Rebuild documentation: `make html` or `python -m sphinx -b html . _build/html`
 3. Refresh browser to see changes
 4. For live reload during development:
