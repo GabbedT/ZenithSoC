@@ -11,11 +11,17 @@
 /* Length of a burst (read / write) */
 #define BURST_LENGTH 16
 
-void testRead(SD& card, uint32_t address);
-void testWrite(SD& card, uint32_t address);
+/* Comment to avoid printing all the read blocks */
+// #define PRINT_DATA
 
-void testBurstRead(SD& card, uint32_t address);
-void testBurstWrite(SD& card, uint32_t address);
+void testRead(SD& card, uint32_t address, uint32_t *blk);
+void testWrite(SD& card, uint32_t address, uint32_t *blk);
+
+void testBurstRead(SD& card, uint32_t address, uint32_t burstLength, uint32_t *blk);
+void testBurstWrite(SD& card, uint32_t address, uint32_t burstLength, uint32_t *blk);
+
+bool checkBlock(uint32_t *origBk, uint32_t *newBk);
+bool checkBurstBlock(uint32_t *origBk, uint32_t *newBk, uint32_t burstLength);
 
 void testInformations(SD& card);
 
@@ -26,6 +32,13 @@ extern "C" int main() {
     
     bool isHighCapacity = false;
     
+    /* Original blocks before overwriting */
+    uint32_t origBlock [128] = {0};
+    uint32_t origBurstBlock [128 * BURST_LENGTH] = {0};
+
+    /* Blocks after overwriting */
+    uint32_t newBlock [128] = {0};
+    uint32_t newBurstBlock [128 * BURST_LENGTH] = {0};
     
     /* Initialize SD Card controller */
     SD card;
@@ -74,8 +87,8 @@ extern "C" int main() {
 
     vp_print("\n\n");
 
-
-    for (int i = 1; i < 4; i++) {
+    /* Loop to go through all the configurations */
+    for (int i = 0; i < 4; i++) {
         switch (i) {
             case 0:
                 vp_print("[CONFIGURATION] | BUS: Narrow | Speed: 400 KHz |\n");
@@ -146,38 +159,62 @@ extern "C" int main() {
             break;
         }
 
-        // /* Operations from start address */
-        // for (int j = START_ADDRESS; j < START_ADDRESS + NUMBER_OF_BLOCKS; j++) {
-        //     vp_print("[TEST] Testing block ");
-        //     vp_print_hex(START_ADDRESS + j);
-        //     vp_println("...");
+        /* Operations from start address */
+        for (int j = START_ADDRESS; j < START_ADDRESS + NUMBER_OF_BLOCKS; j++) {
+            vp_print("[TEST] Testing block ");
+            vp_print_hex(START_ADDRESS + j);
+            vp_println("...");
 
-        //     vp_print("[READ TEST] Reading original block\n");
-        //     testRead(card, j);
+            vp_print("[READ TEST] Reading original block\n");
+            testRead(card, j, origBlock);
 
-        //     vp_print("[WRITE TEST] Overwriting block\n");
-        //     testWrite(card, j);
+            vp_print("[WRITE TEST] Overwriting block\n");
+            testWrite(card, j, origBlock);
 
-        //     vp_print("[READ TEST] Reading new data\n");
-        //     testRead(card, j);
-        // }
+            vp_print("[READ TEST] Reading new data\n");
+            testRead(card, j, newBlock);
+
+            if (!checkBlock(origBlock, newBlock)) {
+                vp_print("[ERROR] On block address: 0x");
+                vp_print_hex(j);
+                vp_putchar('\n');
+
+                TEST_FAIL();
+                return 0;
+            }
+        }
 
         vp_print("\n");
 
+
         /* Operations from the last block tested */
-        for (int j = START_ADDRESS + NUMBER_OF_BLOCKS; j < NUMBER_OF_BLOCKS * BURST_LENGTH; j += BURST_LENGTH) {
+        /* Keep a real multi-block transfer at 400 kHz without spending most
+         * of the VP run in MMIO polling; retain the 16-block stress test at
+         * 25 MHz. */
+        const uint32_t testBurstLength = ((i == 1) || (i == 3)) ? 3 : 2;
+
+        for (int j = START_ADDRESS + NUMBER_OF_BLOCKS; j < NUMBER_OF_BLOCKS * testBurstLength; j += testBurstLength) {
             vp_print("[TEST] Testing block ");
             vp_print_hex(START_ADDRESS + j);
             vp_println("...");
 
             vp_print("[READ BURST TEST] Reading original block\n");
-            testBurstRead(card, j);
+            testBurstRead(card, j, testBurstLength, origBurstBlock);
 
             vp_print("[WRITE BURST TEST] Overwriting block\n");
-            testBurstWrite(card, j);
+            testBurstWrite(card, j, testBurstLength, origBurstBlock);
 
             vp_print("[READ BURST TEST] Reading new data\n");
-            testBurstRead(card, j);
+            testBurstRead(card, j, testBurstLength, newBurstBlock);
+
+            if (!checkBurstBlock(origBurstBlock, newBurstBlock, testBurstLength)) {
+                vp_print("[ERROR] On burst block address: 0x");
+                vp_print_hex(j);
+                vp_putchar('\n');
+
+                TEST_FAIL();
+                return 0;
+            }
         }
 
         vp_print("\n\n");
@@ -205,18 +242,27 @@ void testInformations(SD& card) {
 
     /* OCR */
     vp_print("[OCR] "); vp_println_hex(card.cardOCR);
+
+    /* Card status (CMD13 / R1) */
+    SD::errorType_e error = SD::NO_ERROR;
+    SD::cardStatus_u status = card.getCardStatus(error);
+
+    if (error == SD::NO_ERROR) {
+        vp_print("[STATUS] "); vp_println_hex(status.raw);
+    } else {
+        vp_print("[STATUS] Read error\n");
+    }
 };
 
 
-void testRead(SD& card, uint32_t address) {
-    uint32_t blockRead[128] = {0}; 
+void testRead(SD& card, uint32_t address, uint32_t *blk) {
     uint8_t response[6] = {0};
     SD::errorType_e error = SD::NO_ERROR;
     
     bool timeout = false;
     bool crcError = false;
 
-    card.readBlock(address, blockRead, response, error);
+    card.readBlock(address, blk, response, error);
 
     if (error == SD::DAT_TIMEOUT) {
         vp_print("[READ] Timeout!\n");
@@ -227,31 +273,28 @@ void testRead(SD& card, uint32_t address) {
 
         return;
     } else {
+        #ifdef PRINT_DATA
+
         vp_print("[READ] Data: ");
 
         for (int i = 0; i < 128; ++i) {
-            vp_print_hex(blockRead[i]); vp_print(" ");
+            vp_print_hex(blk[i]); vp_print(" ");
         }
 
         vp_print("\n");
+
+        #endif
     }
 };
 
 
 
-void testWrite(SD& card, uint32_t address) {
-    /* Buffer */
-    uint32_t blockWrite[128] = {0}; 
+void testWrite(SD& card, uint32_t address, uint32_t *blk) {
     uint8_t response[6] = {0};
     SD::errorType_e error = SD::NO_ERROR;
 
 
-    /* Generate data*/
-    for (int i = 0; i < 128; ++i) {
-        blockWrite[i] = address + i;
-    }
-
-    card.writeBlock(address, blockWrite, response, error);
+    card.writeBlock(address, blk, response, error);
 
     if (error == SD::DAT_TIMEOUT) {
         vp_print("[WRITE] Timeout!\n");
@@ -268,12 +311,11 @@ void testWrite(SD& card, uint32_t address) {
 
 
 
-void testBurstRead(SD& card, uint32_t address) {
-    uint32_t blockRead[128 * BURST_LENGTH] = {0}; 
+void testBurstRead(SD& card, uint32_t address, uint32_t burstLength, uint32_t *blk) {
     uint8_t response[6] = {0};
     SD::errorType_e error = SD::NO_ERROR;
 
-    card.readBurst(address, BURST_LENGTH, blockRead, response, error);
+    card.readBurst(address, burstLength, blk, response, error);
 
     if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
         vp_print("[BURST READ] Timeout!\n");
@@ -284,30 +326,27 @@ void testBurstRead(SD& card, uint32_t address) {
 
         return;
     } else {
+        #ifdef PRINT_DATA
+
         vp_print("[BURST READ] Data: ");
 
-        for (int i = 0; i < 128 * BURST_LENGTH; ++i) {
-            vp_print_hex(blockRead[i]); vp_print(" ");
+        for (uint32_t i = 0; i < 128 * burstLength; ++i) {
+            vp_print_hex(blk[i]); vp_print(" ");
         }
 
         vp_print("\n");
+
+        #endif
     }
 };
 
 
 
-void testBurstWrite(SD& card, uint32_t address) {
-    /* Buffer */
-    uint32_t blockWrite[128 * BURST_LENGTH] = {0}; 
+void testBurstWrite(SD& card, uint32_t address, uint32_t burstLength, uint32_t *blk) {
     uint8_t response[6] = {0};
     SD::errorType_e error = SD::NO_ERROR;
 
-    /* Generate data */
-    for (int i = 0; i < 128 * BURST_LENGTH; ++i) {
-        blockWrite[i] = address + i;
-    }
-
-    card.writeBurst(address, BURST_LENGTH, blockWrite, response, error);
+    card.writeBurst(address, burstLength, blk, response, error);
 
     if (error == SD::DAT_TIMEOUT) {
         vp_print("[BURST WRITE] Timeout!\n");
@@ -321,3 +360,30 @@ void testBurstWrite(SD& card, uint32_t address) {
         vp_print("\n");
     }
 };
+
+
+bool checkBlock(uint32_t *origBk, uint32_t *newBk) {
+    for (int i = 0; i < 128; ++i) {
+        if (origBk[i] != newBk[i]) {
+            TEST_FAIL();
+
+            return false;
+        }
+    }
+
+    return true;
+};
+
+
+
+bool checkBurstBlock(uint32_t *origBk, uint32_t *newBk, uint32_t burstLength) {
+    for (uint32_t i = 0; i < 128 * burstLength; ++i) {
+        if (origBk[i] != newBk[i]) {
+            TEST_FAIL();
+
+            return false;
+        }
+    }
+
+    return true;
+}

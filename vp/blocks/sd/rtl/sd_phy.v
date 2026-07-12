@@ -384,8 +384,11 @@ always @(posedge sd_clk or negedge reset_n) begin
       end
    end
    ST_DATA_READ_3: begin
-      // after telling link we're done, wait for it to respond
-      if(~data_in_act_s) begin
+      // After telling link we're done, wait for it to respond and for the
+      // data-response/busy FSM to actually release DAT0.  Reporting idle
+      // earlier can make the next-block receiver see our own busy-release
+      // edge as a new start bit, especially at low SD clock rates.
+      if(~data_in_act_s && dostate == ST_IDLE) begin
          do_crc_token <= 0;
          data_in_busy <= 0;
          distate <= ST_IDLE;

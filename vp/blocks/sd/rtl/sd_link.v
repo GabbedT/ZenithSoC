@@ -117,7 +117,10 @@ reg  [127:0] resp_arg; // for 32 or 128bit
 reg  [3:0]   resp_type;
 
 
-localparam DATA_IN_GAP_CYCLES = 1024;
+/* DAT0 is released when the PHY leaves its busy phase. Re-arm reception on
+ * the following link clock so a standards-compliant host may immediately
+ * start the next block of a CMD25 transfer. */
+localparam DATA_IN_GAP_CYCLES = 2;
 reg [$clog2(DATA_IN_GAP_CYCLES) - 1:0] data_in_gap_cnt;
 
 
@@ -944,7 +947,6 @@ always @(posedge clk_50) begin
          end
       end
    end
-   
    DST_DATA_IN_0: begin
       // signal to PHY that we are expecting a data packet
       phy_data_in_act <= 1;
@@ -1027,6 +1029,10 @@ always @(posedge clk_50) begin
          phy_data_in_another <= 1'b0;
 
          if (data_in_gap_cnt >= (DATA_IN_GAP_CYCLES - 1)) begin
+            /* data_in_act may be low for less than one slow SD clock period,
+             * so its edge is not a reliable way to re-arm the PHY.  Keep the
+             * dedicated level request asserted until the next block starts. */
+            phy_data_in_another <= 1'b1;
             data_state <= DST_DATA_IN_0;
 
             data_in_gap_cnt <= '0;

@@ -1,5 +1,3 @@
-`include "Hardware/IO/UART/uart.sv"
-
 module dut_wrapper (
     input  logic        clk,
     input  logic        rst_n,
