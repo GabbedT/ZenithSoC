@@ -86,6 +86,7 @@ module sd (
     logic force_stop;
     logic data_direction;
     logic data_burst;
+    logic [12:0] data_length;
 
     /* Output for IRQ */
     logic interrupt;
@@ -332,6 +333,7 @@ module sd (
         .data_activate_o  ( data_activate  ), 
         .data_direction_o ( data_direction ),
         .data_burst_o     ( data_burst     ),
+        .data_length_o    ( data_length    ),
 
         .sd_cmd_io ( sd_cmd_io )
     );
@@ -361,6 +363,7 @@ module sd (
         .wide_bus_i    ( bus_width      ),
         .burst_i       ( data_burst     ),
         .transfer_en_i ( data_activate  ),
+        .data_length_i ( data_length    ),
 
         .idle_o      ( data_idle      ),
         .timeout_o   ( data_timeout   ),
@@ -372,4 +375,4 @@ module sd (
 
 endmodule : sd
 
-`endif 
+`endif

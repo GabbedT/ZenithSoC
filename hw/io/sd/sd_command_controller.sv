@@ -28,6 +28,7 @@ module sd_command_controller (
     output logic data_activate_o,
     output logic data_direction_o, /* 1 = read, 0 = write */
     output logic data_burst_o, /* 1 = burst mode, 0 = single block */
+    output logic [12:0] data_length_o, /* Payload length in bits */
 
     /* External Interface */
     inout logic sd_cmd_io
@@ -569,9 +570,23 @@ module sd_command_controller (
 
     assign data_burst_o = data_burst_CRT;
 
+    always_comb begin
+        data_length_o = 13'd4096;
+
+        if (card_app_cmd_CRT) begin
+            case (cmd_number_i)
+                6'd22: data_length_o = 13'd32;
+                6'd51: data_length_o = 13'd64;
+                default: data_length_o = 13'd4096;
+            endcase
+        end else if (cmd_number_i == 6'd6) begin
+            data_length_o = 13'd512;
+        end
+    end
+
     /* Tristate enable signal */
     assign sd_cmd_io = tristate_enable_flop ? cmd_bit_flop : 1'bz;
 
 endmodule : sd_command_controller
 
-`endif 
+`endif

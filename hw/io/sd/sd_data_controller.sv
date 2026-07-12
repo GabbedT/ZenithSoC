@@ -22,6 +22,7 @@ module sd_data_controller (
     input logic wide_bus_i,
     input logic burst_i,
     input logic transfer_en_i, 
+    input logic [12:0] data_length_i,
 
     /* Status */
     output logic idle_o,
@@ -41,8 +42,15 @@ module sd_data_controller (
     logic [7:0] data_CRT, data_NXT;
     logic [15:0] crc16_CRT, crc16_NXT;
     logic [3:0][15:0] crc16_wide_CRT, crc16_wide_NXT;
+    logic [12:0] data_length_CRT;
 
         always_ff @(posedge clk_i) begin
+            if (!rst_n_i) begin
+                data_length_CRT <= 13'd4096;
+            end else if (transfer_en_i) begin
+                data_length_CRT <= data_length_i;
+            end
+
             data_CRT <= data_NXT;
             crc16_CRT <= crc16_NXT;
             crc16_wide_CRT <= crc16_wide_NXT;
@@ -113,8 +121,6 @@ module sd_data_controller (
 //====================================================================================
 
     localparam CRC16_LENGTH = 16; // TODO: know why SEND_DATA blocks, modify interface so the software doesn't need to read the tokens but just a bit (then reset it)
-    localparam DATA_LENGTH = 4096;
-
     /* Write response */
     localparam WRITE_OK_RESP = 8'h05;
     localparam WRITE_ERROR_RESP = 8'h0D;
@@ -240,7 +246,7 @@ module sd_data_controller (
                             /* Shift nibble in */
                             data_NXT = {data_CRT[3:0], sd_data_io};
 
-                            if (bit_counter == ((DATA_LENGTH / 4) - 1)) begin
+                            if (bit_counter == ((data_length_CRT / 4) - 1)) begin
                                 state_NXT = RCV_CRC;
 
                                 bit_reset = 1'b1;
@@ -255,14 +261,14 @@ module sd_data_controller (
                             /* Shift bit in */
                             data_NXT = {data_CRT[6:0], sd_data_io[0]};
 
-                            if (bit_counter == DATA_LENGTH - 1) begin
+                            if (bit_counter == data_length_CRT - 1'b1) begin
                                 state_NXT = RCV_CRC;
 
                                 bit_reset = 1'b1;
                             end
 
                             /* A byte has been received */
-                            if (bit_counter[2:0] == '1) begin
+                            if (bit_counter[2:0] == 3'd7) begin
                                 rx_valid = !rx_full_i;
                             end
                         end
@@ -372,10 +378,10 @@ module sd_data_controller (
                              * Consider that the FIFO will take 1 cycle to output the data */
                             if (bit_counter[0] == 'b1) begin
                                 /* Don't read the last data to avoid FIFO problem */
-                                tx_read_o = bit_counter != ((DATA_LENGTH / 4) - 1);
+                                tx_read_o = bit_counter != ((data_length_CRT / 4) - 1);
                             end
 
-                            if (bit_counter == ((DATA_LENGTH / 4) - 1)) begin
+                            if (bit_counter == ((data_length_CRT / 4) - 1)) begin
                                 state_NXT = SEND_CRC;
                                 crc16_NXT = crc16_out;
 
@@ -388,12 +394,12 @@ module sd_data_controller (
 
                         if (shift_i) begin
                             /* A byte has been transmitted */
-                            if (bit_counter[2:0] == '1) begin
+                            if (bit_counter[2:0] == 3'd7) begin
                                 /* Don't read the last data to avoid FIFO problem */
-                                tx_read_o = bit_counter != (DATA_LENGTH - 1);
+                                tx_read_o = bit_counter != (data_length_CRT - 1'b1);
                             end
 
-                            if (bit_counter == (DATA_LENGTH - 1)) begin
+                            if (bit_counter == (data_length_CRT - 1'b1)) begin
                                 state_NXT = SEND_CRC;
 
                                 crc16_NXT = crc16_out;
@@ -587,4 +593,4 @@ module sd_data_controller (
 
 endmodule : sd_data_controller
 
-`endif 
+`endif
