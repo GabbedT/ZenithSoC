@@ -51,11 +51,15 @@ module cache_ddr_interface #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 str_select <= 1'b0;
-            end else begin 
-                if (store_channel.request) begin
-                    str_select <= !str_select;
-                end else begin
+            end else if (store_channel.request) begin
+                if (single_trx_i) begin
+                    /* A standalone store does not participate in 64-bit burst
+                     * packing and must leave the pair builder empty. */
                     str_select <= 1'b0;
+                end else begin
+                    /* Keep the partial pair across request gaps.  Cache
+                     * writeback may pause when the core is stalled. */
+                    str_select <= !str_select;
                 end
             end 
         end 
