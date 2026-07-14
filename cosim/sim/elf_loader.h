@@ -167,7 +167,7 @@ inline bool load_elf(const std::string& path, ElfImage& out) {
 
                     if (std::string(nm) == "tohost") {
                         out.tohost = st_value;
-                    } else {
+                    } else if (std::string(nm) == "data_area") {
                         out.data_area      = st_value;
                         out.data_area_size = st_size;
                     }
@@ -188,4 +188,4 @@ inline bool load_elf(const std::string& path, ElfImage& out) {
     return true;
 }
 
-#endif 
+#endif
