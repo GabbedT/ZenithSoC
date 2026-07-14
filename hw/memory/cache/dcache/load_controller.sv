@@ -276,7 +276,7 @@ module load_controller #(
                 WRITE_BACK: begin
                     if (!word_counter_CRT[OFFSET] & word_counter_CRT[OFFSET - 1:0] != '0) begin
                         /* Read only data sequentially */
-                        cache_read_o.data = 1'b1;
+                        cache_read_o.data = !stall_i;
                         cache_address_o = {cache_tag_i, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0}; 
 
                         /* Increment word counter */
@@ -371,4 +371,4 @@ module load_controller #(
 
 endmodule : load_controller 
 
-`endif 
+`endif
