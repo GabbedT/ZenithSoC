@@ -3,7 +3,7 @@
 
 ISA_BASE   := rv32i
 EXT_M      := m      # mul/div
-EXT_C      :=        # compressed -> set "c" to enable
+EXT_C      := c      # compressed -> set "c" to enable
 EXT_ZICSR  := zicsr  # CSR (required for zfinx / traps)
 EXT_ZBA    := zba    # address generation (sh1add/sh2add/sh3add ...)
 EXT_ZBS    := zbs    # single-bit operations (bset/bclr/binv/bext ...)
