@@ -69,7 +69,9 @@ module data_block #(
     logic [$clog2(BANK_NUMBER) - 1:0] data_select;
 
         always_ff @(posedge clk_i) begin
-            data_select <= read_bank_i;
+            if (read_i) begin
+                data_select <= read_bank_i;
+            end
         end
 
     /* Output assignment */
@@ -77,4 +79,4 @@ module data_block #(
 
 endmodule : data_block
 
-`endif 
+`endif
