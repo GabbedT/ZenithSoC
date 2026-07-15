@@ -71,7 +71,7 @@ class GeneratorArchitectureTests(unittest.TestCase):
             {"i", "m", "c", "zfinx", "zba", "zicsr"},
         )
 
-    def test_float_generators_never_emit_divide_or_square_root(self):
+    def test_float_generators_only_emit_supported_operations(self):
         rng = random.Random(17)
         generated = []
         for spec in floating_point.GENERATORS:
@@ -79,6 +79,10 @@ class GeneratorArchitectureTests(unittest.TestCase):
         text = "\n".join(generated)
         self.assertNotIn("fdiv", text)
         self.assertNotIn("fsqrt", text)
+        self.assertNotIn("fmadd", text)
+        self.assertNotIn("fmsub", text)
+        self.assertNotIn("fnmadd", text)
+        self.assertNotIn("fnmsub", text)
 
     def test_each_cli_class_generates_a_program(self):
         cases = (
