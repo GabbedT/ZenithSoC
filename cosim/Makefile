@@ -40,7 +40,7 @@ PROG      ?= tests/prog.c
 # --- Program generation / run parameters ------------------------------------
 SEED        ?= 0
 N           ?= 2000      			 # gen/run: instructions per program. regress: seed count
-CLASS       ?= arith,mem,branch,ctrl # arith,mem,branch,ctrl,float
+CLASS       ?= arith,mem,branch,ctrl,float # arith,mem,branch,ctrl,float
 MAX_RETIRE  ?= 0         			 # 0 = unlimited
 
 # A regression seed identifies one test inside a generator campaign. Keeping
