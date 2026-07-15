@@ -1,505 +1,102 @@
 #!/usr/bin/env python3
+"""Generate seeded random RV32 programs for the lockstep co-simulator."""
 
 import argparse
+import hashlib
 import random
 import sys
-
 from collections import Counter
 
-# Parse extensions from the ISA string
-def parse_ext(isa: str) -> set:
-    isa = isa.lower()
-    exts = set()
+from instructions import ALL_GENERATORS
+from instructions.common import DATA_BYTES, SAFE_REGS, initial_register_value
 
-    # Base single-letter extensions after rv32
-    body = isa
+
+def parse_extensions(isa: str) -> set:
+    """Extract single- and multi-letter extensions from an RV32 ISA string."""
+
+    body = isa.lower()
     if body.startswith("rv32"):
         body = body[4:]
 
-    # Single-letter extensions up to the first '_'
-    head = body.split("_")[0]
-    for ch in head:
-        exts.add(ch)           # i, m, c, a, f, ...
-
-    # Multi-letter extensions
-    # (zfinx, zba, zbs, zbb, zicsr, ...)
-    for tok in body.split("_")[1:]:
-        if tok:
-            exts.add(tok)
-
-    return exts
+    head, *multi_letter_extensions = body.split("_")
+    extensions = set(head)
+    extensions.update(ext for ext in multi_letter_extensions if ext)
+    return extensions
 
 
-# Usable GPRs
-SAFE_REGS = [f"x{i}" for i in range(5, 30)]  # x5..x30
-
-# Loop counter
-LOOP_REG = "x30"
-
-# Reserved data area
-MEM_BASE_REG = "x31"
-
-# To generate particular cache accesses
-DATA_BYTES = 32768
-CACHE_SIZE = 4096
-
-# Floating point enable
-NO_FDIV = False
-
-INTERESTING = [
-    0x00000000, 0x00000001, 0xFFFFFFFF, 0x80000000,
-    0x0000FFFF, 0xFFFF0000, 0x000000FF, 0x00000080,
-    0x40000000, 0xCAFEBABE, 
-
-    # Floats
-    0x3F800000,
-    0xBF800000,
-    0x7F800000,
-    0xFF800000,
-    0x7FC00000,
-    0x00800000,
-    0x40490FDB,
-]
-
-def init_value(rng):
-    if rng.random() < 0.5:
-        return rng.choice(INTERESTING)
-    return rng.randint(0, 0xFFFFFFFF)
-
-def rreg(rng):
-    return rng.choice(SAFE_REGS)
+# Kept for callers that imported the old helper directly.
+parse_ext = parse_extensions
 
 
-# ===========================================================
-# Arithm / Logic
-# ===========================================================
+def combined_seed(seed: int, generation_seed: int) -> int:
+    """Deterministically identify one test within one generator campaign."""
 
-def g_arith_i(rng):
-    op = rng.choice([
-        "add", "sub", "and", "or", "xor",
-        "sll", "srl", "sra", "slt", "sltu"
-    ])
-    return f"{op} {rreg(rng)}, {rreg(rng)}, {rreg(rng)}"
-
-
-def g_arith_imm(rng):
-    op = rng.choice([
-        "addi", "andi", "ori", "xori",
-        "slti", "sltiu"
-    ])
-    imm = rng.randint(-2048, 2047)
-    return f"{op} {rreg(rng)}, {rreg(rng)}, {imm}"
+    # Campaign zero preserves the stream produced by the historical --seed
+    # interface. Other campaigns use an unambiguous, stable integer mix.
+    if generation_seed == 0:
+        return seed
+    material = f"rvgen-v1:{generation_seed}:{seed}".encode("ascii")
+    return int.from_bytes(hashlib.sha256(material).digest(), "big")
 
 
-def g_shift_imm(rng):
-    op = rng.choice(["slli", "srli", "srai"])
-    return f"{op} {rreg(rng)}, {rreg(rng)}, {rng.randint(0,31)}"
+def build_pool(classes: set, extensions: set):
+    """Return generators compatible with the requested classes and ISA."""
 
-
-def g_lui(rng):
-    return f"lui {rreg(rng)}, {rng.randint(0, 0xFFFFF)}"
-
-
-def g_mul(rng):
-    op = rng.choice([
-        "mul", "mulh", "mulhu", "mulhsu",
-        "div", "divu", "rem", "remu"
-    ])
-    return f"{op} {rreg(rng)}, {rreg(rng)}, {rreg(rng)}"
-
-
-def g_zba(rng):
-    op = rng.choice(["sh1add", "sh2add", "sh3add"])
-    return f"{op} {rreg(rng)}, {rreg(rng)}, {rreg(rng)}"
-
-
-def g_zbs(rng):
-    op = rng.choice(["bset", "bclr", "binv", "bext"])
-    return f"{op} {rreg(rng)}, {rreg(rng)}, {rreg(rng)}"
-
-
-def g_zbb(rng):
-    op = rng.choice([
-        "min", "max", "minu", "maxu",
-        "andn", "orn", "xnor",
-        "rol", "ror",
-        "sext.b", "sext.h",
-        "zext.h",
-        "clz", "ctz", "cpop",
-        "orc.b", "rev8"
-    ])
-
-    if op in [
-        "sext.b", "sext.h", "zext.h",
-        "clz", "ctz", "cpop",
-        "orc.b", "rev8"
-    ]:
-        return f"{op} {rreg(rng)}, {rreg(rng)}"
-
-    return f"{op} {rreg(rng)}, {rreg(rng)}, {rreg(rng)}"
-
-
-
-def g_float(rng):
-    no_fdiv = NO_FDIV
-
-    # 3-operand arithmetic (need a rounding mode)
-    rm_ops = ["fadd.s", "fsub.s", "fmul.s"]
-    if not no_fdiv:
-        rm_ops += ["fdiv.s"]
-
-    # Sign-injection / min-max / compare (no rounding mode)
-    plain_ops = [
-        "fsgnj.s", "fsgnjn.s", "fsgnjx.s",
-        "fmin.s", "fmax.s",
-        "feq.s", "flt.s", "fle.s"
+    return [
+        generator
+        for generator in ALL_GENERATORS
+        if generator.is_enabled(classes, extensions)
     ]
 
-    # Conversions int<->float (rounding mode on the rounding forms)
-    cvt_to_int = ["fcvt.w.s", "fcvt.wu.s"]      # rd is int, needs rm
-    cvt_to_float = ["fcvt.s.w", "fcvt.s.wu"]    # rd is float-in-gpr, needs rm
 
-    # In zfinx, fmv.x.w / fmv.w.x do not exist (there are no separate F
-    # registers to move to/from), so only fclass.s remains as a plain move.
-    move_ops = ["fclass.s"]                     # no rm
-    unary_rm = [] if no_fdiv else ["fsqrt.s"]   # needs rm, single src
+def count_instruction(line: str, counts: Counter) -> None:
+    stripped = line.strip()
+    mnemonic = stripped.split()[0] if stripped else ""
+    if mnemonic and not mnemonic.endswith(":"):
+        counts[mnemonic] += 1
 
-    choice = rng.choice(["rm3", "plain", "cvt2i", "cvt2f", "mv", "unary", "fma"])
 
-    if choice == "rm3":
-        return f"{rng.choice(rm_ops)} {rreg(rng)}, {rreg(rng)}, {rreg(rng)}, rne"
+def emit_assembly_block(raw_block: str, counts: Counter):
+    """Convert a multiline assembly block to GCC inline-assembly strings."""
 
-    if choice == "plain":
-        return f"{rng.choice(plain_ops)} {rreg(rng)}, {rreg(rng)}, {rreg(rng)}"
+    emitted = []
+    for line in raw_block.splitlines():
+        line = line.strip()
+        if line:
+            count_instruction(line, counts)
+            emitted.append(f'        "{line}\\n"')
+    return emitted
 
-    if choice == "cvt2i":
-        return f"{rng.choice(cvt_to_int)} {rreg(rng)}, {rreg(rng)}, rne"
 
-    if choice == "cvt2f":
-        return f"{rng.choice(cvt_to_float)} {rreg(rng)}, {rreg(rng)}, rne"
-
-    if choice == "mv":
-        return f"{rng.choice(move_ops)} {rreg(rng)}, {rreg(rng)}"
-
-    if choice == "unary" and unary_rm:
-        return f"{rng.choice(unary_rm)} {rreg(rng)}, {rreg(rng)}, rne"
-
-    # fused multiply-add (4 regs + rm)
-    fma = rng.choice(["fmadd.s", "fmsub.s", "fnmadd.s", "fnmsub.s"])
-    return f"{fma} {rreg(rng)}, {rreg(rng)}, {rreg(rng)}, {rreg(rng)}, rne"
-
-
-
-# ===========================================================
-# Memory
-# ===========================================================
-
-def g_mem(rng):
-
-    # Aligned offset within the data area
-    # (0 .. DATA_BYTES-8)
-
-    width = rng.choice(["w", "h", "hu", "b", "bu"])
-
-    is_store = rng.random() < 0.5
-
-    # Alignment consistent with access width
-    align = {"w":4, "h":2, "hu":2, "b":1, "bu":1}[width]
-
-    off = rng.randrange(0, 1024, align)
-
-    if is_store:
-        sw = {
-            "w":"sw",
-            "h":"sh",
-            "hu":"sh",
-            "b":"sb",
-            "bu":"sb"
-        }[width]
-
-        return f"{sw} {rreg(rng)}, {off}({MEM_BASE_REG})"
-
-    else:
-        lw = {
-            "w":"lw",
-            "h":"lh",
-            "hu":"lhu",
-            "b":"lb",
-            "bu":"lbu"
-        }[width]
-
-        return f"{lw} {rreg(rng)}, {off}({MEM_BASE_REG})"
-
-
-# Index aliasing: two accesses to addresses that differ by exactly one
-# cache stride (CACHE_SIZE) collide on the cache index but carry different tags.
-def g_mem_alias(rng):
-    base = rng.randrange(0, 2048, 16)          # near access, fits the immediate
-    treg = rreg(rng)
-    return (
-        f"li {treg}, {base + CACHE_SIZE}\n"          # far offset (same index)
-        f"add {treg}, {treg}, {MEM_BASE_REG}\n"      # treg = &data_area + far
-        f"sw {rreg(rng)}, 0({treg})\n"               # store to far alias
-        f"lw {rreg(rng)}, {base}({MEM_BASE_REG})\n"  # load from near
-        f"sw {rreg(rng)}, 0({treg})\n"               # store to far alias again
-        f"lw {rreg(rng)}, {base}({MEM_BASE_REG})"    # load from near
-    )
-
-
-# Picks one 16-byte-aligned block inside data area and emits a short interleaved
-# burst of loads and stores into it, mixing widths and byte lanes. Every access
-# maps to the same cache index, so this deliberately stresses the dcache
-def g_mem_sameline(rng):
-    block = rng.randrange(0, 1024, 16)     # 16-byte aligned base in data_area
-    segs = []
-
-    for _ in range(rng.randint(3, 6)):
-        width = rng.choice(["w", "h", "hu", "b", "bu"])
-        align = {"w": 4, "h": 2, "hu": 2, "b": 1, "bu": 1}[width]
-        off = block + rng.randrange(0, 16, align)   # stays inside the block
-
-        if rng.random() < 0.5:
-            sw = {
-                "w": "sw",
-                "h": "sh",
-                "hu": "sh",
-                "b": "sb",
-                "bu": "sb"
-            }[width]
-            segs.append(f"{sw} {rreg(rng)}, {off}({MEM_BASE_REG})")
-        else:
-            lw = {
-                "w": "lw",
-                "h": "lh",
-                "hu": "lhu",
-                "b": "lb",
-                "bu": "lbu"
-            }[width]
-            segs.append(f"{lw} {rreg(rng)}, {off}({MEM_BASE_REG})")
-
-    return "\n".join(segs)
-
-
-# ===========================================================
-# Branch/jump
-# ===========================================================
-
-def g_branch(rng, label_id):
-    op = rng.choice(["beq","bne","blt","bge","bltu","bgeu"])
-    lbl = f"L{label_id}"
-
-    return (
-        f"{op} {rreg(rng)}, {rreg(rng)}, {lbl}\n"
-        f"    nop\n"
-        f"{lbl}:"
-    )
-
-
-# ===========================================================
-# Control flow (jal / jalr / bounded backward loops)
-# ===========================================================
-
-# Forward jal: unconditional skip-ahead, link to a throwaway reg.
-def g_jal_fwd(rng, label_id):
-    lbl = f"JF{label_id}"
-    return (
-        f"jal {rreg(rng)}, {lbl}\n"
-        f"    nop\n"          # skipped
-        f"{lbl}:"
-    )
-
-
-# Bounded backward loop: covers backward branch + backward control flow.
-def g_loop_back(rng, label_id):
-    lbl = f"LB{label_id}"
-    k = rng.randint(1, 4)
-    body = g_arith_imm(rng)
-    return (
-        f"li {LOOP_REG}, {k}\n"
-        f"{lbl}:\n"
-        f"    {body}\n"
-        f"    addi {LOOP_REG}, {LOOP_REG}, -1\n"
-        f"    bne {LOOP_REG}, x0, {lbl}"
-    )
-
-
-# jalr as a forward call to a materialized known target (never a random
-# address, which would jump anywhere and crash). la the target, jalr to it,
-# land just past a skipped nop.
-def g_jalr_call(rng, label_id):
-    tgt = f"JC{label_id}"
-    treg = rreg(rng)
-    link = rreg(rng)
-    return (
-        f"la {treg}, {tgt}\n"
-        f"    jalr {link}, {treg}, 0\n"
-        f"    nop\n"          # not executed (jalr lands on tgt)
-        f"{tgt}:"
-    )
-
-
-FAMILIES = [
-
-    # (class, required extension or None, function, takes_label?)
-
-    ("arith",  None,  g_arith_i,   False),
-    ("arith",  None,  g_arith_imm, False),
-    ("arith",  None,  g_shift_imm, False),
-    ("arith",  None,  g_lui,       False),
-    ("arith",  "m",   g_mul,       False),
-    ("arith",  "zba", g_zba,       False),
-    ("arith",  "zbs", g_zbs,       False),
-    ("arith",  "zbb", g_zbb,       False),
-
-    ("mem",    None,  g_mem,          False),
-    ("mem",    None,  g_mem_sameline, False),
-
-    ("memalias", None,  g_mem_alias, False),
-
-    ("branch", None,  g_branch,    True),
-
-    ("ctrl", None,  g_jal_fwd,   True),
-    ("ctrl", None,  g_loop_back, True),
-    ("ctrl", None,  g_jalr_call, True),
-
-    ("float", "zfinx",  g_float, True),
-]
-
-def build_pool(classes: set, exts: set):
-    pool = []
-
-    for cls, ext, fn, takes_label in FAMILIES:
-
-        if cls not in classes:
-            continue
-
-        if ext is None or ext in exts:
-            pool.append((fn, takes_label))
-
-    return pool
-
-
-def main():
-
-    ap = argparse.ArgumentParser()
-
-    ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--n", type=int, default=2000,
-                    help="number of instructions")
-
-    ap.add_argument("--class",
-                    dest="classes",
-                    default="arith,mem,branch,ctrl",
-                    help="classes: arith,mem,branch,ctrl,float (csv)")
-
-    ap.add_argument("--ext",
-                    default="rv32im_zfinx_zba_zbs_zicsr",
-                    help="ISA string (= $(ISA) from config.mk)")
-
-    ap.add_argument("--no-fdiv",
-                    action="store_true")
-
-    ap.add_argument("--priv",
-                    default="mu")
-
-    ap.add_argument("--out",
-                    default="cosim/tests/prog.c")
-    
-    ap.add_argument("--cov-out",
-                    dest="cov_out",
-                    default="",
-                    help="write a per-mnemonic histogram. Counts reset each rvgen.py"
-                         "invocation.")
-
-    args = ap.parse_args()
-
-    global NO_FDIV
-    NO_FDIV = args.no_fdiv
-
-    rng = random.Random(args.seed)
-
-    classes = set(
-        c.strip()
-        for c in args.classes.split(",")
-        if c.strip()
-    )
-
-    exts = parse_ext(args.ext)
-
-    pool = build_pool(classes, exts)
-
-    if not pool:
-        print(
-            "rvgen: no active instruction family for the selected classes/extensions",
-            file=sys.stderr
-        )
-        sys.exit(1)
-
-
-    opcounts = Counter()
-
-    def count_line(line):
-        tok = line.strip().split()[0] if line.strip() else ""
-
-        # Skip lables and empty lines; Count mnemonics
-        if tok and not tok.endswith(":"):
-            opcounts[tok] += 1
-
-
-    # Each "line" may contain multiple instructions
-    # (e.g. branch + label).
-    # Split them and emit them as separate C string fragments
-    # containing "...\\n", so that inline assembly compiles correctly.
-
-    def emit(raw_block):
-
-        segs = []
-
-        for ln in raw_block.split("\n"):
-            ln = ln.strip()
-
-            if ln:
-                count_line(ln)
-                segs.append(f'        "{ln}\\n"')
-
-        return segs
-
-    body_segs = []
+def generate_instruction_stream(rng, instruction_count, pool, counts):
+    emitted = []
     label_id = 0
-
-    for _ in range(args.n):
-
-        fn, takes_label = rng.choice(pool)
-
-        if takes_label:
-            body_segs += emit(fn(rng, label_id))
+    for _ in range(instruction_count):
+        generator = rng.choice(pool)
+        emitted.extend(emit_assembly_block(generator.generate(rng, label_id), counts))
+        if generator.needs_label:
             label_id += 1
-        else:
-            body_segs += emit(fn(rng))
+    return "\n".join(emitted)
 
-    asm_body = "\n".join(body_segs)
 
-    # Initialize source registers with known values
+def generate_register_initialization(rng, counts):
+    emitted = []
+    for register in SAFE_REGS:
+        line = f"li {register}, {initial_register_value(rng)}"
+        count_instruction(line, counts)
+        emitted.append(f'        "{line}\\n"')
 
-    init_segs = []
+    # x30 is only consumed after a loop generator has initialized it.  Giving
+    # it a known startup value still makes the generated program self-contained.
+    line = "li x30, 0"
+    count_instruction(line, counts)
+    emitted.append(f'        "{line}\\n"')
+    return "\n".join(emitted)
 
-    for i in range(5, 30):
-        count_line("li")
-        init_segs.append(
-            f'        "li x{i}, {init_value(rng)}\\n"'
-        )
 
-    for i in range(5, 31):
-        init_segs.append(
-            f'        "li x{i}, {rng.randint(0, 0x7fffffff)}\\n"'
-        )
-
-    init_body = "\n".join(init_segs)
-
-    with open(args.out, "w") as f:
-
-        f.write(f"""// AUTO-GENERATED by rvgen.py
-// seed={args.seed} ext={args.ext} priv={args.priv}
+def render_program(args, register_initialization, instruction_stream):
+    return f"""// AUTO-GENERATED by rvgen.py
+// gen_seed={args.gen_seed} seed={args.seed} ext={args.ext} priv={args.priv}
 
 // Data area reserved for load/store operations (aligned).
 static volatile unsigned char data_area[{DATA_BYTES}]
@@ -515,11 +112,11 @@ void main(void)
         // --- Initialize source registers
         //     (known, deterministic values) ---
 
-{init_body}
+{register_initialization}
 
         // --- Random instruction stream ---
 
-{asm_body}
+{instruction_stream}
 
         :
         : "r"(base)
@@ -531,20 +128,96 @@ void main(void)
           "memory"
     );
 }}
-""")
+"""
 
-    if args.cov_out:
-        with open(args.cov_out, "w") as cf:
-            for op, n in sorted(opcounts.items()):
-                cf.write(f"{op} {n}\n")
 
-    print(
-        f"rvgen: wrote {args.out} "
-        f"({args.n} instructions, "
-        f"classes={sorted(classes)}, "
-        f"active extensions={sorted(exts)})"
+def write_coverage(path, counts):
+    if not path:
+        return
+    coverage_file = sys.stdout if path == "-" else open(path, "w", encoding="utf-8")
+    try:
+        for mnemonic, count in sorted(counts.items()):
+            coverage_file.write(f"{mnemonic} {count}\n")
+    finally:
+        if coverage_file is not sys.stdout:
+            coverage_file.close()
+
+
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--gen-seed",
+        type=int,
+        default=0,
+        help="generator campaign seed; combines with --seed for reproducible variation",
     )
+    parser.add_argument("--n", type=int, default=2000, help="number of generator blocks")
+    parser.add_argument(
+        "--class",
+        dest="classes",
+        default="arith,mem,branch,ctrl",
+        help="classes: arith,mem,branch,ctrl,float (csv)",
+    )
+    parser.add_argument(
+        "--ext",
+        default="rv32im_zfinx_zba_zbs_zicsr",
+        help="ISA string (= $(ISA) from config.mk)",
+    )
+    parser.add_argument(
+        "--no-fdiv",
+        action="store_true",
+        help="compatibility option; fdiv/fsqrt generation is always disabled",
+    )
+    parser.add_argument("--priv", default="mu")
+    parser.add_argument("--out", default="cosim/tests/prog.c")
+    parser.add_argument(
+        "--cov-out",
+        dest="cov_out",
+        default="",
+        help="write a per-mnemonic histogram for this invocation",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="suppress the generation summary (useful when coverage is sent to stdout)",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    rng = random.Random(combined_seed(args.seed, args.gen_seed))
+    classes = {name.strip() for name in args.classes.split(",") if name.strip()}
+    extensions = parse_extensions(args.ext)
+    pool = build_pool(classes, extensions)
+
+    if not pool:
+        print(
+            "rvgen: no active instruction family for the selected classes/extensions",
+            file=sys.stderr,
+        )
+        return 1
+
+    counts = Counter()
+    instruction_stream = generate_instruction_stream(rng, args.n, pool, counts)
+    register_initialization = generate_register_initialization(rng, counts)
+    program = render_program(args, register_initialization, instruction_stream)
+
+    with open(args.out, "w", encoding="utf-8") as output_file:
+        output_file.write(program)
+    write_coverage(args.cov_out, counts)
+
+    if not args.quiet:
+        print(
+            f"rvgen: wrote {args.out} "
+            f"({args.n} generator blocks, "
+            f"gen_seed={args.gen_seed}, seed={args.seed}, "
+            f"classes={sorted(classes)}, "
+            f"active extensions={sorted(extensions)})"
+        )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
