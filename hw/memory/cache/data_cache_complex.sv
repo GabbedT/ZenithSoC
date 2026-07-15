@@ -341,8 +341,17 @@ module data_cache_complex #(
     assign ldu_address_check = ldu_channel.address;
     assign stu_address_check = stu_channel.address;
         
-    assign ld_lock = (ldu_channel.request & !io_load_request) & ((ldu_address_check.index == st_lock_address.index) & st_lock_acquired);
-    assign st_lock = (stu_channel.request & !io_store_request) & ((stu_address_check.index == ld_lock_address.index) & ld_lock_acquired);
+    assign ld_lock = (ldu_channel.request & !io_load_request)
+                   & (ldu_address_check.index == st_lock_address.index)
+                   & st_lock_acquired;
+
+    /* Load requests have priority when both channels start a transaction in the
+     * same cycle. Without this check both controllers can observe the same
+     * direct-mapped line, allowing a later load refill to overwrite the store. */
+    assign st_lock = (stu_channel.request & !io_store_request)
+                    & (((stu_address_check.index == ld_lock_address.index) & ld_lock_acquired)
+                    | ((stu_address_check.index == ldu_address_check.index)
+                    & ldu_channel.request & !io_load_request));
 
         always_ff @(posedge clk_i) begin
             if (!rst_n_i) begin
@@ -391,4 +400,4 @@ module data_cache_complex #(
 
 endmodule : data_cache_complex 
 
-`endif 
+`endif

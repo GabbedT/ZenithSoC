@@ -3,6 +3,8 @@
 **/*.txt
 
 **/*.log
+**/__pycache__/
+**/*.pyc
 
 **/.vscode/settings.json
 
@@ -13,6 +15,7 @@ cosim/out/
 cosim/obj_dir/
 cosim/logs/
 cosim/tests/
+cosim/.genseed
 
 tb/verilator/out/
 tb/verilator/obj_dir/
