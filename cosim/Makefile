@@ -7,6 +7,7 @@
 #   make gen        generates a random program (SEED, N, CLASS)
 #   make run        build + gen + firmware + lockstep execution on one program
 #   make regress    generates and executes N programs (SEED 0..N-1)
+#   make genseed    starts a new generator campaign
 #   make info       prints resolved ISA/priv/tool configuration
 #   make wave       opens the waveform from the latest run
 #   make clean
@@ -41,6 +42,12 @@ SEED        ?= 0
 N           ?= 2000      			 # gen/run: instructions per program. regress: seed count
 CLASS       ?= arith,mem,branch,ctrl # arith,mem,branch,ctrl,float
 MAX_RETIRE  ?= 0         			 # 0 = unlimited
+
+# A regression seed identifies one test inside a generator campaign. Keeping
+# the campaign seed in a file makes repeated `make run SEED=N` deterministic;
+# `make genseed` changes the campaign and therefore the whole test population.
+GEN_SEED_FILE ?= .genseed
+GEN_SEED      ?= $(shell test -f $(GEN_SEED_FILE) && cat $(GEN_SEED_FILE) || echo 0)
 
 # Instructions per generated program during a regression sweep. Kept separate
 # from N so `make regress N=64` means "64 seeds", each a PROG_LEN-instr program.
@@ -83,7 +90,7 @@ endif
 # Parallel regression fan-out width (one verilator run per seed, JOBS at a time).
 JOBS ?= $(shell nproc)
 
-.PHONY: all build gen firmware boot run run-notrace regress regress-one \
+.PHONY: all build gen genseed firmware boot run run-notrace regress regress-one \
         coverage-report verilator-coverage info wave clean
 
 all: build
@@ -109,8 +116,17 @@ build:
 
 gen:
 	@mkdir -p tests
-	$(PYTHON) gen/rvgen.py --seed $(SEED) --n $(N) --class $(CLASS) \
+	$(PYTHON) gen/rvgen.py --seed $(SEED) --gen-seed $(GEN_SEED) \
+		--n $(N) --class $(CLASS) \
 		$(GEN_FLAGS) --out $(PROG)
+
+# Start a new deterministic generator campaign. The selected value remains in
+# effect until this target is called again and is intentionally not cleaned.
+genseed:
+	@new_seed=$$(od -An -N8 -tu8 /dev/urandom | tr -d ' '); \
+	printf '%s\n' "$$new_seed" > $(GEN_SEED_FILE).tmp; \
+	mv $(GEN_SEED_FILE).tmp $(GEN_SEED_FILE); \
+	echo "=== [COSIM] new generator campaign: GEN_SEED=$$new_seed ==="
 
 
 # ==========================================================================
@@ -139,7 +155,7 @@ boot:
 # ==========================================================================
 
 run: build gen firmware boot
-	@echo "=== [COSIM] Running lockstep (SEED=$(SEED)) ==="
+	@echo "=== [COSIM] Running lockstep (GEN_SEED=$(GEN_SEED) SEED=$(SEED)) ==="
 	./obj_dir/Vcosim_top +firmware=$(OUT)/firmware.elf +boot=$(OUT)/boot.elf \
 		$(if $(filter-out 0,$(MAX_RETIRE)),+max_retire=$(MAX_RETIRE),)
 
@@ -155,13 +171,17 @@ run-notrace: build gen firmware boot
 # ==============================================================================
 
 COVDIR = $(OUT)/cov
+COVFILE = $(COVDIR)/regress.cov
+COVLOCK = $(COVDIR)/.regress.cov.lock
 RTDIR  = $(OUT)/rtt
 
 # Run ONE seed in an isolated workdir
 regress-one:
 	@d=$(RTDIR)/seed$(SEED); mkdir -p $$d $(COVDIR); \
-	$(PYTHON) gen/rvgen.py --seed $(SEED) --n $(PROG_LEN) --class $(CLASS) $(GEN_FLAGS) \
-		--out $$d/prog.c --cov-out $(COVDIR)/seed$(SEED).cov >/dev/null; \
+	$(PYTHON) gen/rvgen.py --seed $(SEED) --gen-seed $(GEN_SEED) \
+		--n $(PROG_LEN) --class $(CLASS) $(GEN_FLAGS) \
+		--out $$d/prog.c --cov-out - --quiet \
+		| flock $(COVLOCK) sh -c 'awk '\''{ total[$$1] += $$2 } END { for (op in total) print op, total[op] }'\'' $(COVFILE) - | sort > $(COVFILE).tmp && mv $(COVFILE).tmp $(COVFILE)'; \
 	$(RISCV_GCC) $(MARCH_FLAGS) -fno-use-cxa-atexit -fno-exceptions -nostartfiles \
 		-O2 -ffreestanding -T $(LINK_USER) $(CRT0) $$d/prog.c -o $$d/fw.elf 2>/dev/null; \
 	if ./obj_dir/Vcosim_top +firmware=$$d/fw.elf +boot=$(OUT)/boot.elf +notrace \
@@ -170,16 +190,18 @@ regress-one:
 		echo "seed $(SEED) : PASS"; \
 		rm -rf $$d; \
 	else \
-		echo "seed $(SEED) : FAIL (log: $$d/log, rerun: make run SEED=$(SEED))"; \
+		echo "seed $(SEED) : FAIL (log: $$d/log, rerun: make run SEED=$(SEED) GEN_SEED=$(GEN_SEED))"; \
 		exit 1; \
 	fi
 
 # Parallel sweep of seeds 0..N-1. Each seed reuses the same N for its program
 # length; override per-seed length is not needed since N controls both here.
 regress: build boot
-	@rm -rf $(RTDIR) $(COVDIR); mkdir -p $(RTDIR) $(COVDIR); \
+	@echo "=== [COSIM] regression campaign GEN_SEED=$(GEN_SEED) ==="; \
+	rm -rf $(RTDIR) $(COVDIR); mkdir -p $(RTDIR) $(COVDIR); : > $(COVFILE); \
 	seq 0 $$(($(N)-1)) \
-	| xargs -P $(JOBS) -I{} $(MAKE) --no-print-directory regress-one SEED={} PROG_LEN=$(PROG_LEN) \
+	| xargs -P $(JOBS) -I{} $(MAKE) --no-print-directory regress-one SEED={} \
+		GEN_SEED=$(GEN_SEED) PROG_LEN=$(PROG_LEN) \
 	| tee $(OUT)/regress.log; \
 	pass=$$(grep -c ': PASS' $(OUT)/regress.log); \
 	fail=$$(grep -c ': FAIL' $(OUT)/regress.log); \
@@ -192,13 +214,14 @@ regress: build boot
 # ---- Coverage ----------------------------------------------------------------
 # ==============================================================================
 
-# Layer A: aggregate the generator opcode histograms (--cov-out sidecars)
-# produced by a regression sweep into a single union histogram.
+# Layer A: aggregate the generator opcode histograms produced by a regression
+# sweep into one union histogram. `regress` merges under a lock, so it does
+# not create one coverage sidecar per seed.
 coverage-report:
-	@cat $(COVDIR)/*.cov 2>/dev/null \
+	@cat $(COVFILE) 2>/dev/null \
 	| awk '{c[$$1]+=$$2} END{for(o in c) printf "%-12s %d\n", o, c[o]}' \
 	| sort -k2 -nr
-	@echo "=== distinct mnemonics exercised: $$(cat $(COVDIR)/*.cov 2>/dev/null | awk '{print $$1}' | sort -u | wc -l) ==="
+	@echo "=== distinct mnemonics exercised: $$(cat $(COVFILE) 2>/dev/null | awk '{print $$1}' | sort -u | wc -l) ==="
 
 # Layer B: annotate Verilator structural coverage. Requires a COVERAGE=1 build
 # followed by a run (which writes coverage.dat in the run cwd).
@@ -217,6 +240,8 @@ info:
 	@echo "PRIV        : $(s_PRIV)"
 	@echo "MARCH_FLAGS : $(MARCH_FLAGS)"
 	@echo "GEN_FLAGS   : $(GEN_FLAGS)"
+	@echo "GEN_SEED    : $(GEN_SEED)"
+	@echo "GEN_SEED_FILE: $(GEN_SEED_FILE)"
 	@echo "VERILATOR   : $(VERILATOR)"
 	@echo "RISCV_GCC   : $(RISCV_GCC)"
 	@echo "SPIKE_DIR   : $(SPIKE_DIR)"
