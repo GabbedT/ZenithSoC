@@ -9,7 +9,7 @@ from .common import GeneratorSpec, INTERESTING_FLOAT_VALUES, random_register
 
 
 def generate_float_operation(rng, _label_id):
-    category = rng.choice(("arithmetic", "plain", "to_int", "to_float", "class", "fma"))
+    category = rng.choice(("arithmetic", "plain", "to_int", "to_float", "class"))
 
     if category == "arithmetic":
         op = rng.choice(("fadd.s", "fsub.s", "fmul.s"))
@@ -32,11 +32,7 @@ def generate_float_operation(rng, _label_id):
     if category == "class":
         return f"fclass.s {random_register(rng)}, {random_register(rng)}"
 
-    op = rng.choice(("fmadd.s", "fmsub.s", "fnmadd.s", "fnmsub.s"))
-    return (
-        f"{op} {random_register(rng)}, {random_register(rng)}, "
-        f"{random_register(rng)}, {random_register(rng)}, rne"
-    )
+    raise AssertionError(f"unknown floating-point category: {category}")
 
 
 def generate_float_operand_corner(rng, _label_id):
