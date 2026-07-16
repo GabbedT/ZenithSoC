@@ -62,7 +62,7 @@ public:
      * 
      * @return The GPIO object itself to chain the function call.
      */
-    GPIO& init(uint8_t value, uint8_t direction, uint8_t interruptEnable, uint8_t interruptLevel);
+    GPIO& init(uint8_t value, uint8_t direction, uint8_t interruptEnable, triggerLevel_e interruptLevel);
 
     /**
      * @brief Set the pin value of a specific pin in the GPIO group 

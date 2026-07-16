@@ -62,7 +62,7 @@ package soc_parameters;
     localparam TIMER_DEVICE_NUMBER = 1;
 
     /* Memory mapped registers */
-    localparam TIMER_DEVICE_SPACE = 5;
+    localparam TIMER_DEVICE_SPACE = 8;
 
     /* Timer MMIO address */
     localparam TIMER_BASE_ADDRESS = UART_BASE_ADDRESS + 2**13;
@@ -77,7 +77,7 @@ package soc_parameters;
     localparam GPIO_DEVICE_NUMBER = 1;
 
     /* Memory mapped registers */
-    localparam GPIO_DEVICE_SPACE = 4;
+    localparam GPIO_DEVICE_SPACE = 6;
 
     /* GPIO MMIO address */
     localparam GPIO_BASE_ADDRESS = TIMER_BASE_ADDRESS + 2**13;

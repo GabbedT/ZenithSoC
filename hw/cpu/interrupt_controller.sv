@@ -21,8 +21,20 @@ module interrupt_controller #(
 //      INTERRUPT LOGIC
 //====================================================================================
 
-    /* Save pending interrupts */
+    /* Save pending interrupts. A level may remain asserted while software is
+     * servicing it, so only a new rising edge may enqueue another request. */
     logic [INTERRUPTS - 1:0] interrupt_pending, clear_interrupt;
+    logic [INTERRUPTS - 1:0] interrupt_previous, interrupt_event;
+
+    assign interrupt_event = interrupt_i & ~interrupt_previous;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                interrupt_previous <= '0;
+            end else begin
+                interrupt_previous <= interrupt_i;
+            end
+        end
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
@@ -33,7 +45,7 @@ module interrupt_controller #(
                     if (clear_interrupt[i]) begin  
                         interrupt_pending[i] <= 1'b0;
                     end else begin
-                        interrupt_pending[i] <= interrupt_pending[i] | interrupt_i[i];
+                        interrupt_pending[i] <= interrupt_pending[i] | interrupt_event[i];
                     end
                 end 
             end 
