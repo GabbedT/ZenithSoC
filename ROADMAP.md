@@ -11,8 +11,10 @@ The project will be developed using an incremental approach, structured into fou
 * Add CPU cosimulation with Spike ✅
 
 * Add an easy way to sync SoC Memory Map and Parameters to VP - SW - TB
-* 
+  
 * Update documentation on ZenithSoC and ApogeoRV
+
+* Add a single point Makefile to execute each workflow
 
 
 ### Testing
@@ -27,9 +29,13 @@ The project will be developed using an incremental approach, structured into fou
 
 * Port SW driven test on VP to firmware for test to do a regression suite
 
+* C extension verification ✅
+* Zfinx extension verification ✅
+* CPU level test interrupts verification ✅
+* SoC level interrupt verification ✅
 * WFI instruction with verification
-* CPU level test interrupts verification
-* SoC level interrupt verification
+* Exception verification
+* Privilege level verification
 
 
 ### Benchmark & Performance
@@ -46,14 +52,12 @@ The project will be developed using an incremental approach, structured into fou
 
 * Embench-IoT bug on huffbench as test FAIL
 * Fix bugs in Cache Complex ✅
-* Fix C extension bugs
-* Fix Zfinx extension bugs
+* Fix C extension bugs ✅
+* Fix Zfinx extension bugs ✅
 
 
 ### Design
 
-* Fix every interrupt interface in blocks (with C1W pending)
-* Modify interrupt unit (add level / edges detection)
 * Add external interrupts
 
 * I2C design and verification
