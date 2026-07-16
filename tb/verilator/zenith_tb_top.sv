@@ -21,7 +21,6 @@ module zenith_tb_top (
     localparam int unsigned STORE_OP = 18;
     localparam int unsigned LOAD_OP  = 19;
 
-
 // ============================================================================
 //      EXTERNAL PIN NETS (tied off / open)
 // ============================================================================
@@ -30,16 +29,25 @@ module zenith_tb_top (
     wire [GPIO_DEVICE_NUMBER - 1:0][7:0] pin_io;
 
     /* UART */
-    logic [UART_DEVICE_NUMBER - 1:0] uart_rx_i  = '1; // idle line high
+    wire  [UART_DEVICE_NUMBER - 1:0] uart_rx_i;
     logic [UART_DEVICE_NUMBER - 1:0] uart_cts_i = '0;
     wire  [UART_DEVICE_NUMBER - 1:0] uart_tx_o;
     wire  [UART_DEVICE_NUMBER - 1:0] uart_rts_o;
+
+    /* Local loopback used by the interrupt firmware to exercise RX events */
+    assign uart_rx_i = uart_tx_o;
 
     /* SPI */
     wire  [SPI_DEVICE_NUMBER - 1:0]                   spi_sclk_o;
     wire  [SPI_DEVICE_NUMBER - 1:0][SPI_SLAVES - 1:0] spi_cs_n_o;
     wire  [SPI_DEVICE_NUMBER - 1:0]                   spi_mosi_o;
-    logic [SPI_DEVICE_NUMBER - 1:0]                   spi_miso_i = '0;
+    wire  [SPI_DEVICE_NUMBER - 1:0]                   spi_miso_i;
+
+    /* Local loopback: a complete transaction does not require a slave model */
+    assign spi_miso_i = spi_mosi_o;
+
+    /* GPIO0 drives GPIO1 so software can generate deterministic input edges */
+    assign pin_io[0][1] = pin_io[0][0];
 
     /* RMII Ethernet */
     wire  [1:0] rmii_rxd_io;
