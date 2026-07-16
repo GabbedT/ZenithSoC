@@ -208,7 +208,7 @@ module ZenithSoC #(
     logic single_store_trx, load_instruction, load_trx_room;
 
     /* Interrupt nets */
-    logic interrupt, nmsk_interrupt, timer_interrupt, interrupt_ackn;
+    logic interrupt, general_interrupt, nmsk_interrupt, timer_interrupt, interrupt_ackn;
     logic [7:0] int_vector;
 
     /* CPU Halt */
@@ -251,11 +251,11 @@ module ZenithSoC #(
         .ldr_ready_i ( load_trx_room ),
 
         /* Interrupts */
-        .gen_interrupt_i    ( interrupt       ),
-        .nmsk_interrupt_i   ( nmsk_interrupt  ),
-        .timer_interrupt_i  ( timer_interrupt ), 
-        .interrupt_vector_i ( int_vector      ),
-        .interrupt_ackn_o   ( interrupt_ackn  )
+        .gen_interrupt_i    ( general_interrupt ),
+        .nmsk_interrupt_i   ( nmsk_interrupt    ),
+        .timer_interrupt_i  ( timer_interrupt   ),
+        .interrupt_vector_i ( int_vector        ),
+        .interrupt_ackn_o   ( interrupt_ackn    )
     );
 
 
@@ -276,9 +276,11 @@ module ZenithSoC #(
         .vector_o      ( int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] )
     );
 
-    assign timer_interrupt = (int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] == 2) & interrupt;
+    assign timer_interrupt = (int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] == 7) & interrupt;
 
-    assign nmsk_interrupt = (int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] == 3) & interrupt;
+    assign nmsk_interrupt = (int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] == 8) & interrupt;
+
+    assign general_interrupt = interrupt & !timer_interrupt & !nmsk_interrupt;
 
     assign int_vector[7:$clog2(INTERRUPT_SOURCES)] = '0;
 
