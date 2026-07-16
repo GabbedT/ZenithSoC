@@ -23,3 +23,5 @@ tb/verilator/logs/
 
 sw/benchmark/CoreMark/out
 sw/benchmark/Embench-IoT/out
+
+sw/test/out
