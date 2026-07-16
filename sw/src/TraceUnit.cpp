@@ -15,9 +15,9 @@
 TraceUnit::TraceUnit() : 
     baseAddress ( ( uint32_t *       )  ( TRACE_UNIT_BASE  ) ),
     status      ( ( traceStatus_s *  )  ( baseAddress      ) ),
-    control     ( ( traceControl_s * )  ( baseAddress + 4  ) ),
-    eventEnable ( ( eventEnable_s *  )  ( baseAddress + 8  ) ),
-    triggerPC   ( ( uint32_t *       )  ( baseAddress + 12 ) ) {
+    control     ( ( traceControl_s * )  ( baseAddress + 1  ) ),
+    eventEnable ( ( eventEnable_s *  )  ( baseAddress + 2  ) ),
+    triggerPC   ( ( uint32_t *       )  ( baseAddress + 3  ) ) {
     
     /* Disable all trace functionality */
     control->enableBranchTrace = false;
@@ -57,9 +57,9 @@ TraceUnit::TraceUnit() :
 TraceUnit::TraceUnit(traceControl_s config, eventEnable_s event) : 
     baseAddress ( ( uint32_t *       )  ( TRACE_UNIT_BASE  ) ),
     status      ( ( traceStatus_s *  )  ( baseAddress      ) ),
-    control     ( ( traceControl_s * )  ( baseAddress + 4  ) ),
-    eventEnable ( ( eventEnable_s *  )  ( baseAddress + 8  ) ),
-    triggerPC   ( ( uint32_t *       )  ( baseAddress + 12 ) ) {
+    control     ( ( traceControl_s * )  ( baseAddress + 1  ) ),
+    eventEnable ( ( eventEnable_s *  )  ( baseAddress + 2  ) ),
+    triggerPC   ( ( uint32_t *       )  ( baseAddress + 3  ) ) {
 
     control->enableBranchTrace = config.enableBranchTrace;
     control->enableTimestampBranch = config.enableTimestampBranch;

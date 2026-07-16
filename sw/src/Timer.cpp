@@ -25,11 +25,14 @@ Timer::Timer(uint32_t timerNumber) :
     baseAddress   ( (uint32_t *) (TIMER_BASE + (timerNumber * 8)) ),
     threshold     ( (uint64_t *) baseAddress                      ),
     value         ( (uint64_t *) (baseAddress + 2)                ),
-    configuration ( (timerConfig_s *) (baseAddress + 4)           ) {
+    pwmToggle     ( (uint64_t *) (baseAddress + 4)                ),
+    configuration ( (timerConfig_s *) (baseAddress + 6)           ),
+    interruptConfiguration ( (timerIrqConfig_s *) (baseAddress + 7) ) {
     
     /* Disable timer counting and interrupt generation */
     configuration->enableTimer = false;
-    configuration->interruptEnable = false;
+    interruptConfiguration->interruptEnable = false;
+    clearInterrupt();
 
     /* Count from zero to maximum 64 bit integer */
     *value = 0L;
@@ -47,7 +50,8 @@ Timer::Timer(uint32_t timerNumber) :
 Timer::~Timer() {
     /* Disable timer counting and interrupt generation */
     configuration->enableTimer = false;
-    configuration->interruptEnable = false;
+    interruptConfiguration->interruptEnable = false;
+    clearInterrupt();
 
     /* Count from zero to maximum 64 bit integer */
     *value = 0L;
@@ -69,7 +73,8 @@ Timer::~Timer() {
  */
 Timer& Timer::init(uint64_t threshold, timerMode_e mode) {
     /* Disable interrupts to avoid any undesired interrupt */
-    configuration->interruptEnable = false;
+    interruptConfiguration->interruptEnable = false;
+    clearInterrupt();
 
     /* User defined configuration */
     *this->threshold = threshold;
@@ -90,15 +95,18 @@ Timer& Timer::init(uint64_t threshold, timerMode_e mode) {
 Timer& Timer::pwm(uint64_t limit, uint64_t toggle) {
     /* Free running to not halt after reaching the limit */
     configuration->timerMode = FREE_RUNNING;
-    configuration->interruptEnable = false;
+    interruptConfiguration->interruptEnable = false;
 
     /* Set limits */
-    this->threshold = limit
-    this->pwmToggle = toggle;
+    *this->threshold = limit;
+    *this->pwmToggle = toggle;
 
     /* Start timer */
+    configuration->enablePWM = true;
     configuration->enableTimer = true;
     configuration->halted = false;
+
+    return *this;
 }
 
 
@@ -121,7 +129,7 @@ Timer& Timer::delay(uint64_t millis) {
     setTime(0);
 
     /* Setup threshold and start */
-    setThreshold(millis * (SYSTEM_FREQUENCY / CLOCK_PERIOD));
+    setThreshold(millis * (SYSTEM_FREQUENCY / 1000));
     start();
     
     /* Wait until timer halts */
@@ -154,7 +162,7 @@ Timer& Timer::restart() {
  * @return Return a 64 bit integer rapresenting the number of milliseconds.
  */
 uint64_t Timer::getMillis() const {
-    uint64_t timerValue = this->value;
+    uint64_t timerValue = *this->value;
 
     /* 1ms is 10^6 ns, however the timer might increment once Xns, 
      * then divide the divisor value for the incrementing period */
@@ -172,7 +180,7 @@ uint64_t Timer::getMillis() const {
  * @return a float value representing the time elapsed in the specified format.
  */
 uint64_t Timer::timeElapsed(timeFormat_e format) const {
-    float uint64_t = this->value;
+    uint64_t timerValue = *this->value;
 
     switch (format) {
         case NANO:
@@ -180,25 +188,25 @@ uint64_t Timer::timeElapsed(timeFormat_e format) const {
         break;
 
         case MILLI:
-            return timerValue / (1e+6 / CLOCK_PERIOD);
+            return timerValue / (SYSTEM_FREQUENCY / 1000);
         break;
 
         case SECONDS:
-            return timerValue / (1e+9 / CLOCK_PERIOD);
+            return timerValue / SYSTEM_FREQUENCY;
         break;
 
         case MINUTES:
-            return (timerValue / (1e+9 / CLOCK_PERIOD)) / 60;
+            return (timerValue / SYSTEM_FREQUENCY) / 60;
         break;
 
         case HOURS:
-            return (timerValue / (1e+9 / CLOCK_PERIOD)) / 3600;
+            return (timerValue / SYSTEM_FREQUENCY) / 3600;
         break;
         
         default:
-            return 0.0;
+            return 0;
         break;
     }
 }
 
-#endif 
+#endif

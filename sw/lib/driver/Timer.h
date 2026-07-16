@@ -11,7 +11,7 @@ public:
      * 
      * FREE_RUNNING: After interrupt, the timer keeps incrementing
      * ONE_SHOT: After interrupt, the timer stops incrementing */
-    enum timerMode_e { FREE_RUNNING, ONE_SHOT };
+    enum timerMode_e { FREE_RUNNING, ONE_SHOT, WRAP_AROUND };
 
     /* Time format */
     enum timeFormat_e { HOURS, MINUTES, SECONDS, MILLI, NANO };
@@ -20,10 +20,16 @@ public:
     struct timerConfig_s {
         unsigned int enableTimer : 1;
         unsigned int enablePWM : 1;
-        unsigned int timerMode : 1;
-        unsigned int interruptEnable : 1;
+        unsigned int timerMode : 2;
         unsigned int halted : 1;
-        unsigned int padding : 28;
+        unsigned int padding : 27;
+    };
+
+    /* Interrupt configuration register fields */
+    struct timerIrqConfig_s {
+        unsigned int interruptEnable : 1;
+        unsigned int interruptPending : 1;
+        unsigned int padding : 30;
     };
 
 
@@ -44,6 +50,9 @@ public:
 
     /* Configuration register */
     volatile struct timerConfig_s* volatile const configuration;
+
+    /* Interrupt configuration register */
+    volatile struct timerIrqConfig_s* volatile const interruptConfiguration;
 
 
 
@@ -72,7 +81,19 @@ public:
      * @return The Timer object itself to chain the function call.
      */
     inline Timer& setInterrupt(bool enable) {
-        configuration->interruptEnable = enable;
+        interruptConfiguration->interruptEnable = enable;
+
+        return *this;
+    };
+
+    /**
+     * @brief Clear the pending interrupt flag. The register implements
+     * write-one-to-clear semantics.
+     *
+     * @return The Timer object itself to chain the function call.
+     */
+    inline Timer& clearInterrupt() {
+        interruptConfiguration->interruptPending = true;
 
         return *this;
     };

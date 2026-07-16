@@ -30,7 +30,7 @@ public:
         /* RX buffer full */
         RX_FULL = 1 << 2,
 
-        /* RX buffer full */
+        /* TX buffer empty */
         TX_EMPTY = 1 << 3,
 
         /* RX buffer full */

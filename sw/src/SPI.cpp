@@ -30,7 +30,7 @@ SPI::SPI(uint32_t spiNumber) :
     setMode(MODE0);
 
     spiError_e dummy;
-    setFrequency(1'000'000, dummy); 
+    setFrequency(1'000'000, &dummy);
 };
 
 
@@ -61,7 +61,9 @@ SPI& SPI::init(uint32_t clkFreq, spiMode_e spiMode, bitOrder_e bitOrder, spiErro
 
 SPI& SPI::connect(uint32_t slaveIndex, spiError_e* error) {
     if (slaveIndex > (SPI_SLAVES - 1)) {
-        *error = INDEX_OUT_OF_RANGE;
+        if (error) {
+            *error = INDEX_OUT_OF_RANGE;
+        }
 
         return *this;
     }
@@ -80,8 +82,10 @@ SPI& SPI::connect(uint32_t slaveIndex, spiError_e* error) {
 
 
 SPI& SPI::setFrequency(uint32_t clkFreq, spiError_e* error) {
-    if (clkFreq > (SYSTEM_FREQUENCY / 2)) {
-        *error = ILLEGAL_CLOCK;
+    if ((clkFreq == 0) || (clkFreq > (SYSTEM_FREQUENCY / 2))) {
+        if (error) {
+            *error = ILLEGAL_CLOCK;
+        }
 
         return *this;
     }
@@ -183,7 +187,7 @@ SPI& SPI::retrieve(uint8_t* rxBuf, uint32_t size, spiError_e* error) {
 void SPI::unloadBufferRX (uint8_t* data, uint32_t size) {
     for (int i = 0; i < size; ++i) {
         /* Wait for bytes in buffer */
-        while (!status->emptyRX) {  }
+        while (status->emptyRX) {  }
 
         /* Store byte */
         data[i] = *bufferRX;
