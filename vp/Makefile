@@ -69,6 +69,7 @@ VFLAGS       = --cc --exe --trace-fst --trace-structs \
 			   --timing \
                --top-module tb_top \
                -Wno-fatal \
+			   -Wno-BLKANDNBLK \
                -y $(ZENITH_HW)/hw \
                -I$(ZENITH_HW)/hw \
 			   -I$(BLOCK_DIR)/rtl \
