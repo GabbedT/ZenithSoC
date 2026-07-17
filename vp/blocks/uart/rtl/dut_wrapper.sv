@@ -19,8 +19,9 @@ module dut_wrapper (
 );
 
     // UART external pins: loopback for self-testing
-    logic uart_tx, uart_rx;
+    logic uart_tx, uart_rx, uart_rts, uart_cts;
     assign uart_rx = uart_tx;
+    assign uart_cts = uart_rts;
 
     uart #(
         .RX_BUFFER_SIZE ( 512 ),
@@ -30,10 +31,10 @@ module dut_wrapper (
         .rst_n_i     ( rst_n ),
         .interrupt_o ( interrupt_o ),
 
-        .uart_rx_i  ( uart_rx ),
-        .uart_tx_o  ( uart_tx ),
-        .uart_rts_o (         ),
-        .uart_cts_i ( 1'b1    ),
+        .uart_rx_i  ( uart_rx  ),
+        .uart_tx_o  ( uart_tx  ),
+        .uart_rts_o ( uart_rts ),
+        .uart_cts_i ( uart_cts ),
 
         .write_i         ( write_i                   ),
         .write_address_i ( write_address_i[1:0]      ),

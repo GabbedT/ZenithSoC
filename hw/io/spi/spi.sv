@@ -192,19 +192,17 @@ module spi #(
 
                 IDLE: begin
                     clock_NXT = clock_pol; 
-                    cs_n_o = '1;
+                    cs_n_o = data_ready ? chip_select : '1;
 
                     trx_idle = 1'b1;
 
-                    if (data_ready) begin 
+                    if (data_ready & (clock_CRT == clock_pol)) begin 
                         if (clock_pha) begin
                             state_NXT = PHASE_DELAY;
 
                             clock_NXT = !clock_pol;
                         end else begin
                             state_NXT = clock_pol ? CLOCK_HIGH : CLOCK_LOW;
-
-                            sample_data = clock_pol;
                         end
                     end 
                 end

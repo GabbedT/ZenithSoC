@@ -109,10 +109,40 @@ extern "C" int main(void) {
                     }
 
                     if (error) {
+                        vp_println("[ERROR] RX Data differs from config");
                         TEST_FAIL();
                     }
                 }
             }
+        }
+    }
+
+    /* CTS / RTS flow control loopback test */
+    uart.enableParity(false).setDataLength(UART::BIT8).setStopBits(UART::STOP1);
+    uart.setFlowControl(true);
+
+    /* Fill TX FIFO and send two more bytes, the function will take care
+     * of overflow, the objective here is to fill the RX buffer and have
+     * two more bytes in TX buffer */
+    for (int i = 0; i < 514; ++i) {
+        uart.sendByte(i);
+    }
+
+    /* The RX FIFO fills and deasserts RTS, which deasserts CTS in the wrapper */
+    while (!uart.getCtrlStatus()->fullRX) {  }
+
+    /* Two bytes must still be queued while CTS is deasserted */
+    if (uart.getCtrlStatus()->emptyTX) {
+        vp_println("[ERROR] Last two bytes sent even if RX buffer full");
+        TEST_FAIL();
+    }
+
+    for (int i = 0; i < 514; ++i) {
+        uint8_t rxDat = uart.receiveByte();
+
+        if (rxDat != (uint8_t) i) {
+            vp_println("[ERROR] Transaction data error");
+            TEST_FAIL();
         }
     }
 
