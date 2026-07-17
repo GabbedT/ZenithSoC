@@ -20,8 +20,8 @@
 
 /* Test result register */
 #define TEST_RESULT   (*(volatile uint32_t *)0x20000000)
-#define TEST_PASS()   do { TEST_RESULT = 1; } while(0)
-#define TEST_FAIL()   do { TEST_RESULT = 0; } while(0)
+#define TEST_PASS()   do { TEST_RESULT = 1; } while(0); return 0
+#define TEST_FAIL()   do { TEST_RESULT = 0; } while(0); return 1
 
 
 /* Print single char */
