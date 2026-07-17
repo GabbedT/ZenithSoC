@@ -6,6 +6,7 @@
 - `src/`: driver implementations for UART, SPI, SD, Ethernet, GPIO, timer, PRNG, tracing, and audio.
 - `examples/`: standalone firmware examples, each with its own linker/startup files and usually a `compile.sh` script.
 - `benchmark/`: CoreMark and Embench-IoT ports with Makefiles for simulation and SD-card images.
+- `tests/`: SoC level tests
 
 ## Toolchain and examples
 
