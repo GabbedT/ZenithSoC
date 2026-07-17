@@ -140,35 +140,45 @@ public:
      * 
      * @return A boolean value to express the idle status 
      */
-    inline bool isIdle();
+    inline bool isIdle() {
+        return status->idle;
+    };
 
     /**
      * @brief Check if the SPI TX buffer is full.
      * 
      * @return A boolean value to express the buffer status 
      */
-    inline bool isFullTX();
+    inline bool isFullTX() {
+        return status->fullTX;
+    };
 
     /**
      * @brief Check if the SPI TX buffer is empty.
      * 
      * @return A boolean value to express the buffer status 
      */
-    inline bool isEmptyTX();
+    inline bool isEmptyTX() {
+        return status->emptyTX;
+    };
 
     /**
      * @brief Check if the SPI RX buffer is full.
      * 
      * @return A boolean value to express the buffer status 
      */
-    inline bool isFullRX();
+    inline bool isFullRX() {
+        return status->fullRX;
+    };
 
     /**
      * @brief Check if the SPI RX buffer is empty.
      * 
      * @return A boolean value to express the buffer status 
      */
-    inline bool isEmptyRX();
+    inline bool isEmptyRX() {
+        return status->emptyRX;
+    };
 
 
 /*****************************************************************/
@@ -320,4 +330,4 @@ private:
     void unloadBufferRX (uint8_t* data, uint32_t size);
 };  
 
-#endif 
+#endif

@@ -121,31 +121,6 @@ SPI& SPI::enableInterrupt(bool enable) {
 };
 
 
-inline bool SPI::isIdle() {
-    return status->idle;
-};
-
-
-inline bool SPI::isFullTX() {
-    return status->fullTX;
-};
-
-
-inline bool SPI::isEmptyTX() {
-    return status->emptyTX;
-};
-
-
-inline bool SPI::isFullRX() {
-    return status->fullRX;
-};
-
-
-inline bool SPI::isEmptyRX() {
-    return status->emptyRX;
-};
-
-
 /*****************************************************************/
 /*                         COMMUNICATION                         */
 /*****************************************************************/
@@ -205,4 +180,4 @@ void SPI::loadBufferTX(uint8_t* data, uint32_t size) {
     }
 };
 
-#endif 
+#endif
