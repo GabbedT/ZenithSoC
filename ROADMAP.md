@@ -19,7 +19,7 @@ The project will be developed using an incremental approach, structured into fou
 
 ### Testing
 
-* Improve Python generator
+* Improve Python generator ✅
 
 * Add a verilator testbench for fast software testing ✅
 
