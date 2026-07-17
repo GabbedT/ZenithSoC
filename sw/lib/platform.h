@@ -20,7 +20,9 @@
 #define DEBUG_UART 0
 
 /* SPI slave number */
+#ifndef SPI_SLAVES
 #define SPI_SLAVES 1
+#endif
 
 /* Size of non cachable memory */
 #define NC_MEMORY_SIZE 2048
