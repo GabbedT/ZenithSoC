@@ -268,9 +268,9 @@ module ZenithSoC #(
         .vector_o      ( int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] )
     );
 
-    assign timer_interrupt = (int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] == 7) & interrupt;
+    assign timer_interrupt = (int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] == TIMER_IRQ) & interrupt;
 
-    assign nmsk_interrupt = (int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] == 8) & interrupt;
+    assign nmsk_interrupt = (int_vector[$clog2(INTERRUPT_SOURCES) - 1:0] == BUS_ERROR_IRQ) & interrupt;
 
     assign general_interrupt = interrupt & !timer_interrupt & !nmsk_interrupt;
 
@@ -352,7 +352,7 @@ module ZenithSoC #(
             end 
         end 
 
-    assign interrupt_source[INTERRUPT_SOURCES - 1] = write_bus_error | read_bus_error;
+    assign interrupt_source[BUS_ERROR_IRQ] = write_bus_error | read_bus_error;
 
         always_comb begin
             /* Default values */
@@ -406,6 +406,9 @@ module ZenithSoC #(
 
                 .uart_tx_full_o ( uart_tx_full ),
 
+                .trace_data_i  ( trace_chunk                   ),
+                .trace_write_i ( (i == 0) ? write_chunk : 1'b0 ),
+
                 .uart_rx_i  ( uart_rx_i[i]  ),
                 .uart_tx_o  ( uart_tx_o[i]  ),
                 .uart_rts_o ( uart_rts_o[i] ),
@@ -434,11 +437,11 @@ module ZenithSoC #(
 
     endgenerate
 
-        assign interrupt_source[INTERRUPT_SOURCES - 3] = uart_interrupt != '0;
+        assign interrupt_source[UART_IRQ] = uart_interrupt != '0;
 
     `else
         
-        assign interrupt_source[INTERRUPT_SOURCES - 3] = '0;
+        assign interrupt_source[UART_IRQ] = '0;
 
         assign write_busy[_UART_] = 1'b0;
         assign write_ready[_UART_] = 1'b1;
@@ -498,11 +501,11 @@ module ZenithSoC #(
 
     endgenerate
 
-    assign interrupt_source[INTERRUPT_SOURCES - 2] = timers_interrupt != '0;
+    assign interrupt_source[TIMER_IRQ] = timers_interrupt != '0;
 
     `else 
         
-    assign interrupt_source[INTERRUPT_SOURCES - 2] = '0;
+    assign interrupt_source[TIMER_IRQ] = '0;
 
     assign write_busy[_TIMER_] = 1'b0;
     assign write_ready[_TIMER_] = 1'b1;
@@ -571,11 +574,11 @@ module ZenithSoC #(
         
     endgenerate
 
-    assign interrupt_source[INTERRUPT_SOURCES - 4] = gpio_interrupt != '0;
+    assign interrupt_source[GPIO_IRQ] = gpio_interrupt != '0;
 
     `else
         
-    assign interrupt_source[INTERRUPT_SOURCES - 4] = 0;
+    assign interrupt_source[GPIO_IRQ] = 0;
 
     assign write_busy[_GPIO_] = 1'b0;
     assign write_ready[_GPIO_] = 1'b1;
@@ -640,13 +643,13 @@ module ZenithSoC #(
             assign read_ready[_SPI_ + i] = 1'b1;
         end 
 
-    assign interrupt_source[INTERRUPT_SOURCES - 5] = spi_interrupt != '0;
+    assign interrupt_source[SPI_IRQ] = spi_interrupt != '0;
 
     endgenerate
 
     `else
     
-    assign interrupt_source[INTERRUPT_SOURCES - 5] = '0;
+    assign interrupt_source[SPI_IRQ] = '0;
 
     assign write_busy[_SPI_] = 1'b0;
     assign write_ready[_SPI_] = 1'b1;
@@ -685,7 +688,7 @@ module ZenithSoC #(
 
             .busy_o ( ethernet_busy ),
 
-            .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 6] ),
+            .interrupt_o ( interrupt_source[ETHERNET_IRQ] ),
 
             .write_i         ( write_request[_ETHERNET_]      ),
             .write_address_i ( write_address[_ETHERNET_] >> 2 ),
@@ -837,7 +840,7 @@ module ZenithSoC #(
             .clk_i   ( sys_clk ),
             .rst_n_i ( reset_n ),
 
-            .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 7] ),
+            .interrupt_o ( interrupt_source[APU_IRQ] ),
             
             .write_i         ( write_request[_APU_]      ),
             .write_address_i ( write_address[_APU_] >> 2 ),
@@ -949,7 +952,7 @@ module ZenithSoC #(
             .clk_i   ( sys_clk ),
             .rst_n_i ( reset_n ),
 
-            .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 8] ),
+            .interrupt_o ( interrupt_source[SD_IRQ] ),
 
             .write_i         ( write_request[_SD_]      ),
             .write_address_i ( write_address[_SD_] >> 2 ),
@@ -1005,7 +1008,7 @@ module ZenithSoC #(
         .clk_i   ( sys_clk ),
         .rst_n_i ( reset_n ),
 
-        .interrupt_o ( interrupt_source[INTERRUPT_SOURCES - 9] ),
+        .interrupt_o ( interrupt_source[TRACE_IRQ] ),
         .halt_core_o ( halt_core                               ),
 
         .uart_tx_full_i ( uart_tx_full ),
