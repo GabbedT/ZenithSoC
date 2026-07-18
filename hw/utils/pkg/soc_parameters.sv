@@ -235,6 +235,16 @@ package soc_parameters;
     localparam BYTES_INTERLEAVE = 'd128;
 
     /* CPU interrupts */
+    localparam TRACE_IRQ = 0;
+    localparam SD_IRQ = 1;
+    localparam APU_IRQ = 2;
+    localparam ETHERNET_IRQ = 3;
+    localparam SPI_IRQ = 4;
+    localparam GPIO_IRQ = 5;
+    localparam UART_IRQ = 6;
+    localparam TIMER_IRQ = 7;
+    localparam BUS_ERROR_IRQ = 8;
+
     localparam INTERRUPT_SOURCES = 9;
 
     /* Devices connected to AXI network */
