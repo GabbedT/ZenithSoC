@@ -23,7 +23,7 @@ module sine_wave_generator (
     logic [15:0] sine_table [511:0];
 
     initial begin
-        $readmemh("../sine_quarter.hex", sine_table);
+        $readmemh("sine_quarter.hex", sine_table);
     end
 
 
