@@ -76,7 +76,7 @@ module sd (
     /* Data signals */
     logic [3:0][7:0] data_tx;
     logic data_tx_empty, data_rx_full;
-    logic data_buffer_tx_read;
+    logic data_buffer_tx_read, data_tx_read;
     logic [3:0][7:0] data_rx;
     logic data_buffer_rx_write;
     logic data_idle;

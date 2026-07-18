@@ -15,7 +15,7 @@ module cic_filter #(
     input logic rst_n_i,
     
     input logic reset_filter_i,
-    input logic [6:0] decimator_factor_i,
+    input logic [7:0] decimator_factor_i,
 
     /* PDM input */
     input logic pdm_i,
@@ -32,7 +32,7 @@ module cic_filter #(
 //      DECIMATOR COUNTER
 //==========================================================
 
-    logic [6:0] decimator; logic valid_sample;
+    logic [7:0] decimator; logic valid_sample;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin
@@ -199,4 +199,4 @@ module cic_filter #(
 
 endmodule : cic_filter
 
-`endif 
+`endif

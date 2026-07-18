@@ -16,3 +16,6 @@
 
 ../memory/cache/data_cache_complex.sv
 ../memory/cache/instruction_cache_complex.sv
+
+interrupt_controller.sv
+cpu_complex.sv

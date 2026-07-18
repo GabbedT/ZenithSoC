@@ -174,8 +174,8 @@ module ddr_memory_interface (
 
     logic [3:0] read_cmd_count, read_data_count; logic read_valid;
 
-        always_ff @(posedge ui_clk `ifdef ASYNC or negedge ui_rst `endif) begin
-            if (!ui_rst) begin 
+        always_ff @(posedge ui_clk `ifdef ASYNC or posedge ui_rst `endif) begin
+            if (ui_rst) begin 
                 read_cmd_count <= '0;
                 read_data_count <= '0;
             end else begin 

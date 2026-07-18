@@ -1,6 +1,19 @@
 `ifndef ZENITH_SOC_SV
     `define ZENITH_SOC_SV
 
+/* The current top-level configuration enables every integrated peripheral.
+ * Keep these feature macros at compilation-unit scope so all tools see the
+ * same configuration. */
+`define _DEF_UART_
+`define _DEF_TIMER_
+`define _DEF_GPIO_
+`define _DEF_SPI_
+`define _DEF_PRNG_
+`define _DEF_ETHERNET_
+`define _DEF_APU_
+`define _DEF_SD_
+`define _DEF_DDR_MEMORY_
+
 module ZenithSoC #(
     parameter UART = 1,
 
@@ -18,7 +31,9 @@ module ZenithSoC #(
 
     parameter SD = 1,
 
-    parameter DDR_MEMORY = 1
+    parameter DDR_MEMORY = 1,
+
+    parameter string BOOT_INIT_FILE = "output.hex"
 ) (
     input logic clk_i,
     input logic rst_n_i,
@@ -86,29 +101,6 @@ module ZenithSoC #(
     output logic ddr2_cs_n,
     output logic ddr2_odt
 );
-
-//====================================================================================
-//      CLOCKING AND RESET
-//====================================================================================
-
-    if (UART)       `define _DEF_UART_
-
-    if (TIMER)      `define _DEF_TIMER_
-
-    if (GPIO)       `define _DEF_GPIO_
-
-    if (SPI)        `define _DEF_SPI_
-
-    if (PRNG)       `define _DEF_PRNG_
-
-    if (ETHERNET)   `define _DEF_ETHERNET_
-
-    if (APU)        `define _DEF_APU_
-
-    if (SD)         `define _DEF_SD_
-
-    if (DDR_MEMORY) `define _DEF_DDR_MEMORY_
-
 
 //====================================================================================
 //      CLOCKING AND RESET
@@ -552,10 +544,13 @@ module ZenithSoC #(
                     .write_i         ( write_request[_GPIO_ + i]      ),
                     .write_address_i ( write_address[_GPIO_ + i] >> 2 ),
                     .write_data_i    ( write_data[_GPIO_ + i][j]      ),
+                    .write_error_o   (                              ),
 
                     /* Read interface */
+                    .read_i         ( read_request[_GPIO_ + i]      ),
                     .read_address_i ( read_address[_GPIO_ + i] >> 2 ),
                     .read_data_o    ( read_data[_GPIO_ + i][j]      ),
+                    .read_error_o   (                              ),
 
                     .interrupt_o ( gpio_interrupt[i][j] )
                 );
@@ -795,7 +790,7 @@ module ZenithSoC #(
 
     localparam _BOOT_ = 0;
 
-    on_chip_memory #(BOOT_SIZE, "/home/gabriele/Desktop/Projects/ZenithSoC/Software/Examples/SD/output.hex") boot_memory (
+    on_chip_memory #(BOOT_SIZE, BOOT_INIT_FILE) boot_memory (
         .clk_i   ( sys_clk ),
         .rst_n_i ( reset_n ),
 

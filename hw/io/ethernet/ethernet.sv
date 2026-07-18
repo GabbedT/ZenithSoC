@@ -63,7 +63,7 @@ module ethernet #(
     );
 
 
-    logic [4:0] clk_counter; logic clk_5MHz, clk_50MHz; 
+    logic [4:0] clk_counter; logic clk_5MHz, clk_50MHz, pulse_in;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
