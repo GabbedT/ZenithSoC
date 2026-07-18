@@ -75,7 +75,9 @@ module trace_unit_serializer (
                         /* Reset byte counter */
                         byte_counter_NXT = '0;
                         
-                        state_NXT = DATA;
+                        /* The packet buffer is synchronous: latch its output on the
+                         * following cycle before starting serialization. */
+                        state_NXT = SYNC;
                     end
                 end
 
@@ -84,18 +86,18 @@ module trace_unit_serializer (
                         state_NXT = DATA;
 
                         /* Extract packet type for the DATA state from last two bits */
-                        packet_type_NXT = trace_unit_packet_type_t'(trace_packet_i.raw[11][7:6]);
+                        packet_type_NXT = trace_unit_packet_type_t'(trace_packet_i.raw[7][7:6]);
                         packet_NXT = trace_packet_i;
                     end
                 end
 
                 DATA: begin
                     if (!uart_tx_full_i) begin
-                        trace_chunk_o = packet_CRT.raw[11];
+                        trace_chunk_o = packet_CRT.raw[7];
                         write_chunk_o = 1'b1;
 
                         /* Shift by 8 bits */
-                        packet_NXT.raw = { packet_CRT.raw[10:0], 8'h00 };
+                        packet_NXT.raw = { packet_CRT.raw[6:0], 8'h00 };
 
                         byte_counter_NXT = byte_counter_CRT + 1;
 
@@ -142,4 +144,4 @@ module trace_unit_serializer (
 
 endmodule : trace_unit_serializer
 
-`endif  
+`endif
