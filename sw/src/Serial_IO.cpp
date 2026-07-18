@@ -76,7 +76,7 @@ void Serial_IO::write(float num, uint32_t digits) {
     uint32_t bits = *(uint32_t*)&num;
 
     /* Extract significand and exponent, check for NAN */
-    if ((bits & 0x7F800000u) == 0x7F800000u) && ((bits & 0x007FFFFFu) != 0) {
+    if (((bits & 0x7F800000) == 0x7F800000) && ((bits & 0x007FFFFF) != 0)) {
         write("nan");
 
         return;
@@ -103,7 +103,7 @@ void Serial_IO::write(float num, uint32_t digits) {
         fracPart *= 10.0f;
 
         uint32_t digit = (uint32_t)fracPart;
-        *txBuffer = char('0' + digit);
+        write(char('0' + digit));
 
         fracPart -= (float)digit;
     }
@@ -444,4 +444,4 @@ char Serial_IO::readChar() {
 };
 
 
-#endif 
+#endif
