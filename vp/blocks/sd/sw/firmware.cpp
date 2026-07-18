@@ -45,26 +45,33 @@ extern "C" int main() {
 
     SD::errorType_e error = SD::NO_ERROR; 
 
-    card.reset();
-    card.control->enableSD = true;
-
     /* Need ~74 SD clock cycles before starting CMD0 */
     vp_delay_cycles(20000);
 
     card.init(SD::CLK_25MHZ, SD::BUS_NARROW, cmd8_response, isHighCapacity, error);
 
+    if (error == SD::NO_CARD) {
+        vp_print("[INITIALIZATION] No card detected!\n");
+
+        TEST_FAIL();
+    }
+
+    if (error == SD::CARD_ERR) {
+        vp_print("[INITIALIZATION] Card error!\n");
+
+        TEST_FAIL();
+    }
+
     if (error == SD::CMD_TIMEOUT || error == SD::DAT_TIMEOUT) {
         vp_print("[INITIALIZATION] Timeout!\n");
 
         TEST_FAIL();
-        return 0;
     }
 
     if (error == SD::CMD_CRC_ERR || error == SD::DAT_CRC_ERR) {
         vp_print("[INITIALIZATION] CRC Error!\n");
 
         TEST_FAIL();
-        return 0;
     }
 
     if (isHighCapacity) {
@@ -98,12 +105,10 @@ extern "C" int main() {
 
                 if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
                     vp_print("[CONFIGURATION] Timeout!\n");
-
-                    return 0;
+                    TEST_FAIL();
                 } else if (error == SD::DAT_CRC_ERR || error == SD::CMD_CRC_ERR) {
                     vp_print("[CONFIGURATION] CRC Error!\n");
-
-                    return 0;
+                    TEST_FAIL();
                 }
             break;
 
@@ -115,12 +120,10 @@ extern "C" int main() {
 
                 if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
                     vp_print("[CONFIGURATION] Timeout!\n");
-
-                    return 0;
+                    TEST_FAIL();
                 } else if (error == SD::DAT_CRC_ERR || error == SD::CMD_CRC_ERR) {
                     vp_print("[CONFIGURATION] CRC Error!\n");
-
-                    return 0;
+                    TEST_FAIL();
                 }
             break;
 
@@ -132,12 +135,10 @@ extern "C" int main() {
 
                 if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
                     vp_print("[CONFIGURATION] Timeout!\n");
-
-                    return 0;
+                    TEST_FAIL();
                 } else if (error == SD::DAT_CRC_ERR || error == SD::CMD_CRC_ERR) {
                     vp_print("[CONFIGURATION] CRC Error!\n");
-
-                    return 0;
+                    TEST_FAIL();
                 }
             break;
 
@@ -149,12 +150,10 @@ extern "C" int main() {
 
                 if (error == SD::DAT_TIMEOUT || error == SD::CMD_TIMEOUT) {
                     vp_print("[CONFIGURATION] Timeout!\n");
-
-                    return 0;
+                    TEST_FAIL();
                 } else if (error == SD::DAT_CRC_ERR || error == SD::CMD_CRC_ERR) {
                     vp_print("[CONFIGURATION] CRC Error!\n");
-
-                    return 0;
+                    TEST_FAIL();
                 }
             break;
         }
@@ -180,7 +179,6 @@ extern "C" int main() {
                 vp_putchar('\n');
 
                 TEST_FAIL();
-                return 0;
             }
         }
 
@@ -213,7 +211,6 @@ extern "C" int main() {
                 vp_putchar('\n');
 
                 TEST_FAIL();
-                return 0;
             }
         }
 
@@ -221,7 +218,6 @@ extern "C" int main() {
     }
 
     TEST_PASS();
-    return 0;
 };
 
 
