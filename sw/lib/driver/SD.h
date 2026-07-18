@@ -24,7 +24,7 @@ public:
     enum clockSpeed_e { CLK_400KHZ, CLK_25MHZ };
 
     /* Error type */
-    enum errorType_e { NO_ERROR, CMD_TIMEOUT, CMD_CRC_ERR, DAT_TIMEOUT, DAT_CRC_ERR, DAT_ERR, CARD_ERR };
+    enum errorType_e { NO_ERROR, CMD_TIMEOUT, CMD_CRC_ERR, DAT_TIMEOUT, DAT_CRC_ERR, DAT_ERR, CARD_ERR, NO_CARD };
 
     /* Card State */
     enum cardState_e { IDLE, READY, IDENT, STBY, TRAN, DATA, RECV, PROG, DISC };
@@ -120,13 +120,10 @@ public:
         unsigned int txBufferFull : 1;
         unsigned int txBufferEmpty : 1;
 
-        /* Data token received after data operation */
-        unsigned int dataToken : 8;
-
         /* Card is inserted in the slot */
         unsigned int cardDetected : 1;
 
-        unsigned int padding : 10;
+        unsigned int padding : 7;
     };
 
     struct sdInterruptStatus_s {

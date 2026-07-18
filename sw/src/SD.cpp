@@ -52,15 +52,21 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
 
     /* ----------- Card Preparation ----------- */
 
-    // reset();
-    // control->enableSD = true;
+    reset();
+    control->enableSD = true;
 
-    // /* Need ~74 SD clock cycles before starting CMD0 */
-    // volatile int sink = 0;
+    /* Need ~74 SD clock cycles before starting CMD0 */
+    for (int i = 0; i < 10000; ++i) {
+        /* Dummy read */
+        int sink = status->cardDetected;
+    }
 
-    // for (int i = 0; i < 10000; ++i) { 
-    //     ++sink;
-    // }
+
+    if (!status->cardDetected) {
+        error = SD::NO_CARD;
+
+        return *this;
+    }
     
 
     /* CMD0: GO_IDLE_STATE -> put the card in idle mode */

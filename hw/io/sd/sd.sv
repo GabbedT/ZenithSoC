@@ -219,7 +219,7 @@ module sd (
             clk_previous <= sd_clk;
 
             /* Reset counter */
-            if (counter == (divisor - 1)) begin
+            if (counter == divisor) begin
                 sd_clk <= !sd_clk;
                 counter <= '0;
             end
