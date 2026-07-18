@@ -5,7 +5,10 @@
 
 ## Clock signal
 set_property -dict { PACKAGE_PIN E3    IOSTANDARD LVCMOS33 } [get_ports { clk_i }]; #IO_L12P_T1_MRCC_35 Sch=clk100mhz
-create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports {clk_i}];
+
+## Configuration bank voltage (Nexys A7: bank 0 powered at 3.3 V)
+set_property CFGBVS VCCO [current_design]
+set_property CONFIG_VOLTAGE 3.3 [current_design]
 
 
 ##Switches
@@ -174,14 +177,14 @@ set_property -dict { PACKAGE_PIN G18   IOSTANDARD LVCMOS33 } [get_ports { pin_io
 
 ##Micro SD Connector
 
-#set_property -dict { PACKAGE_PIN E2    IOSTANDARD LVCMOS33 } [get_ports { SD_RESET }]; #IO_L14P_T2_SRCC_35 Sch=sd_reset
-#set_property -dict { PACKAGE_PIN A1    IOSTANDARD LVCMOS33 } [get_ports { SD_CD }]; #IO_L9N_T1_DQS_AD7N_35 Sch=sd_cd
-#set_property -dict { PACKAGE_PIN B1    IOSTANDARD LVCMOS33 } [get_ports { SD_SCK }]; #IO_L9P_T1_DQS_AD7P_35 Sch=sd_sck
-#set_property -dict { PACKAGE_PIN C1    IOSTANDARD LVCMOS33 } [get_ports { SD_CMD }]; #IO_L16N_T2_35 Sch=sd_cmd
-#set_property -dict { PACKAGE_PIN C2    IOSTANDARD LVCMOS33 } [get_ports { SD_DAT[0] }]; #IO_L16P_T2_35 Sch=sd_dat[0]
-#set_property -dict { PACKAGE_PIN E1    IOSTANDARD LVCMOS33 } [get_ports { SD_DAT[1] }]; #IO_L18N_T2_35 Sch=sd_dat[1]
-#set_property -dict { PACKAGE_PIN F1    IOSTANDARD LVCMOS33 } [get_ports { SD_DAT[2] }]; #IO_L18P_T2_35 Sch=sd_dat[2]
-#set_property -dict { PACKAGE_PIN D2    IOSTANDARD LVCMOS33 } [get_ports { SD_DAT[3] }]; #IO_L14N_T2_SRCC_35 Sch=sd_dat[3]
+set_property -dict { PACKAGE_PIN E2    IOSTANDARD LVCMOS33 } [get_ports { sd_reset_n_o }]; #IO_L14P_T2_SRCC_35 Sch=sd_reset
+set_property -dict { PACKAGE_PIN A1    IOSTANDARD LVCMOS33 } [get_ports { sd_cd_n_i }]; #IO_L9N_T1_DQS_AD7N_35 Sch=sd_cd
+set_property -dict { PACKAGE_PIN B1    IOSTANDARD LVCMOS33 } [get_ports { sd_clk_o }]; #IO_L9P_T1_DQS_AD7P_35 Sch=sd_sck
+set_property -dict { PACKAGE_PIN C1    IOSTANDARD LVCMOS33 } [get_ports { sd_cmd_io }]; #IO_L16N_T2_35 Sch=sd_cmd
+set_property -dict { PACKAGE_PIN C2    IOSTANDARD LVCMOS33 } [get_ports { sd_data_io[0] }]; #IO_L16P_T2_35 Sch=sd_dat[0]
+set_property -dict { PACKAGE_PIN E1    IOSTANDARD LVCMOS33 } [get_ports { sd_data_io[1] }]; #IO_L18N_T2_35 Sch=sd_dat[1]
+set_property -dict { PACKAGE_PIN F1    IOSTANDARD LVCMOS33 } [get_ports { sd_data_io[2] }]; #IO_L18P_T2_35 Sch=sd_dat[2]
+set_property -dict { PACKAGE_PIN D2    IOSTANDARD LVCMOS33 } [get_ports { sd_data_io[3] }]; #IO_L14N_T2_SRCC_35 Sch=sd_dat[3]
 
 
 ##Accelerometer
@@ -203,15 +206,18 @@ set_property -dict { PACKAGE_PIN D15   IOSTANDARD LVCMOS33 } [get_ports { spi_cs
 
 ##Omnidirectional Microphone
 
-#set_property -dict { PACKAGE_PIN J5    IOSTANDARD LVCMOS33 } [get_ports { M_CLK }]; #IO_25_35 Sch=m_clk
-#set_property -dict { PACKAGE_PIN H5    IOSTANDARD LVCMOS33 } [get_ports { M_DATA }]; #IO_L24N_T3_35 Sch=m_data
-#set_property -dict { PACKAGE_PIN F5    IOSTANDARD LVCMOS33 } [get_ports { M_LRSEL }]; #IO_0_35 Sch=m_lrsel
+set_property -dict { PACKAGE_PIN J5    IOSTANDARD LVCMOS33 } [get_ports { pdm_clk_o }]; #IO_25_35 Sch=m_clk
+set_property -dict { PACKAGE_PIN H5    IOSTANDARD LVCMOS33 } [get_ports { pdm_data_i }]; #IO_L24N_T3_35 Sch=m_data
+set_property -dict { PACKAGE_PIN F5    IOSTANDARD LVCMOS33 } [get_ports { pdm_lrsel_o }]; #IO_0_35 Sch=m_lrsel
 
 
 ##PWM Audio Amplifier
 
-#set_property -dict { PACKAGE_PIN A11   IOSTANDARD LVCMOS33 } [get_ports { AUD_PWM }]; #IO_L4N_T0_15 Sch=aud_pwm
-#set_property -dict { PACKAGE_PIN D12   IOSTANDARD LVCMOS33 } [get_ports { AUD_SD }]; #IO_L6P_T0_15 Sch=aud_sd
+set_property -dict { PACKAGE_PIN A11   IOSTANDARD LVCMOS33 } [get_ports { pwm_o }]; #IO_L4N_T0_15 Sch=aud_pwm
+set_property -dict { PACKAGE_PIN D12   IOSTANDARD LVCMOS33 } [get_ports { audio_enable_o }]; #IO_L6P_T0_15 Sch=aud_sd
+
+## Timer PWM exposed on LED0
+set_property -dict { PACKAGE_PIN H17   IOSTANDARD LVCMOS33 } [get_ports { tmr_pwm_o }]; #IO_L18P_T2_A24_15 Sch=led[0]
 
 
 ##USB-RS232 Interface

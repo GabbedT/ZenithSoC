@@ -25,3 +25,6 @@ sw/benchmark/CoreMark/out
 sw/benchmark/Embench-IoT/out
 
 sw/test/out
+
+/build/
+/fpga/nexys_a7/.Xil
