@@ -18,7 +18,7 @@ module recorder_audio_pipeline #(
     input logic channel_i,
 
     /* Decimation factor to bring down sample rate */
-    input logic [6:0] decimator_factor_i,
+    input logic [7:0] decimator_factor_i,
 
     /* Used to bring the PCM signal into the [1:0] range */
     input logic [31:0] normalizer_i,
@@ -73,6 +73,7 @@ module recorder_audio_pipeline #(
 //      NORMALIZATION STAGE
 //==========================================================
 
+    logic [63:0] normalized_quotient;
     logic [32:0] normalized_sample; logic normalized_valid, normalizer_idle;
 
     /* Perform fixed-point division to normalize the input sample into [1:0] range
@@ -88,12 +89,14 @@ module recorder_audio_pipeline #(
         .divisor_i    ( {32'b0, normalizer_i}          ), /* DECIMATION FACTOR ^ (FILTER_ORDER - 1) */
         .data_valid_i ( valid_filter & normalizer_idle ),
 
-        .quotient_o       ( normalized_sample ),
-        .remainder_o      (                   ),
-        .divide_by_zero_o ( invalid_o         ),
-        .data_valid_o     ( normalized_valid  ),
-        .idle_o           ( normalizer_idle   )
+        .quotient_o       ( normalized_quotient ),
+        .remainder_o      (                     ),
+        .divide_by_zero_o ( invalid_o           ),
+        .data_valid_o     ( normalized_valid    ),
+        .idle_o           ( normalizer_idle     )
     );
+
+    assign normalized_sample = normalized_quotient[32:0];
 
     /* Direction pipeline normalization stage */
     logic channel_normalization_stg;

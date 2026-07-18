@@ -39,7 +39,7 @@ module audio_capture_unit #(
     logic sample_valid, sample_channel, sample_invalid; logic [15:0] sample;
 
     /* Configuration interface */
-    logic [6:0] clock_divisor; logic [6:0] decimation_rate; logic [15:0] sample_gain; logic [31:0] normalizer; logic enable_interface;
+    logic [6:0] clock_divisor; logic [7:0] decimation_rate; logic [15:0] sample_gain; logic [31:0] normalizer; logic enable_interface;
 
     /* Channel */
     logic dual_channel, channel_selection;
@@ -108,7 +108,7 @@ module audio_capture_unit #(
 //      EXTERNAL INTERFACE
 //====================================================================================
 
-    logic pdm_sampled, pdm_valid, pdm_direction;
+    logic pdm_sampled, pdm_valid, pdm_channel;
 
     pdm2pcm_converter pdm_converter (
         /* Global signals */
