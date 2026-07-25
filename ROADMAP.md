@@ -4,14 +4,15 @@ The project will be developed using an incremental approach, structured into fou
 
 ## Roadmap 
 
+* Implement successfully in FPGA ✅
+* Run real benchmark on it
+* Run DOOM?
 
 ### Project Structure
 
 * Delete relative path and substitute with .f file ✅
 * Add CPU cosimulation with Spike ✅
 
-* Add an easy way to sync SoC Memory Map and Parameters to VP - SW - TB
-  
 * Update documentation on ZenithSoC and ApogeoRV
 
 * Add a single point Makefile to execute each workflow
@@ -23,7 +24,7 @@ The project will be developed using an incremental approach, structured into fou
 
 * Add a verilator testbench for fast software testing ✅
 
-* Verify again every block extensively with SW driven tests thanks to Virtual Platform
+* Verify again every block extensively with SW driven tests thanks to Virtual Platform ✅
 
 * Trace Unit design and verification
 
@@ -50,7 +51,7 @@ The project will be developed using an incremental approach, structured into fou
 
 ### Bugfix
 
-* Embench-IoT bug on huffbench as test FAIL
+* Embench-IoT bug on huffbench as test FAIL ✅
 * Fix bugs in Cache Complex ✅
 * Fix C extension bugs ✅
 * Fix Zfinx extension bugs ✅
@@ -58,10 +59,8 @@ The project will be developed using an incremental approach, structured into fou
 
 ### Design
 
+* Re-analyze and upgrade AXI bus
+* Add external slave port for AXI bus
 * Add external interrupts
-
 * I2C design and verification
-
 * GPU design
-
-* ADC System
