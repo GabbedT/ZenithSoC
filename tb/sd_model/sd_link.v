@@ -116,6 +116,14 @@ reg  [31:0]  card_blocks_written;
 reg  [127:0] resp_arg; // for 32 or 128bit
 reg  [3:0]   resp_type;
 
+
+/* DAT0 is released when the PHY leaves its busy phase. Re-arm reception on
+ * the following link clock so a standards-compliant host may immediately
+ * start the next block of a CMD25 transfer. */
+localparam DATA_IN_GAP_CYCLES = 2;
+reg [$clog2(DATA_IN_GAP_CYCLES) - 1:0] data_in_gap_cnt;
+
+
 reg  [6:0]   state;
 parameter [6:0] ST_RESET      = 'd0,
                 ST_IDLE       = 'd4,
@@ -207,6 +215,7 @@ always @(posedge clk_50) begin
    case(state)
    ST_RESET: begin
       info_card_desel <= 0;
+      data_in_gap_cnt <= 0;
       err_op_out_range <= 0;
       err_unhandled_cmd <= 0;
       err_cmd_crc <= 0;
@@ -975,18 +984,21 @@ always @(posedge clk_50) begin
       end
    end
    DST_DATA_IN_2: begin
-      // wait until PHY is able to detect new ACT
-      // or if it's a burst write, just go ahead anyway
-      if(~data_in_busy_s | (phy_data_in_another & ~phy_data_in_stop)) begin
+      /*
+       * Wait until the PHY has finished the data-response/busy phase
+       * and is ready to detect a new data block.
+       */
+      phy_data_in_another <= 1'b0;
+
+      if (~data_in_busy_s) begin
+         data_in_gap_cnt <= 0;
          data_state <= DST_DATA_IN_3;
       end
-      phy_data_in_another <= block_write_num > 1;
-      //phy_data_in_stop <= 1;
    end
    DST_DATA_IN_3: begin
       card_blocks_written <= card_blocks_written + 1'b1;
+
       if(block_write_num == 1 || phy_data_in_stop) begin
-         // last block, or it was CMD12'd
          card_state <= CARD_TRAN;
          phy_data_in_stop <= 0;
          phy_data_out_stop <= 0;
@@ -994,19 +1006,42 @@ always @(posedge clk_50) begin
          data_op_recv_block <= 0;
          data_state <= DST_IDLE;
       end else begin
-         // more blocks to go
          card_state <= CARD_RCV;
          card_status[STAT_READY_FOR_DATA] <= 1'b1;
-         block_write_addr <= block_write_addr + 1'b1; 
-         block_write_num <= block_write_num - 1'b1; 
+
+         block_write_addr <= block_write_addr + 1'b1;
+         block_write_num <= block_write_num - 1'b1;
          block_write_byteaddr <= block_write_byteaddr + 512;
-         if(block_write_addr >= SD_TOTAL_BLOCKS) begin 
-            card_status[STAT_OUT_OF_RANGE] <= 1'b1; 
-            err_op_out_range <= 1; 
-         end
-         data_state <= DST_DATA_IN_0;
+
+         phy_data_in_act <= 1'b0;
+         phy_data_in_another <= 1'b0;
+
+         data_in_gap_cnt <= 0;
+         data_state <= DST_DATA_IN_4;
       end
    end
+
+   DST_DATA_IN_4: begin
+      /*
+       * Recovery gap before arming the PHY for the next data block.
+       * This allows DAT0 to be released and sampled high by the host.
+       */
+      phy_data_in_act <= 1'b0;
+      phy_data_in_another <= 1'b0;
+
+      if (data_in_gap_cnt >= (DATA_IN_GAP_CYCLES - 1)) begin
+         /* data_in_act may be low for less than one slow SD clock period,
+          * so its edge is not a reliable way to re-arm the PHY. Keep the
+          * dedicated level request asserted until the next block starts. */
+         phy_data_in_another <= 1'b1;
+         data_state <= DST_DATA_IN_0;
+
+         data_in_gap_cnt <= '0;
+      end else begin
+         data_in_gap_cnt <= data_in_gap_cnt + 1'b1;
+      end
+   end
+
    endcase
    
    if(~reset_s) begin
