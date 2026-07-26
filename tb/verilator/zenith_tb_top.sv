@@ -75,10 +75,10 @@ module zenith_tb_top (
     wire tmr_pwm_o;
 
     /* SD card */
-    logic      sd_cd_n_i = '1; // no card present
-    wire       sd_cmd_io;
-    wire [3:0] sd_data_io;
-    wire       sd_reset_n_o;
+    logic      sd_cd_n_i = 1'b1;
+    tri1       sd_cmd_io;
+    tri1 [3:0] sd_data_io;
+    wire       sd_reset_o;
     wire       sd_clk_o;
 
     /* DDR2 pins (unused with DDR_MEMORY=0, the internal model is used) */
@@ -143,7 +143,7 @@ module zenith_tb_top (
         .sd_cd_n_i    ( sd_cd_n_i    ),
         .sd_cmd_io    ( sd_cmd_io    ),
         .sd_data_io   ( sd_data_io   ),
-        .sd_reset_n_o ( sd_reset_n_o ),
+        .sd_reset_o   ( sd_reset_o   ),
         .sd_clk_o     ( sd_clk_o     ),
 
         .ddr2_dq    ( ddr2_dq    ),
@@ -160,6 +160,14 @@ module zenith_tb_top (
         .ddr2_ck_n  ( ddr2_ck_n  ),
         .ddr2_cs_n  ( ddr2_cs_n  ),
         .ddr2_odt   ( ddr2_odt   )
+    );
+
+    sd_card_model sd_card (
+        .clk_100_i ( clk        ),
+        .rst_n_i   ( rst_n      ),
+        .sd_clk_i  ( sd_clk_o   ),
+        .sd_cmd_io ( sd_cmd_io  ),
+        .sd_data_io( sd_data_io )
     );
 
 

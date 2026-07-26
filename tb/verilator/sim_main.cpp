@@ -17,6 +17,10 @@
 #include <deque>
 #include <csignal>
 #include <fstream>
+#include <sstream>
+#include <vector>
+#include <algorithm>
+#include <cctype>
 
 #include "Vzenith_tb_top.h"
 #include "Vzenith_tb_top__Dpi.h"
@@ -35,6 +39,156 @@
 
 static volatile std::sig_atomic_t g_stop_requested = 0;
 static volatile std::sig_atomic_t g_stop_signal = 0;
+
+
+// -----------------------------------------------------------------------------
+//      SD CARD BACKING STORE
+// -----------------------------------------------------------------------------
+
+static std::vector<uint8_t> g_sd_bytes;
+
+static bool has_hex_extension(const std::string& path) {
+    std::string lower = path;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return lower.size() >= 4 && lower.substr(lower.size() - 4) == ".hex";
+}
+
+static bool load_sd_hex(const std::string& path, std::vector<uint8_t>& data) {
+    std::ifstream input(path);
+    if (!input.is_open())
+        return false;
+
+    uint64_t cursor = 0;
+    std::string line;
+
+    while (std::getline(input, line)) {
+        const auto comment = line.find_first_of("#;");
+        if (comment != std::string::npos)
+            line.erase(comment);
+
+        const auto cpp_comment = line.find("//");
+        if (cpp_comment != std::string::npos)
+            line.erase(cpp_comment);
+
+        std::istringstream tokens(line);
+        std::string token;
+
+        while (tokens >> token) {
+            if (!token.empty() && token.front() == '@') {
+                try {
+                    cursor = std::stoull(token.substr(1), nullptr, 16);
+                } catch (...) {
+                    return false;
+                }
+                continue;
+            }
+
+            if (token.rfind("0x", 0) == 0 || token.rfind("0X", 0) == 0)
+                token.erase(0, 2);
+
+            token.erase(std::remove(token.begin(), token.end(), '_'), token.end());
+            if (!token.empty() && token.back() == ',')
+                token.pop_back();
+
+            if (token.empty())
+                continue;
+
+            if (token.size() % 2 != 0)
+                token.insert(token.begin(), '0');
+
+            for (size_t pos = 0; pos < token.size(); pos += 2) {
+                uint8_t value;
+                try {
+                    value = static_cast<uint8_t>(
+                        std::stoul(token.substr(pos, 2), nullptr, 16));
+                } catch (...) {
+                    return false;
+                }
+
+                if (cursor >= data.size())
+                    data.resize(cursor + 1, 0xFF);
+                data[cursor++] = value;
+            }
+        }
+    }
+
+    return true;
+}
+
+static bool load_sd_image(const std::string& path, uint32_t block) {
+    std::vector<uint8_t> image;
+
+    if (has_hex_extension(path)) {
+        if (!load_sd_hex(path, image))
+            return false;
+    } else {
+        std::ifstream input(path, std::ios::binary);
+        if (!input.is_open())
+            return false;
+
+        image.assign(std::istreambuf_iterator<char>(input),
+                     std::istreambuf_iterator<char>());
+    }
+
+    const uint64_t offset = static_cast<uint64_t>(block) * 512;
+    if (offset + image.size() > UINT32_MAX)
+        return false;
+
+    g_sd_bytes.assign(offset + image.size(), 0xFF);
+    std::copy(image.begin(), image.end(), g_sd_bytes.begin() + offset);
+
+    std::cout << "[ZTB] SD image loaded: " << path
+              << " bytes=" << image.size()
+              << " block=0x" << std::hex << block
+              << " byte_offset=0x" << offset << std::dec << "\n";
+    return true;
+}
+
+extern "C" uint32_t zenith_sd_read_word(uint32_t byte_addr) {
+    uint32_t data = 0xFFFFFFFFu;
+
+    for (uint32_t lane = 0; lane < 4; lane++) {
+        const uint64_t address = static_cast<uint64_t>(byte_addr) + lane;
+        if (address < g_sd_bytes.size()) {
+            data &= ~(0xFFu << (lane * 8));
+            data |= static_cast<uint32_t>(g_sd_bytes[address]) << (lane * 8);
+        }
+    }
+
+    // The VP card PHY serializes each 32-bit Wishbone word MSB-first, while
+    // the Zenith SD controller exposes received words in little-endian CPU
+    // order. Swap here so a byte-for-byte disk image reaches DDR unchanged.
+    return ((data & 0x000000FFu) << 24)
+         | ((data & 0x0000FF00u) << 8)
+         | ((data & 0x00FF0000u) >> 8)
+         | ((data & 0xFF000000u) >> 24);
+}
+
+extern "C" void zenith_sd_write_word(uint32_t byte_addr,
+                                      uint32_t data,
+                                      uint32_t strobe) {
+    const uint64_t end = static_cast<uint64_t>(byte_addr) + 4;
+    if (end > UINT32_MAX)
+        return;
+    if (end > g_sd_bytes.size())
+        g_sd_bytes.resize(end, 0xFF);
+
+    const uint32_t disk_data = ((data & 0x000000FFu) << 24)
+                             | ((data & 0x0000FF00u) << 8)
+                             | ((data & 0x00FF0000u) >> 8)
+                             | ((data & 0xFF000000u) >> 24);
+    const uint32_t disk_strobe = ((strobe & 0x1u) << 3)
+                               | ((strobe & 0x2u) << 1)
+                               | ((strobe & 0x4u) >> 1)
+                               | ((strobe & 0x8u) >> 3);
+
+    for (uint32_t lane = 0; lane < 4; lane++) {
+        if (disk_strobe & (1u << lane))
+            g_sd_bytes[byte_addr + lane] =
+                (disk_data >> (lane * 8)) & 0xFF;
+    }
+}
 
 
 // -----------------------------------------------------------------------------
@@ -125,9 +279,11 @@ class Sim {
 public:
     Sim(bool trace_wave,
         bool trace_print,
+        uint64_t trace_start,
         uint64_t max_cycles)
         : enable_wave_(trace_wave),
           enable_print_(trace_print),
+          trace_start_(trace_start),
           max_cycles_(max_cycles),
           isa_(COSIM_ISA, "MSU"),
           dis_(&isa_) {
@@ -264,6 +420,15 @@ public:
                         << std::dec
                         << max_cycles_
                         << " -> stop\n";
+
+                if (!recent_events_.empty()) {
+                    std::cout << "[ZTB] last retire: cycle=" << last_retire_cycle_
+                              << " pc=0x" << std::hex
+                              << recent_events_.back().pc << std::dec << "\n";
+
+                    for (const TraceEvent& event : recent_events_)
+                        print_event(event);
+                }
                 return 1;
             }
         }
@@ -279,6 +444,29 @@ public:
     }
 
     void set_tohost(uint32_t a) { tohost_addr_ = a; }
+
+    void verify_ddr_image(const ElfImage& img) {
+        size_t mismatches = 0;
+
+        for (const auto& [addr, expected] : img.words) {
+            if (addr < USER_BASE)
+                continue;
+
+            const uint32_t actual = peek_insn(addr);
+            if (actual != expected) {
+                if (mismatches < 8) {
+                    std::cout << "[ZTB] DDR mismatch @0x" << std::hex << addr
+                              << " expected=0x" << expected
+                              << " actual=0x" << actual << std::dec << "\n";
+                }
+                mismatches++;
+            }
+        }
+
+        std::cout << "[ZTB] SD-to-DDR verification: "
+                  << (mismatches == 0 ? "MATCH" : "MISMATCH")
+                  << " (" << mismatches << " differing ELF words)\n";
+    }
 
     // --- Future manual-control seams (not implemented yet) -----------------
     // void pause();
@@ -298,6 +486,11 @@ private:
             TraceEvent e = g_events.front();
             g_events.pop_front();
 
+            recent_events_.push_back(e);
+            if (recent_events_.size() > 32)
+                recent_events_.pop_front();
+            last_retire_cycle_ = cycles_;
+
             if (e.is_store &&
                 tohost_addr_ &&
                 e.mem_addr == tohost_addr_) {
@@ -307,7 +500,7 @@ private:
                 finished_ = true;
             }
 
-            if (enable_print_)
+            if (enable_print_ && cycles_ >= trace_start_)
                 print_event(e);
         }
     }
@@ -389,6 +582,7 @@ private:
     bool enable_wave_;
     bool enable_print_;
 
+    uint64_t trace_start_;
     uint64_t max_cycles_;
     uint64_t cycles_ = 0;
     uint64_t sim_time_ = 0;
@@ -397,6 +591,9 @@ private:
     bool tohost_hit_ = false;
     uint32_t tohost_value_ = 0;
     bool finished_ = false;
+
+    std::deque<TraceEvent> recent_events_;
+    uint64_t last_retire_cycle_ = 0;
 
     isa_parser_t isa_;
     disassembler_t dis_;
@@ -422,9 +619,11 @@ int main(int argc, char** argv) {
     std::signal(SIGINT, signal_handler);
     std::signal(SIGTERM, signal_handler);
 
-    std::string fw_path, boot_path;
+    std::string fw_path, boot_path, sd_path;
+    uint32_t sd_block = 0x2000;
     bool enable_wave  = false;
     bool enable_print = true;
+    uint64_t trace_start = 0;
     uint64_t max_cycles = 0;   // 0 = unlimited
 
     for (int i = 1; i < argc; i++) {
@@ -434,39 +633,54 @@ int main(int argc, char** argv) {
             fw_path = a.substr(10);
         else if (a.rfind("+boot=", 0) == 0)
             boot_path = a.substr(6);
+        else if (a.rfind("+sd=", 0) == 0)
+            sd_path = a.substr(4);
+        else if (a.rfind("+sd_block=", 0) == 0)
+            sd_block = std::stoul(a.substr(10), nullptr, 0);
         else if (a == "+wave")
             enable_wave = true;
         else if (a == "+notrace")
             enable_print = false;
+        else if (a.rfind("+trace_start=", 0) == 0)
+            trace_start = std::stoull(a.substr(13));
         else if (a.rfind("+max_cycles=", 0) == 0)
             max_cycles = std::stoull(a.substr(12));
     }
 
-    if (fw_path.empty()) {
+    if (fw_path.empty() && sd_path.empty()) {
         std::cerr << "[ZTB] usage: " << argv[0]
                   << " +firmware=fw.elf [+boot=boot.elf] [+wave] [+notrace]"
-                  << " [+max_cycles=N]\n";
+                  << " [+sd=image.bin|hex] [+sd_block=N] [+max_cycles=N]\n";
         return 2;
     }
 
     ElfImage img;
-    if (!load_elf(fw_path, img)) {
+    if (!fw_path.empty() && !load_elf(fw_path, img)) {
         std::cerr << "[ZTB] cannot load firmware ELF: "
                   << fw_path
                   << "\n";
         return 2;
     }
 
+    if (!sd_path.empty() && !load_sd_image(sd_path, sd_block)) {
+        std::cerr << "[ZTB] cannot load SD image: " << sd_path << "\n";
+        return 2;
+    }
+
     uart_capture_open("out");
     g_trace_file.open("out/trace.txt", std::ios::out | std::ios::trunc);
 
-    g_sim = new Sim(enable_wave, enable_print, max_cycles);
+    g_sim = new Sim(enable_wave, enable_print, trace_start, max_cycles);
     if (!g_sim->scope()) {
         std::cerr << "[ZTB] FATAL: DPI scope zenith_tb_top not found\n";
         return 4;
     }
 
-    g_sim->preload_image(img);
+    // In SD-boot mode the application ELF is metadata only (entry/tohost and
+    // disassembly). Leaving DDR untouched ensures the bootloader really copies
+    // the application from the card before executing it.
+    if (sd_path.empty() && !fw_path.empty())
+        g_sim->preload_image(img);
     g_sim->set_tohost(img.tohost);
 
     ElfImage boot;
@@ -486,10 +700,13 @@ int main(int argc, char** argv) {
     std::cout << "[ZTB] ISA=" << COSIM_ISA
               << " entry=0x" << std::hex << img.entry
               << " tohost=0x" << img.tohost << std::dec
-              << " firmware=" << fw_path
+              << " firmware=" << (fw_path.empty() ? "<none>" : fw_path)
               << "\n";
 
     int rc = g_sim->run(img.tohost);
+
+    if (!sd_path.empty() && !fw_path.empty())
+        g_sim->verify_ddr_image(img);
 
     delete g_sim;
     g_sim = nullptr;

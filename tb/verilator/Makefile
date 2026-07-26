@@ -7,16 +7,19 @@
 #
 # Targets:
 #   make build                    verilate zenith_tb_top + sim_main.cpp
-#   make run DDR=fw.elf [BOOT=b.elf]   build + run a firmware
+#   make run DDR=fw.elf [BOOT=b.elf] [SD=image.bin]   build + run
 #   make wave                     open the latest waveform
 #   make info                     print resolved configuration
 #   make clean
 #
 # Run options:
-#   DDR=path.elf        firmware ELF loaded into DDR/ROM          (required)
+#   DDR=path.elf        firmware ELF or symbol image (optional with SD=...)
 #   BOOT=path.elf       optional boot-stub ELF loaded into the ROM
+#   SD=path.bin|hex     optional image loaded into the simulated SD card
+#   SD_BLOCK=N          first SD block used for the image (default 0x2000)
 #   WAVE=1              dump out/zenith.fst                       (default 0)
 #   TRACE=1             print the per-instruction trace           (default 1)
+#   TRACE_START=N       start printing after N simulated cycles  (default 0)
 #   MAX_CYCLES=N        stop after N cycles (0 = run until tohost) (default 0)
 # ======================================================================
 
@@ -28,6 +31,7 @@ SHELL := /bin/bash
 # relative -I/-y would resolve against the wrong directory.
 ZENITH_HW := $(abspath ../../hw)
 COSIM_SIM := $(abspath ../../cosim/sim)
+SD_MODEL  := $(abspath ../sd_model)
 TB_F      = zenith_tb.f
 SIM_SRC   = sim_main.cpp
 
@@ -41,8 +45,11 @@ ISA ?= rv32im_zfinx_zba_zbs_zicsr
 # --- Run parameters ----------------------------------------------------
 DDR        ?=
 BOOT       ?=
+SD         ?=
+SD_BLOCK   ?= 0x2000
 WAVE       ?= 0
 TRACE      ?= 1
+TRACE_START ?= 0
 MAX_CYCLES ?= 0
 
 # --- Tools -------------------------------------------------------------
@@ -65,7 +72,9 @@ VFLAGS = --cc --exe --trace-fst --trace-structs --timing \
     -Wno-WIDTHTRUNC \
     -Wno-WIDTHEXPAND \
     -y $(ZENITH_HW) \
+    -y $(SD_MODEL) \
     -I$(ZENITH_HW) \
+    -I$(SD_MODEL) \
     -Mdir obj_dir \
     -CFLAGS "-std=c++20 -O2 -I$(SPIKE_INC) -I$(COSIM_SIM) -I$(SIM_DIR) $(VLATOR_DEFS)" \
     -LDFLAGS "-L$(SPIKE_LIB) -lriscv -lfesvr -lpthread -ldl"
@@ -85,13 +94,15 @@ build:
 # --- Run ---------------------------------------------------------------
 run: build
 	@mkdir -p $(OUT)
-	@test -n "$(DDR)" || { echo "ERROR: pass a firmware, e.g. make run DDR=fw.elf"; exit 1; }
+	@test -n "$(DDR)$(SD)" || { echo "ERROR: pass DDR=fw.elf and/or SD=image.bin|hex"; exit 1; }
 	@echo "=== [ZTB] Running (DDR=$(DDR) BOOT=$(BOOT)) ==="
 	./obj_dir/Vzenith_tb_top \
-		+firmware=$(DDR) \
+		$(if $(DDR),+firmware=$(DDR),) \
 		$(if $(BOOT),+boot=$(BOOT),) \
+		$(if $(SD),+sd=$(SD) +sd_block=$(SD_BLOCK),) \
 		$(if $(filter 1,$(WAVE)),+wave,) \
 		$(if $(filter 0,$(TRACE)),+notrace,) \
+		$(if $(filter-out 0,$(TRACE_START)),+trace_start=$(TRACE_START),) \
 		$(if $(filter-out 0,$(MAX_CYCLES)),+max_cycles=$(MAX_CYCLES),) \
 		2>&1 | tee $(LOGDIR)/run.log
 
@@ -109,7 +120,8 @@ info:
 	@echo "SPIKE_LIB  : $(SPIKE_LIB)"
 	@echo "DDR        : $(DDR)"
 	@echo "BOOT       : $(BOOT)"
-	@echo "WAVE/TRACE : $(WAVE)/$(TRACE)   MAX_CYCLES=$(MAX_CYCLES)"
+	@echo "SD         : $(SD)   SD_BLOCK=$(SD_BLOCK)"
+	@echo "WAVE/TRACE : $(WAVE)/$(TRACE)   TRACE_START=$(TRACE_START)   MAX_CYCLES=$(MAX_CYCLES)"
 
 clean:
 	rm -rf obj_dir $(OUT) $(LOGDIR)

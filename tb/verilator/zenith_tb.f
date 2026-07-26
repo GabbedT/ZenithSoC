@@ -46,5 +46,6 @@
 
 ../../hw/ZenithSoC.sv
 
+sd_card_model.sv
 zenith_tb_top.sv
 zenith_public.vlt

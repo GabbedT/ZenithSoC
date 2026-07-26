@@ -25,7 +25,7 @@ module dut_wrapper (
     tri1 [3:0] sd_data_io;
 
     logic sd_cd_n_i;
-    logic sd_reset_n_o;
+    logic sd_reset_o;
     logic sd_clk_o;
 
     sd dut (
@@ -47,11 +47,11 @@ module dut_wrapper (
         .read_done_o    ( read_done_o    ),
         .read_error_o   ( read_error_o   ),
 
-        .sd_cd_n_i    ( sd_cd_n_i    ),
-        .sd_cmd_io    ( sd_cmd_io    ),
-        .sd_data_io   ( sd_data_io   ),
-        .sd_reset_n_o ( sd_reset_n_o ),
-        .sd_clk_o     ( sd_clk_o     ) 
+        .sd_cd_n_i    ( sd_cd_n_i  ),
+        .sd_cmd_io    ( sd_cmd_io  ),
+        .sd_data_io   ( sd_data_io ),
+        .sd_reset_o   ( sd_reset_o ),
+        .sd_clk_o     ( sd_clk_o   )
     );
 
     assign sd_cd_n_i = 1'b0;
