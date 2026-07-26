@@ -13,6 +13,8 @@ module uart #(
 
     /* To Trace Unit */
     output logic uart_tx_full_o,
+    input logic [7:0] trace_data_i,
+    input logic trace_write_i,
 
     /* UART interface */
     input logic uart_rx_i,
@@ -65,6 +67,9 @@ module uart #(
         .rx_rts_o   ( uart_rts       ),
         .tx_empty_o ( tx_empty       ),
         .tx_full_o  ( uart_tx_full_o ),
+
+        .trace_data_i  ( trace_data_i  ),
+        .trace_write_i ( trace_write_i ),
 
         .tx_done_i  ( tx_done      ),
         .rx_done_i  ( rx_done      ),

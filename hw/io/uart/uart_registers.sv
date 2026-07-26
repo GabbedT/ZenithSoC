@@ -19,6 +19,10 @@ module uart_registers #(
     output logic tx_empty_o,
     output logic tx_full_o,
 
+    /* Trace Unit writes directly into the UART TX buffer */
+    input logic [7:0] trace_data_i,
+    input logic trace_write_i,
+
     /* FSMs signals */
     input logic tx_done_i,
     input logic rx_done_i,
@@ -144,13 +148,13 @@ module uart_registers #(
         .clk_i   ( clk_i   ),
         .rst_n_i ( rst_n_i ),
 
-        .write_i ( write_enable[1] & write_i & !tx_full ),
+        .write_i ( ((write_enable[1] & write_i) | trace_write_i) & !tx_full ),
         .read_i  ( tx_cts_i & !tx_empty                 ),
 
         .empty_o ( tx_empty ),
         .full_o  ( tx_full  ),
 
-        .write_data_i ( write_data_i[0] ),
+        .write_data_i ( trace_write_i ? trace_data_i : write_data_i[0] ),
         .read_data_o  ( tx_data_o       )
     );
     

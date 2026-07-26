@@ -3,8 +3,12 @@
 **/*.txt
 
 **/*.log
+**/*.jou
+**/*.pb
 **/__pycache__/
 **/*.pyc
+
+**/xsim.dir
 
 **/.vscode/settings.json
 
@@ -28,3 +32,4 @@ sw/test/out
 
 /build/
 /fpga/nexys_a7/.Xil
+/fpga/nexys_a7/build

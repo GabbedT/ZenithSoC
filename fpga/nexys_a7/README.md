@@ -5,14 +5,43 @@ The batch flow targets the Digilent Nexys A7 DDR 100T
 
 ```bash
 cd fpga/nexys_a7
-make project   # create the project and regenerate IP
-make retry-synth # rerun RTL synthesis while reusing generated IP
-make retry-impl  # rerun implementation from the synthesized checkpoint
+make project       # create the project and regenerate IP
+make retry-synth   # rerun RTL synthesis while reusing generated IP
+make retry-impl    # rerun implementation from the synthesized checkpoint
 make finish-routed # write reports/bitstream from an existing routed checkpoint
-make synth     # synthesize
-make impl      # place and route
-make bitstream # generate build/vivado/ZenithSoC_nexys_a7.bit
+make synth         # synthesize
+make impl          # place and route
+make bitstream     # generate build/vivado/ZenithSoC_nexys_a7.bit
+make sim           # run the accurate MIG + DDR2 + SD-card XSim testbench
+make sim_gui       # open the simulation in the Vivado GUI
+make wave          # open the captured waveform database in XSim
 ```
+
+The simulation target uses the generated clock wizard and MIG controller, the
+Micron DDR2 component model in `tb/ddr_model`, and the SD-card model maintained
+in `vp/blocks/sd/rtl`.  Testbench sources are added explicitly to the Vivado
+simulation fileset; `SoC_testbench.sv` therefore contains no source includes or
+machine-specific paths.  The default simulated interval is 1 ms and can be
+overridden, for example:
+
+```bash
+make sim SIM_RUNTIME=5ms JOBS=8
+```
+
+`make sim_gui` uses the same project and waveform setup but leaves the
+simulation open for interactive use.  After a batch run, `make wave` creates a
+curated waveform configuration and opens the captured database; it requires a
+previous `make sim` run. Preferrebly one should do a `make sim_gui`, add the required signals
+and save the waveform file, then exit and execute `make sim`.
+
+The XSim project, log, waveform database, and trace files are written below
+`build/vivado/simulation/`.  The simulation define set intentionally includes
+`_VIVADO_` and excludes `VERILATOR`, so `ZenithSoC` instantiates the real MIG
+path rather than its fast behavioural DDR replacement.
+
+The simulation depends on the boot image and sine-table
+initialization file configured in `project_config.tcl`, from here change the bootloader hex path.  Build those images
+before running XSim if they are not already present.
 
 Override the executable when Vivado is not on `PATH`:
 

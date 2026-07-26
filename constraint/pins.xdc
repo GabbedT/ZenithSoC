@@ -222,8 +222,8 @@ set_property -dict { PACKAGE_PIN H17   IOSTANDARD LVCMOS33 } [get_ports { tmr_pw
 
 ##USB-RS232 Interface
 
-set_property -dict { PACKAGE_PIN C4    IOSTANDARD LVCMOS33 } [get_ports { uart_tx_o[0] }]; #IO_L7P_T1_AD6P_35 Sch=uart_txd_in
-set_property -dict { PACKAGE_PIN D4    IOSTANDARD LVCMOS33 } [get_ports { uart_rx_i[0] }]; #IO_L11N_T1_SRCC_35 Sch=uart_rxd_out
+set_property -dict { PACKAGE_PIN D4    IOSTANDARD LVCMOS33 } [get_ports { uart_tx_o[0] }]; #IO_L11N_T1_SRCC_35 Sch=uart_rxd_out
+set_property -dict { PACKAGE_PIN C4    IOSTANDARD LVCMOS33 } [get_ports { uart_rx_i[0] }]; #IO_L7P_T1_AD6P_35 Sch=uart_txd_in
 set_property -dict { PACKAGE_PIN D3    IOSTANDARD LVCMOS33 } [get_ports { uart_cts_i[0] }]; #IO_L12N_T1_MRCC_35 Sch=uart_cts
 set_property -dict { PACKAGE_PIN E5    IOSTANDARD LVCMOS33 } [get_ports { uart_rts_o[0] }]; #IO_L5N_T0_AD13N_35 Sch=uart_rts
 

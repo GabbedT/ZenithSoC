@@ -31,6 +31,9 @@ module dut_wrapper (
         .rst_n_i     ( rst_n ),
         .interrupt_o ( interrupt_o ),
 
+        .trace_data_i  ( 8'b0 ),
+        .trace_write_i ( 1'b0 ),
+
         .uart_rx_i  ( uart_rx  ),
         .uart_tx_o  ( uart_tx  ),
         .uart_rts_o ( uart_rts ),

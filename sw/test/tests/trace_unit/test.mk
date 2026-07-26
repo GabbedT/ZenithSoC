@@ -1,0 +1,4 @@
+DRIVERS := UART TraceUnit Serial_IO
+
+TRACE ?= 0
+MAX_CYCLES ?= 5000000
