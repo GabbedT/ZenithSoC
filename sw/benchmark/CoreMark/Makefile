@@ -1,6 +1,8 @@
 # ============================================================================
 # Targets:
-#   make sd     Build SD-boot image (bootloader.elf + coremark_app.elf)
+#   make fpga   Build a ROM-initialization hex for the bootloader and the
+#               CoreMark application image for the SD card.
+#   make sd     Build the legacy bootloader and application binaries.
 #   make sim    Build Verilator-direct ELF (firmware only, DDR@0x8000_0000)
 #   make clean
 #
@@ -8,10 +10,6 @@
 #   make sim
 #   # in tb/verilator:
 #   make run DDR=../../sw/benchmark/CoreMark/out/coremark_sim.elf
-#
-# Usage (SD card real hardware):
-#   make sd
-#   sudo tools/write_sd.sh /dev/sdX out/bootloader.bin out/coremark_app.bin
 # ============================================================================
 
 SHELL := /bin/bash
@@ -20,7 +18,7 @@ SHELL := /bin/bash
 # Paths
 # ----------------------------------------------------------------------------
 
-ROOT      := $(abspath ../..)
+REPO_ROOT := $(abspath ../../..)
 LIB_DIR   := $(abspath ../../lib)
 SRC_DIR   := $(abspath ../../src)
 CORE_DIR  := $(abspath coremark)
@@ -90,6 +88,7 @@ APP_ELF   := $(OUT)/coremark_app.elf
 APP_BIN   := $(OUT)/coremark_app.bin
 BOOT_ELF  := $(OUT)/bootloader.elf
 BOOT_BIN  := $(OUT)/bootloader.bin
+BOOT_HEX  := $(OUT)/bootloader.hex
 
 APP_OBJS := \
     $(SD_OUT)/app_start.o \
@@ -108,13 +107,21 @@ BOOT_OBJS := \
     $(SD_OUT)/boot_uart.o \
     $(SD_OUT)/boot_sddrv.o
 
-.PHONY: sd
+.PHONY: sd fpga
 
 sd: $(APP_BIN) $(BOOT_BIN)
-	@echo "=== SD Image ready ==="
+	@echo "=== Legacy binaries ready ==="
 	@echo "  Bootloader: $(BOOT_BIN)"
 	@echo "  App:        $(APP_BIN)"
-	@echo "Flash: sudo tools/write_sd.sh /dev/sdX $(BOOT_BIN) $(APP_BIN)"
+	@echo "For FPGA ROM boot, use: make fpga"
+
+fpga: $(APP_BIN) $(BOOT_HEX)
+	@echo "=== FPGA image ready ==="
+	@echo "  Boot ROM: $(BOOT_HEX)"
+	@echo "  SD app:   $(APP_BIN)"
+	@echo "Flash: sudo $(REPO_ROOT)/tools/write_sd.sh /dev/sdX $(APP_BIN)"
+	@echo "Full build input: $(BOOT_HEX)"
+	@echo "Post-route UpdateMEM input: $(BOOT_ELF)"
 
 $(SD_OUT)/app_start.o: $(APP_DIR)/app_start.s | $(SD_OUT)
 	$(AS) -march=$(MARCH) -mabi=$(MABI) $< -o $@
@@ -154,8 +161,8 @@ $(APP_BIN): $(APP_ELF)
 $(SD_OUT)/boot_start.o: $(BOOT_DIR)/boot_start.s | $(SD_OUT)
 	$(AS) -march=$(MARCH) -mabi=$(MABI) $< -o $@
 
-$(SD_OUT)/boot_sd.o: $(BOOT_DIR)/boot_sd.cpp | $(SD_OUT)
-	$(CXX) $(CFLAGS_BASE) -c $< -o $@
+$(SD_OUT)/boot_sd.o: $(BOOT_DIR)/boot_sd.cpp $(APP_BIN) | $(SD_OUT)
+	$(CXX) $(CFLAGS_BASE) -DIMG_BLOCKS=$$((($$(stat -c%s "$(APP_BIN)") + 511) / 512)) -c $< -o $@
 
 $(SD_OUT)/boot_uart.o: $(SRC_DIR)/UART.cpp | $(SD_OUT)
 	$(CXX) $(CFLAGS_BASE) -c $< -o $@
@@ -170,6 +177,9 @@ $(BOOT_ELF): $(BOOT_OBJS) | $(OUT)
 
 $(BOOT_BIN): $(BOOT_ELF)
 	$(COPY) -O binary $< $@
+
+$(BOOT_HEX): $(BOOT_ELF) $(REPO_ROOT)/tools/elf2hex.sh
+	bash $(REPO_ROOT)/tools/elf2hex.sh $< $@
 
 # ============================================================================
 # SIM TARGET
