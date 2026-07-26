@@ -5,6 +5,8 @@
 #include "../lib/mmio.h"
 #include "../lib/platform.h"
 
+#include "../lib/driver/UART.h"
+
 #include <stdint.h>
 
 SD::SD() :
@@ -859,6 +861,77 @@ SD::cardStatus_u SD::getCardStatus(errorType_e& error) {
                    |  static_cast<uint32_t>(resp[3]);
 
     return cardStatus;
-}
+};
+
+
+bool SD::boot_sd(
+    UART &uart, 
+    errorType_e& err, 
+    clockSpeed_e speed, 
+    busWidth_e width,
+    uint32_t ddr_entry,
+    uint32_t img_blk_start,
+    uint32_t img_blks
+
+) {
+    /* UART for logging */
+    uart.init(115200, false);
+    
+    const char msg_start[] = "[BOOT] ZenithSoC SD Boot...\r\n";
+    for (const char *c = msg_start; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
+
+    uint8_t cmd8[6] = {0};
+    bool highCap = false;
+
+    init(speed, width, cmd8, highCap, err);
+
+    if (err != SD::NO_ERROR) {
+        const char msg_init_fail[] = "[BOOT] SD Initialization failed!\r\n";
+        for (const char *c = msg_init_fail; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
+
+        return 0;
+    }
+
+
+    if (highCap) {
+        const char msg_cap[] = "[BOOT] SD OK, High Capacity!\r\n";
+        for (const char *c = msg_cap; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
+    } else {
+        const char msg_cap[] = "[BOOT] SD OK, No High Capacity!\r\n";
+        for (const char *c = msg_cap; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
+    }
+
+    /* DDR */
+    volatile uint32_t* ddr = (volatile uint32_t*) ddr_entry;
+
+    /* Build address, SDHC = block address, SDSC = byte address */
+    uint32_t addr = highCap ? img_blk_start : (img_blk_start * 512);
+
+    /* Load blocks */
+    uint32_t block[128];
+
+    for (int blk = 0; blk < img_blks; ++blk) {
+        err = SD::NO_ERROR;
+
+        uint32_t blkAddr = highCap ? (addr + blk) : (addr + (blk * 512));
+        readBlock(blkAddr, block, nullptr, err);
+
+        if (err != SD::NO_ERROR) {
+            const char msg_fail_blk[] = "[BOOT] Fail reading block\r\n";
+            for (const char *c = msg_fail_blk; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
+
+            return 0;
+        }
+
+        for (int i = 0; i < 128; ++i) {
+            ddr[(blk * 128) + i] = block[i];
+        }
+    }
+
+    const char msg_boot_end[] = "[BOOT] Image loaded!\r\n";
+    for (const char *c = msg_boot_end; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
+
+    return 1;
+};
 
 #endif

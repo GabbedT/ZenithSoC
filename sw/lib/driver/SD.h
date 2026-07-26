@@ -6,6 +6,8 @@
 #include "../mmio.h"
 #include "../platform.h"
 
+#include "UART.h"
+
 class SD {
 
 public: 
@@ -271,6 +273,13 @@ public:
     SD& readSCR(uint8_t* scrBuffer, errorType_e& error);    // 8 bytes
 
     SD& readOCR(uint8_t* ocrBuffer, errorType_e& error);    // 4 bytes
+
+
+/*****************************************************************/
+/*                              BOOT                             */
+/*****************************************************************/
+
+    bool boot_sd(UART &uart, errorType_e& err, clockSpeed_e speed, busWidth_e width, uint32_t ddr_entry, uint32_t img_blk_start, uint32_t img_blks);
 
 };
 
