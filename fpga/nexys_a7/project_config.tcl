@@ -5,8 +5,14 @@
 set part xc7a100tcsg324-1
 set top ZenithSoC
 
+if {[info exists ::env(ZENITH_BOOTLOADER_HEX)]} {
+    set bootloader_hex [file normalize $::env(ZENITH_BOOTLOADER_HEX)]
+} else {
+    set bootloader_hex [file join $root_dir sw benchmark CoreMark out bootloader.hex]
+}
+
 set memory_files [list \
-    [file join $root_dir sw benchmark CoreMark out bootloader.hex] \
+    $bootloader_hex \
     [file join $root_dir hw apu synthesis_unit sine sine_quarter.hex] \
 ]
 

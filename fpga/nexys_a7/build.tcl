@@ -2,6 +2,7 @@ set script_dir [file dirname [file normalize [info script]]]
 set root_dir [file normalize [file join $script_dir ../..]]
 set build_dir [file join $root_dir build vivado]
 source [file join $script_dir project_config.tcl]
+source [file join $script_dir bootloader_mmi.tcl]
 
 set target bitstream
 set jobs 4
@@ -69,6 +70,7 @@ if {$target eq "finish_routed"} {
     }
 
     write_implementation_reports $build_dir
+    write_bootloader_mmi [file join $build_dir bootloader.mmi] $part
 
     set bit_file [file join $build_dir project ZenithSoC.runs impl_1 ${top}.bit]
     write_bitstream -force $bit_file
@@ -136,6 +138,7 @@ if {$target eq "retry_impl"} {
 
     open_run impl_1
     write_implementation_reports $build_dir
+    write_bootloader_mmi [file join $build_dir bootloader.mmi] $part
 
     set bit_file [file join $build_dir project ZenithSoC.runs impl_1 ${top}.bit]
     if {![file exists $bit_file]} {
@@ -229,6 +232,7 @@ if {$target eq "impl"} {
     }
     open_checkpoint $routed_dcp
     write_implementation_reports $build_dir
+    write_bootloader_mmi [file join $build_dir bootloader.mmi] $part
     exit 0
 }
 
@@ -243,6 +247,7 @@ if {![string match "*Complete*" $impl_status]} {
 }
 open_run impl_1
 write_implementation_reports $build_dir
+write_bootloader_mmi [file join $build_dir bootloader.mmi] $part
 
 set bit_file [file join $build_dir project ZenithSoC.runs impl_1 ${top}.bit]
 if {![file exists $bit_file]} {
