@@ -156,7 +156,7 @@ void portable_init(core_portable *p, int *argc, char *argv[]) {
     volatile struct uartCtrlStatus_s* status = (volatile struct uartCtrlStatus_s*) (UART_BASE);
 
     /* Initialize UART */
-    status->parityEnable = 1;
+    status->parityEnable = 0;
     status->dataBits = BIT8;
     status->stopBits = STOP1;
     status->parityMode = EVEN;
