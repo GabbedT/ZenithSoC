@@ -12,14 +12,13 @@ Features
 ~~~~~~~~
 
 * Direct-mapped write-back cache architecture
-* Configurable cache size (default 4KB - 8KB)
+* Configurable cache size (current integration: 4KB)
 * Configurable block size (default 16 bytes)
 * Separate load and store controllers with FSMs
 * Dirty bit tracking for write-back policy
 * Lock mechanism to prevent address conflicts
 * MMIO bypass for peripheral access
 * Byte, halfword, and word store operations
-* Write-through on cache miss
 * Automatic write-back on dirty eviction
 * Priority arbitration (load > store)
 
@@ -220,34 +219,6 @@ States
   * Assert ``valid_o``
   * Return to IDLE
 
-FSM Diagram (Load Controller)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   IDLE
-    │
-    ├─ locked ──────► WAIT_LOCK ──────┐
-    │                                  │
-    └─ not locked ────────────────────┘
-                                       │
-                                       ▼
-                                    OUTCOME
-                                       │
-    ┌──────────────────────────────────┼───────────────────────┐
-    │ hit                              │ miss                  │
-    ▼                                  ▼                       │
-   IDLE                            clean line              dirty line
-                                       │                       │
-                                       ▼                       ▼
-                                 ALLOCATION_REQ          WRITE_BACK
-                                       │                       │
-                                       │                       │
-                                       ▼                       │
-                                   ALLOCATE ◄──────────────────┘
-                                       │
-                                       ▼
-                                     IDLE
 
 Store Controller FSM
 --------------------
@@ -308,30 +279,6 @@ States
   * Assert ``valid_o`` to STU
   * Return to IDLE
 
-FSM Diagram (Store Controller)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: text
-
-   IDLE
-    │
-    ├─ locked ──────► WAIT_LOCK ──────┐
-    │                                  │
-    └─ not locked ────────────────────┘
-                                       │
-                                       ▼
-                                    OUTCOME
-                                       │
-                        ┌──────────────┴──────────────┐
-                        │ hit                   miss  │
-                        ▼                             ▼
-                       IDLE                    WRITE_THROUGH
-                                                      │
-                                                      ▼
-                                               WAIT (if stalled)
-                                                      │
-                                                      ▼
-                                                     IDLE
 
 Cache Arbitration
 -----------------
@@ -375,7 +322,7 @@ Memory Bus Arbitration
 Both controllers may request memory stores:
 
 * Load controller: Write-back of dirty evicted lines
-* Store controller: Write-through on cache miss
+* Store controller: Handles cacheable writes and non-cacheable bypass writes
 
 **Arbitration Policy:**
 
@@ -480,10 +427,3 @@ The data cache complex distinguishes between cacheable and non-cacheable regions
 * MMIO store: Direct to ``io_store_channel``, bypass cache
 * DDR load: Through load controller and cache
 * DDR store: Through store controller and cache
-
-**MMIO Characteristics:**
-
-* Single-cycle request (no caching overhead)
-* No write-back (direct write-through)
-* Suitable for peripherals with side effects
-* Typical latency: 3-10 cycles (peripheral dependent)

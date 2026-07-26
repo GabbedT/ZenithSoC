@@ -14,13 +14,74 @@ Features
 * PDM microphone interface with programmable clock generation
 * Single-channel (mono) or dual-channel (stereo) capture
 * CIC (Cascaded Integrator-Comb) low-pass filter for anti-aliasing
-* Configurable decimation factor (1-127)
+* Configurable 8-bit decimation factor (the current RTL accepts an 8-bit value)
 * Fixed-point normalization for dynamic range optimization
 * Programmable gain stage (Q1.15 format)
 * 16-bit PCM output at configurable sample rates
-* FIFO buffer for sample storage (default 512 samples)
+* FIFO buffer for sample storage (module default 512 samples; SoC integration 2048 samples)
 * Interrupt generation on buffer full and threshold crossing
 * Event-driven error reporting
+
+Signal interface
+----------------
+
+Port directions are relative to the ``audio_capture_unit`` module. The
+register signals are the local SoC memory-mapped interface; addresses are
+3-bit word indices and ``write_strobe_i`` enables individual bytes of
+``write_data_i``.
+
+.. list-table:: ACU module signals
+   :header-rows: 1
+   :widths: 34 12 14 40
+
+   * - Signal
+     - Direction
+     - Width
+     - Description
+   * - ``clk_i``
+     - Input
+     - 1
+     - System clock.
+   * - ``rst_n_i``
+     - Input
+     - 1
+     - Active-low reset.
+   * - ``write_i`` / ``read_i``
+     - Input
+     - 1 each
+     - Register write and read requests.
+   * - ``write_address_i[2:0]`` / ``read_address_i[2:0]``
+     - Input
+     - 3 each
+     - Word indices in the ACU register window.
+   * - ``write_data_i[31:0]``
+     - Input
+     - 32
+     - Register write data.
+   * - ``write_strobe_i[3:0]``
+     - Input
+     - 4
+     - Byte write enables.
+   * - ``write_done_o`` / ``read_done_o``
+     - Output
+     - 1 each
+     - Register transaction completion responses.
+   * - ``write_error_o`` / ``read_error_o``
+     - Output
+     - 1 each
+     - Invalid register access responses.
+   * - ``interrupt_o``
+     - Output
+     - 1
+     - Buffer, threshold, or capture-error interrupt request.
+   * - ``pdm_data_i``
+     - Input
+     - 1
+     - PDM microphone data.
+   * - ``pdm_clk_o`` / ``pdm_lrsel_o``
+     - Output
+     - 1 each
+     - PDM clock and left/right channel select.
 
 Architecture
 ------------
@@ -32,36 +93,6 @@ The Audio Capture Unit consists of four main pipeline stages:
 * **Normalizer**: Fixed-point division to scale samples to [0:1] range
 * **Gain Stage**: Programmable amplification and final PCM conversion
 * **Register Interface**: Configuration, control, and sample buffer management
-
-Signal Interface
-~~~~~~~~~~~~~~~~
-
-**Global Signals:**
-
-* ``clk_i``: System clock
-* ``rst_n_i``: Active-low reset
-* ``interrupt_o``: Interrupt request to CPU
-
-**PDM Microphone Interface:**
-
-* ``pdm_data_i``: PDM data input from microphone
-* ``pdm_clk_o``: PDM clock output to microphone
-* ``pdm_lrsel_o``: Left/Right channel select (stereo mode)
-
-**Register Interface:**
-
-* ``write_i``: Write enable
-* ``write_address_i[2:0]``: Write register address
-* ``write_data_i[31:0]``: Write data
-* ``write_strobe_i[3:0]``: Byte-level write enable
-* ``write_done_o``: Write completed
-* ``write_error_o``: Write error (read-only register)
-
-* ``read_i``: Read enable
-* ``read_address_i[2:0]``: Read register address
-* ``read_data_o[31:0]``: Read data
-* ``read_done_o``: Read completed
-* ``read_error_o``: Read error
 
 PDM Converter
 -------------
@@ -109,30 +140,6 @@ Channel Configuration
 * ``pdm_lrsel_o`` toggles every PDM clock cycle
 * Doubles effective sample rate
 
-**Timing Diagram (Mono - Left Channel):**
-
-.. code-block:: text
-
-   pdm_clk:     ──┐  ┌──┐  ┌──┐  ┌──┐  ┌──
-                  │  │  │  │  │  │  │  │
-   pdm_lrsel:   ──────────────────────────  (LEFT = 0)
-   pdm_data:    ──┘  └──┐  ┌──┘  └──┐  ┌──
-
-   Sample:         ↑     ↑     ↑     ↑
-                  D0    D1    D2    D3
-
-**Timing Diagram (Stereo):**
-
-.. code-block:: text
-
-   pdm_clk:     ──┐  ┌──┐  ┌──┐  ┌──┐  ┌──
-                  │  │  │  │  │  │  │  │
-   pdm_lrsel:   ──┘  └──┐  └──┐  └──┐  └──  (toggles)
-                  L     R     L     R
-   pdm_data:    ──┘  └──┐  ┌──┘  └──┐  ┌──
-
-   Sample:         ↑  ↓  ↑  ↓  ↑  ↓  ↑  ↓
-                  L0 R0 L1 R1 L2 R2 L3 R3
 
 Input Synchronization
 ~~~~~~~~~~~~~~~~~~~~~
@@ -146,7 +153,6 @@ PDM data input is synchronized through a 3-stage synchronizer to prevent metasta
        .sync_o   ( pdm_data_o )
    );
 
-This introduces 3 clock cycles of latency but ensures reliable sampling.
 
 CIC Filter
 ----------
@@ -154,17 +160,8 @@ CIC Filter
 Filter Architecture
 ~~~~~~~~~~~~~~~~~~~
 
-The CIC (Cascaded Integrator-Comb) filter implements a 5th-order low-pass filter with configurable decimation:
+The CIC (Cascaded Integrator-Comb) filter implements a 5th-order low-pass filter with configurable decimation.
 
-**Structure:**
-
-.. code-block:: text
-
-   PDM → [Integrator₁] → [Integrator₂] → ... → [Integrator₅]
-              ↓
-         Decimator (M)
-              ↓
-   [Comb₁] → [Comb₂] → ... → [Comb₅] → PCM
 
 **Filter Order:** 5 (parameter: CIC_FILTER_ORDER = 5)
 
@@ -173,11 +170,7 @@ The CIC (Cascaded Integrator-Comb) filter implements a 5th-order low-pass filter
 Integrator Stage
 ~~~~~~~~~~~~~~~~
 
-The integrator stage accumulates PDM bits at full sample rate:
-
-.. code-block:: systemverilog
-
-   integrator[i] = integrator_ff[i-1] + integrator_ff[i]
+The integrator stage accumulates PDM bits at full sample rate.
 
 **Characteristics:**
 
@@ -198,25 +191,12 @@ The decimator reduces sample rate by factor M:
    Example: PDM = 1 MHz, M = 64
    Sample Rate = 1 MHz / 64 = 15.625 kHz
 
-**Decimator Counter:**
-
-.. code-block:: systemverilog
-
-   if (decimator == decimation_factor) begin
-       valid_sample = 1;  // Pass sample to comb stage
-       decimator = 0;     // Reset counter
-   end else begin
-       decimator = decimator + 1;  // Discard sample
-   end
 
 Comb Stage
 ~~~~~~~~~~
 
-The comb stage performs differentiation at decimated rate:
+The comb stage performs differentiation at decimated rate.
 
-.. code-block:: systemverilog
-
-   comb[i] = comb_ff[i-1] - comb_delay[i-1][M-1]
 
 **Characteristics:**
 
@@ -290,21 +270,6 @@ Uses non-restoring division algorithm:
 * **Throughput:** 1 division per 64 cycles (pipelined)
 * **Precision:** Full 32-bit fractional result
 
-**Division Controller:**
-
-.. code-block:: systemverilog
-
-   non_restoring_divider #(
-       .DATA_WIDTH ( 64 )
-   ) normalizer (
-       .dividend_i   ( {filtered_sample, 32'b0} ),  // Q32.32
-       .divisor_i    ( {32'b0, normalizer_i}    ),  // Q32.0
-       .quotient_o   ( normalized_sample        ),  // Q0.32
-       .data_valid_i ( valid_filter & idle      ),
-       .data_valid_o ( normalized_valid         ),
-       .idle_o       ( normalizer_idle          )
-   );
-
 Error Handling
 ~~~~~~~~~~~~~~
 
@@ -369,19 +334,6 @@ Final gain stage applies user-defined amplification:
 | 0xFFFF      | ~2.0    | +6 dB boost (max)    |
 +-------------+---------+----------------------+
 
-Pipeline Latency
-~~~~~~~~~~~~~~~~
-
-Total pipeline latency from PDM input to PCM output:
-
-1. Input synchronization: 3 cycles
-2. CIC integrator: 5 cycles (filter order)
-3. Decimation: M cycles (decimation factor)
-4. CIC comb: 5 cycles (filter order)
-5. Normalization: 64 cycles (division)
-6. Gain multiplication: 2 cycles
-
-**Total:** ~79 + M cycles (e.g., ~143 cycles for M = 64)
 
 Register Map
 ------------
@@ -395,7 +347,7 @@ Register Map
 +--------+----------------------------+------+------------------------------------------------+
 | 0x08   | GAIN                       | R/W  | Gain value (Q1.15 format)                      |
 +--------+----------------------------+------+------------------------------------------------+
-| 0x0C   | DECIMATION_FACTOR          | R/W  | CIC decimation factor (1-127)                  |
+| 0x0C   | DECIMATION_FACTOR          | R/W  | CIC decimation factor (8-bit value)            |
 +--------+----------------------------+------+------------------------------------------------+
 | 0x10   | NORMALIZER                 | R/W  | Normalizer divisor value                       |
 +--------+----------------------------+------+------------------------------------------------+
@@ -480,7 +432,7 @@ Register Descriptions
 +--------+-------+-----+------------------------------------------------+
 | Bit    | Field | R/W | Description                                    |
 +========+=======+=====+================================================+
-| 7:0    | FACTOR| R/W | CIC decimation factor (1-127)                  |
+| 7:0    | FACTOR| R/W | CIC decimation factor (8-bit value)            |
 +--------+-------+-----+------------------------------------------------+
 | 31:8   | -     | -   | Unused                                         |
 +--------+-------+-----+------------------------------------------------+

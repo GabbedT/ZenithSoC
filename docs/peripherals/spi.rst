@@ -4,7 +4,6 @@ SPI - Serial Peripheral Interface
 Overview
 --------
 
-The Serial Peripheral Interface (SPI) is a synchronous serial communication protocol for short-distance, high-speed data transfer in embedded systems. Operating on a master-slave architecture, SPI enables efficient communication between a master device and one or more slave devices using a minimal pin count.
 
 The ZenithSoC SPI implementation provides a full-duplex master-mode controller with configurable clock speed, phase, and polarity. The design emphasizes simplicity and low resource usage while maintaining high performance and flexibility.
 
@@ -37,35 +36,71 @@ The SPI controller consists of the following main components:
 * **FSM Controller**: Clock generation state machine
 * **Chip Select Logic**: Multi-slave select control
 
-Signal Description
+Signal interface
 ~~~~~~~~~~~~~~~~~~
 
-===============================  =========  ========  ====================================
-Signal Name                      Direction  Width     Description
-===============================  =========  ========  ====================================
-**Global**
-``clk_i``                        Input      1         System clock
-``rst_n_i``                      Input      1         Active-low asynchronous reset
-``interrupt_o``                  Output     1         Interrupt request
-**SPI Interface**
-``sclk_o``                       Output     1         SPI clock (to slaves)
-``mosi_o``                       Output     1         Master Out Slave In data line
-``miso_i``                       Input      1         Master In Slave Out data line
-``cs_n_o[SLAVES-1:0]``           Output     N         Chip select lines (active low)
-**AXI Write Interface**
-``write_i``                      Input      1         Write enable
-``write_address_i[2:0]``         Input      3         Register address
-``write_data_i[31:0]``           Input      32        Write data
-``write_strobe_i[3:0]``          Input      4         Byte write enable mask
-``write_done_o``                 Output     1         Write acknowledge
-``write_error_o``                Output     1         Write error (invalid operation)
-**AXI Read Interface**
-``read_i``                       Input      1         Read enable
-``read_address_i[2:0]``          Input      3         Register address
-``read_data_o[31:0]``            Output     32        Read data
-``read_done_o``                  Output     1         Read acknowledge (1 cycle delay for RX read)
-``read_error_o``                 Output     1         Read error (invalid operation)
-===============================  =========  ========  ====================================
+Port directions are relative to the ``spi`` module. The register signals form
+the local SoC memory-mapped interface, rather than a standalone AXI channel.
+Addresses are word indices inside the SPI register window and
+``write_strobe_i`` enables individual bytes of ``write_data_i``.
+
+.. list-table:: SPI module signals
+   :header-rows: 1
+   :widths: 34 12 14 40
+
+   * - Signal
+     - Direction
+     - Width
+     - Description
+   * - ``clk_i``
+     - Input
+     - 1
+     - System clock.
+   * - ``rst_n_i``
+     - Input
+     - 1
+     - Active-low reset.
+   * - ``interrupt_o``
+     - Output
+     - 1
+     - Transaction-complete interrupt request.
+   * - ``write_i`` / ``read_i``
+     - Input
+     - 1 each
+     - Register write and read requests.
+   * - ``write_address_i[2:0]`` / ``read_address_i[2:0]``
+     - Input
+     - 3 each
+     - Word indices in the SPI register window.
+   * - ``write_data_i[31:0]``
+     - Input
+     - 32
+     - Register write data.
+   * - ``write_strobe_i[3:0]``
+     - Input
+     - 4
+     - Byte write enables.
+   * - ``write_done_o`` / ``read_done_o``
+     - Output
+     - 1 each
+     - Register transaction completion responses; RX-buffer reads add one
+       cycle of read latency.
+   * - ``write_error_o`` / ``read_error_o``
+     - Output
+     - 1 each
+     - Invalid register access responses.
+   * - ``sclk_o``
+     - Output
+     - 1
+     - SPI serial clock.
+   * - ``mosi_o`` / ``miso_i``
+     - Output / Input
+     - 1 each
+     - Master-out and master-in data lines.
+   * - ``cs_n_o[SLAVES-1:0]``
+     - Output
+     - ``SLAVES``
+     - Active-low chip-select lines.
 
 **Parameter**: SLAVES = Number of chip select lines (default 1, max 32)
 
@@ -129,36 +164,6 @@ The SPI clock frequency is derived from the system clock:
   * 50% duty cycle
   * Configurable polarity (CPOL)
   * Configurable phase (CPHA)
-
-TX/RX Operation
-~~~~~~~~~~~~~~~
-
-**Transmission/Reception Flow**:
-
-1. Software writes data bytes to TX FIFO via TX_BUFFER register
-2. Software selects slave via SLAVE_SELECT register
-3. When TX FIFO has data and FSM idle:
-   - Assert chip select (CS_N low for selected slave)
-   - Load byte from TX FIFO into shift register
-   - Generate 8 clock cycles
-   - Shift out bits on MOSI (MSB or LSB first)
-   - Sample bits from MISO (synchronized)
-   - After 8 bits, write received byte to RX FIFO
-4. Deassert chip select (CS_N high)
-5. Generate transaction complete interrupt (if enabled)
-6. Repeat for next byte in TX FIFO
-
-**TX FIFO**:
-  * Depth: Configurable (default 16 bytes)
-  * Status: Full/empty flags in status register
-  * Triggers transaction when data available
-
-**RX FIFO**:
-  * Depth: Configurable (default 16 bytes)
-  * Status: Full/empty flags in status register
-  * One byte written per transaction
-
-**Simultaneous Operation**: Each SPI transaction transmits and receives simultaneously (full-duplex).
 
 Bit Order
 ~~~~~~~~~
@@ -248,18 +253,6 @@ State Definitions
     - bit_counter < 8: counter == divisor → CLOCK_LOW
     - bit_counter == 8: counter == divisor → IDLE
 
-FSM Control Signals
-~~~~~~~~~~~~~~~~~~~
-
-* ``sample_data``: Latch MISO bit into RX shift register (at capture edge)
-* ``shift_data``: Shift TX shift register, output next bit on MOSI (at shift edge)
-* ``bit_sent``: Increment bit counter (every complete bit cycle)
-* ``tx_read``: Pop byte from TX FIFO (when starting new transaction)
-* ``rx_write``: Push byte to RX FIFO (when 8 bits complete)
-* ``start_transaction``: Load TX shift register from FIFO
-* ``trx_done``: Transaction complete, generate interrupt
-* ``trx_idle``: FSM in IDLE state
-* ``cs_n_o``: Chip select outputs (low during transaction)
 
 Mode-Specific Behavior
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -319,23 +312,38 @@ STATUS Register (0x00)
 
 **SPI Status and Control Register**
 
-=============  ======  =====  =============================================
-Bit Field      Access  Reset  Description
-=============  ======  =====  =============================================
-[31:25]        R/W     0x00   **Clock Divisor [15:9]**: Upper 7 bits
-[24:17]        R/W     0x00   **Clock Divisor [8:1]**: Middle 8 bits
-[16:10]        -       0x00  Reserved
-[9]            R/W     0x0    **Clock Divisor [0]**: LSB
-[8]            R/W     0x0    **Bit Order**: 0=MSB first, 1=LSB first
-[7]            R/W     0x0    **CPOL**: Clock polarity (0=idle low, 1=idle high)
-[6]            R/W     0x0    **CPHA**: Clock phase (0=capture 1st edge, 1=capture 2nd edge)
-[5]            R/W     0x0    **Interrupt Enable**: Enable transaction complete interrupt
-[4]            R       0x1    **Idle**: SPI controller idle (not transmitting)
-[3]            R       0x0    **RX Full**: RX FIFO full
-[2]            R       0x1    **RX Empty**: RX FIFO empty
-[1]            R       0x0    **TX Full**: TX FIFO full
-[0]            R       0x1    **TX Empty**: TX FIFO empty
-=============  ======  =====  =============================================
+.. list-table:: SPI status fields
+   :header-rows: 1
+   :widths: 18 12 12 58
+
+   * - Bit field
+     - Access
+     - Reset
+     - Description
+   * - ``[24:9]``
+     - R/W
+     - 0
+     - 16-bit SPI clock divisor.
+   * - ``[8]``
+     - R/W
+     - 0
+     - Bit order; 0=MSB first, 1=LSB first.
+   * - ``[7]``
+     - R/W
+     - 0
+     - CPOL, the clock idle polarity.
+   * - ``[6]``
+     - R/W
+     - 0
+     - CPHA, the capture edge selection.
+   * - ``[5]``
+     - R/W
+     - 0
+     - Enable transfer-complete interrupt.
+   * - ``[4:0]``
+     - R
+     - -
+     - Idle, TX full/empty, and RX full/empty status flags.
 
 **Clock Divisor Encoding**:
   * Bits [31:25] → Divisor[15:9]

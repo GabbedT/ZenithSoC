@@ -38,36 +38,78 @@ The SD controller consists of the following main components:
 * **TX/RX Buffers**: FIFOs for command response and data blocks
 * **Interrupt Controller**: Edge-triggered interrupt generation
 
-Signal Description
+Signal interface
 ~~~~~~~~~~~~~~~~~~
 
-===============================  =========  ========  ====================================
-Signal Name                      Direction  Width     Description
-===============================  =========  ========  ====================================
-**Global**
-``clk_i``                        Input      1         System clock (100MHz typical)
-``rst_n_i``                      Input      1         Active-low asynchronous reset
-``interrupt_o``                  Output     1         Interrupt request
-**SD Card Interface**
-``sd_clk_o``                     Output     1         SD clock (400kHz or 25MHz)
-``sd_cmd_io``                    Inout      1         Command/response bidirectional line
-``sd_data_io[3:0]``              Inout      4         Data lines (DAT0-DAT3)
-``sd_cd_n_i``                    Input      1         Card detect (active low)
-``sd_reset_n_o``                 Output     1         Card reset (active low)
-**AXI Write Interface**
-``write_i``                      Input      1         Write enable
-``write_address_i[2:0]``         Input      3         Register address
-``write_data_i[31:0]``           Input      32        Write data
-``write_strobe_i[3:0]``          Input      4         Byte write enable mask
-``write_done_o``                 Output     1         Write acknowledge
-``write_error_o``                Output     1         Write error (invalid operation)
-**AXI Read Interface**
-``read_i``                       Input      1         Read enable
-``read_address_i[2:0]``          Input      3         Register address
-``read_data_o[31:0]``            Output     32        Read data
-``read_done_o``                  Output     1         Read acknowledge
-``read_error_o``                 Output     1         Read error (invalid operation)
-===============================  =========  ========  ====================================
+Port directions are relative to the ``sd`` module. The register signals form
+the local SoC memory-mapped interface, rather than a standalone AXI channel.
+Addresses are word indices inside the SD register window and
+``write_strobe_i`` enables individual bytes of ``write_data_i``.
+
+.. list-table:: SD module signals
+   :header-rows: 1
+   :widths: 34 12 14 40
+
+   * - Signal
+     - Direction
+     - Width
+     - Description
+   * - ``clk_i``
+     - Input
+     - 1
+     - System clock.
+   * - ``rst_n_i``
+     - Input
+     - 1
+     - Active-low reset.
+   * - ``interrupt_o``
+     - Output
+     - 1
+     - Configured SD event interrupt request.
+   * - ``write_i`` / ``read_i``
+     - Input
+     - 1 each
+     - Register write and read requests.
+   * - ``write_address_i[2:0]`` / ``read_address_i[2:0]``
+     - Input
+     - 3 each
+     - Word indices in the SD register window.
+   * - ``write_data_i[31:0]``
+     - Input
+     - 32
+     - Register write data.
+   * - ``write_strobe_i[3:0]``
+     - Input
+     - 4
+     - Byte write enables.
+   * - ``write_done_o`` / ``read_done_o``
+     - Output
+     - 1 each
+     - Register transaction completion responses.
+   * - ``write_error_o`` / ``read_error_o``
+     - Output
+     - 1 each
+     - Invalid register access responses.
+   * - ``sd_clk_o``
+     - Output
+     - 1
+     - SD clock, 400 kHz during initialization or 25 MHz during transfer.
+   * - ``sd_cmd_io``
+     - Inout
+     - 1
+     - Bidirectional command/response line.
+   * - ``sd_data_io[3:0]``
+     - Inout
+     - 4
+     - DAT0-DAT3 data lines.
+   * - ``sd_cd_n_i``
+     - Input
+     - 1
+     - Active-low card-detect input.
+   * - ``sd_reset_o``
+     - Output
+     - 1
+     - Active-high reset output to the card.
 
 Functional Description
 ----------------------
@@ -98,7 +140,7 @@ Card Initialization Sequence
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 1. **Card Detection**: Monitor ``sd_cd_n_i`` signal
-2. **Power-On Reset**: Assert ``sd_reset_n_o`` for ~1ms
+2. **Power-On Reset**: Assert ``sd_reset_o`` for the controller reset interval
 3. **Clock Setup**: Start with 400 kHz clock
 4. **CMD0** (GO_IDLE_STATE): Reset card to idle state
 5. **CMD8** (SEND_IF_COND): Check voltage and card version
@@ -323,55 +365,87 @@ CTRL Register (0x00)
 
 **SD Control Register**
 
-=============  ======  =====  =============================================
-Bit Field      Access  Reset  Description
-=============  ======  =====  =============================================
-[31:15]        R/W     0x00   **Interrupt Enable [8:0]**: Enable interrupts
-[14]           R/W     0x0    **Send Command**: Trigger command transmission
-[13]           Reserved 0x0   Reserved
-[12]           R/W     0x0    **Bus Width**: 0=1-bit, 1=4-bit
-[11]           R/W     0x0    **Clock Speed**: 0=400kHz, 1=25MHz
-[10]           R/W     0x0    **Enable**: Enable SD controller
-[9]            W       0x0    **Reset Card**: Pulse to reset card (1ms)
-[8:0]          Reserved 0x00  Reserved
-=============  ======  =====  =============================================
+.. list-table:: SD control fields
+   :header-rows: 1
+   :widths: 18 12 12 58
 
-**Interrupt Enable Bits**:
-  * Bit 31: Card detected
-  * Bit 30: TX buffer empty
-  * Bit 29: RX buffer full
-  * Bit 28: Command done
-  * Bit 27: Command CRC error
-  * Bit 26: Command timeout
-  * Bit 25: Data done
-  * Bit 24: Data CRC error
-  * Bit 23: Data timeout
+   * - Bit field
+     - Access
+     - Reset
+     - Description
+   * - ``[14]``
+     - R/W
+     - 0
+     - Reset card; the external ``sd_reset_o`` output is active high until reset completes.
+   * - ``[13]``
+     - R/W
+     - 0
+     - Enable SD controller.
+   * - ``[12]``
+     - R/W
+     - 0
+     - Flush the transmit FIFO.
+   * - ``[11]``
+     - R/W
+     - 0
+     - Clock speed; 0=400 kHz, 1=25 MHz.
+   * - ``[10]``
+     - R/W
+     - 0
+     - Bus width; 0=1-bit, 1=4-bit.
+   * - ``[9]``
+     - R/W
+     - 0
+     - Send command pulse.
+   * - ``[8:0]``
+     - R/W
+     - 0
+     - Interrupt enables: TX empty, RX full, command done, command CRC error, command timeout, data done, data CRC error, data timeout, and card detected.
+
+**Interrupt enable bits**:
+  * Bit 0: TX buffer empty
+  * Bit 1: RX buffer full
+  * Bit 2: Command done
+  * Bit 3: Command CRC error
+  * Bit 4: Command timeout
+  * Bit 5: Data done
+  * Bit 6: Data CRC error
+  * Bit 7: Data timeout
+  * Bit 8: Card detected
 
 STATUS Register (0x04, Read Only)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **SD Status Register**
 
-=============  ======  =====  =============================================
-Bit Field      Access  Reset  Description
-=============  ======  =====  =============================================
-[31]           R       0x0    **Card Detected**: Card present in slot
-[30:23]        R       0x00   **Data Token**: Last received data response token
-[22]           R       0x1    **TX Buffer Empty**: TX FIFO empty
-[21]           R       0x0    **TX Buffer Full**: TX FIFO full
-[20]           R       0x1    **RX Buffer Empty**: RX FIFO empty
-[19]           R       0x0    **RX Buffer Full**: RX FIFO full
-[18]           R       0x1    **Response Buffer Empty**: Response FIFO empty
-[17]           R       0x0    **Response Buffer Full**: Response FIFO full
-[16]           R       0x1    **CMD Idle**: Command controller idle
-[15]           R       0x0    **CMD CRC Error**: Last command had CRC error
-[14]           R       0x0    **CMD Timeout**: Last command timed out
-[13]           R       0x0    **CMD Response Type**: 0=R1(48-bit), 1=R2(136-bit)
-[12]           R       0x1    **Data Idle**: Data controller idle
-[11]           R       0x0    **Data CRC Error**: Last data had CRC error
-[10]           R       0x0    **Data Timeout**: Last data timed out
-[9:0]          Reserved 0x00  Reserved
-=============  ======  =====  =============================================
+.. list-table:: SD status fields
+   :header-rows: 1
+   :widths: 18 12 12 58
+
+   * - Bit field
+     - Access
+     - Reset
+     - Description
+   * - ``[14]``
+     - R
+     - 0
+     - Card detected.
+   * - ``[13:10]``
+     - R
+     - 0
+     - TX empty/full and RX empty/full flags.
+   * - ``[9:8]``
+     - R
+     - 0
+     - Response FIFO empty/full flags.
+   * - ``[7:4]``
+     - R
+     - 0
+     - Command idle, CRC error, timeout, and response type.
+   * - ``[3:0]``
+     - R
+     - 0
+     - Data idle, CRC error, data error, and timeout.
 
 CMD_NUMBER Register (0x08)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

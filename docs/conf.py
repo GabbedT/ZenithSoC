@@ -9,12 +9,12 @@
 project = 'ZenithSoC Documentation'
 copyright = '2026, Tripi Gabriele'
 author = 'Tripi Gabriele'
-release = '04/05/2026'
+release = '1.0.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ['sphinx.ext.todo', 'sphinx.ext.autosectionlabel', 'sphinx.ext.autodoc']
+extensions = ['sphinx.ext.todo']
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'README.md']
@@ -32,4 +32,3 @@ source_suffix = '.rst'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'sphinx_rtd_theme'
-html_static_path = ['_static']

@@ -192,28 +192,6 @@ States
 * Assert ``valid_o``
 * Return to IDLE
 
-FSM Diagram
-~~~~~~~~~~~
-
-.. code-block:: text
-
-   IDLE
-    │
-    │ fetch_i
-    ▼
-   OUTCOME
-    │
-    ├─ hit ────────────────────────► IDLE
-    │
-    └─ miss ──► ALLOCATION_REQ
-                     │
-                     │ all requests sent
-                     ▼
-                WAIT_BUNDLE
-                     │
-                     │ all data received
-                     ▼
-                ALLOCATE ──────────────► IDLE
 
 Instruction Sequencer
 ---------------------
@@ -307,40 +285,6 @@ Fetch Interface
 * ``fetch_channel.stall``: Stall CPU (cache miss)
 * ``fetch_channel.invalidate``: Flush pipeline (branch mispredict)
 
-**Timing Diagram (Cache Hit):**
-
-.. code-block:: text
-
-   Cycle:     0    1    2    3    4
-              │    │    │    │    │
-   fetch:     ──┐  ┌─────────┐  ┌──
-              __│__│_________│__│__
-   address:   A0   A1        A2
-   stall:     ──┐  └──┐  ┌───────
-              __│_____│__│_______
-   valid:     ──────┐  └──┐  ┌───
-              ______│_____│__│___
-   instruction:     I0       I1
-
-Hit latency = 0 cycles (instruction available same cycle as fetch for sequential access via sequencer)
-
-**Timing Diagram (Cache Miss):**
-
-.. code-block:: text
-
-   Cycle:     0    1    2    ...  N    N+1
-              │    │    │          │    │
-   fetch:     ──┐  └─────────────────────
-              __│_______________________
-   address:   A0
-   stall:     ──┐  ┌─────────────┐  └───
-              __│__│_____________│______
-   valid:     ──────────────────┐  └────
-              __________________│_______
-   instruction:                 I0
-
-Miss latency = N cycles (depends on DDR latency, typically 20-100 cycles)
-
 Memory Interface
 ~~~~~~~~~~~~~~~~
 
@@ -351,19 +295,6 @@ Memory Interface
 * ``load_channel.data[31:0]``: Returned data
 * ``load_channel.valid``: Data valid
 * ``load_channel.invalidate``: Cancel pending requests
-
-**Burst Read Sequence:**
-
-.. code-block:: text
-
-   4-word block refill (16 bytes):
-
-   request:   ─┐  ┌┐  ┌┐  ┌┐  └─────────
-   address:   A0  A1  A2  A3
-   valid:     ────────────────┐  ┌┐  ┌┐  ┌
-   data:                      D0  D1  D2  D3
-
-The controller issues all requests first, then waits for responses. This allows the memory controller to optimize DDR burst access.
 
 Special Conditions
 ------------------
@@ -398,15 +329,6 @@ When D-cache requests DDR access during I-cache refill:
 * D-cache given priority (data dependencies more critical)
 * I-cache resumes when conflict clears
 
-**FSM Handling:**
-
-.. code-block:: systemverilog
-
-   OUTCOME: begin
-       if (!cache_hit_i && !conflict_i) begin
-           load_channel.request = 1'b1;
-       end
-   end
 
 Pipeline Invalidation
 ~~~~~~~~~~~~~~~~~~~~~
@@ -422,36 +344,3 @@ On branch misprediction or exception:
   * Clears sequencer
 
 * Prevents invalid instructions from entering pipeline
-
-**Invalidation Handling:**
-
-.. code-block:: systemverilog
-
-   if (invalidate_i & (state_CRT != IDLE)) begin
-       invalidate_pending <= 1'b1;
-   end
-
-   // In WAIT_BUNDLE state:
-   if (invalidate_i | invalidate_pending) begin
-       state_NXT = IDLE;  // Discard bundle
-   end
-
-Software Considerations
------------------------
-
-1. **Code Layout:**
-
-   * Align frequently executed loops to cache block boundaries
-   * Group related functions to improve spatial locality
-   * Minimize instruction cache working set
-
-2. **Branch Optimization:**
-
-   * Use static branch prediction hints
-   * Reduce branch frequency in hot paths
-   * Inline small functions
-
-3. **Cache Warming:**
-
-   * Pre-load critical code into cache before use
-   * Consider explicit prefetch mechanisms for predictable access patterns

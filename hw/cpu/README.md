@@ -6,4 +6,4 @@ The CPU subsystem connects the imported [ApogeoRV](ApogeoRV/) RISC-V core to Zen
 - `trace_unit/`: packetization, serialization, registers, and trace integration.
 - `interrupt_controller.sv`: SoC interrupt management.
 
-The CPU and cache documentation is under [`docs/cpu_complex/`](../../docs/cpu_complex/). Changes inside `ApogeoRV/` should follow that component’s contribution guidance.
+The CPU and cache documentation is under [`docs/cpu/`](../../docs/cpu/). Changes inside `ApogeoRV/` should follow that component’s contribution guidance.

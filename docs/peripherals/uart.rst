@@ -4,18 +4,16 @@ UART - Universal Asynchronous Receiver/Transmitter
 Overview
 --------
 
-The Universal Asynchronous Receiver/Transmitter (UART) provides full-duplex asynchronous serial communication. Despite being one of the oldest inter-chip communication protocols, UART remains widely used in embedded systems due to its simplicity, reliability, and universal adoption.
-
-The ZenithSoC UART implementation features independent TX/RX paths with FIFO buffering, configurable frame format, hardware flow control, and comprehensive interrupt support for efficient event-driven operation.
+The ZenithSoC UART implementation features independent TX/RX paths with FIFO buffering, configurable frame format, hardware flow control, and interrupt support.
 
 Key Features
 ------------
 
 * **Full-Duplex Communication**: Independent transmit and receive paths
 * **Configurable Baud Rate**: 15-bit clock divider for wide baud rate range
-* **Frame Format**: Configurable data bits (5-8), parity (even/odd/none), stop bits (1-2)
+* **Frame Format**: Configurable data bits (5-8), optional even/odd parity, and stop bits (1-2)
 * **Hardware Flow Control**: RTS/CTS handshaking support
-* **FIFO Buffering**: Independent TX/RX buffers (configurable depth, default 512 bytes)
+* **FIFO Buffering**: Independent TX/RX buffers (2 KiB each in the SoC integration)
 * **Interrupt System**: Five interrupt sources (RX done, TX done, RX full, TX empty, parity error)
 * **Oversampling**: 16× oversampling for robust bit detection
 * **Input Synchronization**: 2-stage synchronizer for metastability protection
@@ -36,37 +34,79 @@ The UART controller consists of the following main components:
 * **Flow Control**: RTS/CTS logic
 * **Interrupt Controller**: Edge-triggered interrupt generation
 
-Signal Description
+Signal interface
 ~~~~~~~~~~~~~~~~~~
 
-===========================  =========  ========  ====================================
-Signal Name                  Direction  Width     Description
-===========================  =========  ========  ====================================
-**Global**
-``clk_i``                    Input      1         System clock
-``rst_n_i``                  Input      1         Active-low asynchronous reset
-``interrupt_o``              Output     1         Interrupt request
-**UART Interface**
-``uart_tx_o``                Output     1         Transmit data line
-``uart_rx_i``                Input      1         Receive data line
-``uart_rts_o``               Output     1         Request-To-Send (flow control)
-``uart_cts_i``               Input      1         Clear-To-Send (flow control)
-**AXI Write Interface**
-``write_i``                  Input      1         Write enable
-``write_address_i[1:0]``     Input      2         Register address
-``write_data_i[31:0]``       Input      32        Write data
-``write_strobe_i[3:0]``      Input      4         Byte write enable mask
-``write_done_o``             Output     1         Write acknowledge
-``write_error_o``            Output     1         Write error (invalid operation)
-**AXI Read Interface**
-``read_i``                   Input      1         Read enable
-``read_address_i[1:0]``      Input      2         Register address
-``read_data_o[31:0]``        Output     32        Read data
-``read_done_o``              Output     1         Read acknowledge (1 cycle delay for RX read)
-``read_error_o``             Output     1         Read error (invalid operation)
-**Trace Interface**
-``uart_tx_full_o``           Output     1         TX buffer full flag (for trace unit)
-===========================  =========  ========  ====================================
+Port directions are relative to the ``uart`` module. The register signals
+form the local SoC memory-mapped interface, rather than a standalone AXI
+channel. Addresses are word indices inside the UART register window and
+``write_strobe_i`` enables individual bytes of ``write_data_i``.
+
+.. list-table:: UART module signals
+   :header-rows: 1
+   :widths: 34 12 14 40
+
+   * - Signal
+     - Direction
+     - Width
+     - Description
+   * - ``clk_i``
+     - Input
+     - 1
+     - System clock.
+   * - ``rst_n_i``
+     - Input
+     - 1
+     - Active-low reset.
+   * - ``interrupt_o``
+     - Output
+     - 1
+     - Configured UART event interrupt request.
+   * - ``write_i`` / ``read_i``
+     - Input
+     - 1 each
+     - Register write and read requests.
+   * - ``write_address_i[1:0]`` / ``read_address_i[1:0]``
+     - Input
+     - 2 each
+     - Word indices in the UART register window.
+   * - ``write_data_i[31:0]``
+     - Input
+     - 32
+     - Register write data.
+   * - ``write_strobe_i[3:0]``
+     - Input
+     - 4
+     - Byte write enables.
+   * - ``write_done_o`` / ``read_done_o``
+     - Output
+     - 1 each
+     - Register transaction completion responses; RX-buffer reads add one
+       cycle of read latency.
+   * - ``write_error_o`` / ``read_error_o``
+     - Output
+     - 1 each
+     - Invalid register access responses.
+   * - ``uart_tx_o`` / ``uart_rx_i``
+     - Output / Input
+     - 1 each
+     - UART transmit and receive data lines.
+   * - ``uart_rts_o`` / ``uart_cts_i``
+     - Output / Input
+     - 1 each
+     - Optional active flow-control signals.
+   * - ``uart_tx_full_o``
+     - Output
+     - 1
+     - TX FIFO full flag used by the Trace Unit.
+   * - ``trace_data_i[7:0]`` / ``trace_write_i``
+     - Input
+     - 8 / 1
+     - Serialized trace byte and write strobe from the Trace Unit.
+
+When tracing is enabled, the trace unit can write serialized bytes directly
+into the UART TX FIFO. This path shares the FIFO's full/backpressure status
+with normal software writes and is connected to UART instance 0 in the SoC.
 
 Functional Description
 ----------------------
@@ -127,7 +167,7 @@ TX Path Operation
 5. Repeat for next byte in FIFO
 
 **TX FIFO**:
-  * Depth: Configurable (default 512 bytes)
+  * Depth: Configurable (2 KiB in the SoC integration)
   * Status: Full/empty flags visible in status register
   * Interrupt: TX empty interrupt when FIFO becomes empty
 
@@ -148,7 +188,7 @@ RX Path Operation
 10. Generate RX done interrupt (if enabled)
 
 **RX FIFO**:
-  * Depth: Configurable (default 512 bytes)
+  * Depth: Configurable (2 KiB in the SoC integration)
   * Status: Full/empty flags visible in status register
   * Interrupt: RX full interrupt when FIFO becomes full
   * Overrun: New data discarded if FIFO full
@@ -250,17 +290,6 @@ State Definitions
   * **Duration**: 16 or 32 sample periods (1 or 2 bit times)
   * **Transition**: stop_bits_sent == stop_bits_config → IDLE
 
-FSM Control Signals
-~~~~~~~~~~~~~~~~~~~
-
-* ``load_data``: Load byte from FIFO (IDLE → START)
-* ``shift_data``: Shift TX data register right (DATA state, each bit)
-* ``update_parity``: XOR parity bit with transmitted bit (DATA state)
-* ``counter_enable``: Enable 16× sampling counter (all active states)
-* ``counter_reset``: Reset sampling counter (state transitions)
-* ``reset_bit_count``: Reset data bit counter (START state)
-* ``tx_done_o``: Transmission complete pulse (STOP → IDLE)
-* ``tx_idle_o``: FSM in IDLE state
 
 RX FSM Description
 ------------------
@@ -317,19 +346,6 @@ State Definitions
   * **Overrun**: If FIFO full, discard byte
   * **Transition**: stop_bits_verified == stop_bits_config → IDLE
 
-FSM Control Signals
-~~~~~~~~~~~~~~~~~~~
-
-* ``start_receiving``: Initialize RX registers (IDLE → START)
-* ``shift_data``: Shift RX data register (DATA state, each bit)
-* ``update_parity``: XOR parity bit with received bit (DATA state)
-* ``check_parity``: Compare computed vs received parity (PARITY state)
-* ``counter_enable``: Enable 16× sampling counter (all active states)
-* ``counter_reset``: Reset sampling counter (state transitions)
-* ``reset_bit_count``: Reset data bit counter (START state)
-* ``rx_done_o``: Reception complete pulse (STOP → IDLE)
-* ``rx_idle_o``: FSM in IDLE state
-* ``parity_error_o``: Parity mismatch detected
 
 Error Handling
 ~~~~~~~~~~~~~~

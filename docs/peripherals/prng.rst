@@ -17,7 +17,7 @@ Key Features
 * **Dual 32-bit Access**: Read upper and lower halves independently
 * **High Throughput**: New random value every clock cycle
 * **Low Resource Usage**: Minimal logic footprint
-* **Memory-Mapped Interface**: Simple register-based control via AXI bus
+* **Memory-Mapped Interface**: Simple register-based control via the SoC bus
 
 Architecture
 ------------
@@ -44,23 +44,50 @@ The module uses a Galois-style LFSR with the following characteristics:
 * **Update**: Shifts left by one bit per clock cycle
 * **Feedback**: XOR of tap bits fed back to bit 0
 
-Signal Description
+Signal interface
 ~~~~~~~~~~~~~~~~~~
 
-=============================  =========  ===========  ====================================
-Signal Name                    Direction  Width        Description
-=============================  =========  ===========  ====================================
-``clk_i``                      Input      1            System clock
-``rst_n_i``                    Input      1            Active-low asynchronous reset
-``write_i``                    Input      1            Write enable signal
-``write_data_i[31:0]``         Input      32           Data to write to seed register
-``write_address_i``            Input      1            Seed register selection (0=lower, 1=upper)
-``write_done_o``               Output     1            Write operation acknowledgment
-``read_i``                     Input      1            Read enable signal
-``read_address_i``             Input      1            Output register selection (0=lower, 1=upper)
-``read_done_o``                Output     1            Read operation acknowledgment
-``read_data_o[31:0]``          Output     32           Random number output
-=============================  =========  ===========  ====================================
+Port directions are relative to the ``prng`` module. This block uses the
+minimal local SoC register interface: it has no byte strobes, error outputs,
+or interrupt output. The one-bit address selects the lower or upper half of
+the 64-bit LFSR.
+
+.. list-table:: PRNG module signals
+   :header-rows: 1
+   :widths: 34 12 14 40
+
+   * - Signal
+     - Direction
+     - Width
+     - Description
+   * - ``clk_i``
+     - Input
+     - 1
+     - System clock.
+   * - ``rst_n_i``
+     - Input
+     - 1
+     - Active-low reset.
+   * - ``write_i`` / ``read_i``
+     - Input
+     - 1 each
+     - Register write and read requests.
+   * - ``write_address_i`` / ``read_address_i``
+     - Input
+     - 1 each
+     - Select lower (0) or upper (1) 32-bit LFSR half.
+   * - ``write_data_i[31:0]``
+     - Input
+     - 32
+     - Seed data for the selected half.
+   * - ``write_done_o`` / ``read_done_o``
+     - Output
+     - 1 each
+     - Register transaction completion responses.
+   * - ``read_data_o[31:0]``
+     - Output
+     - 32
+     - Selected LFSR half.
 
 Functional Description
 ----------------------

@@ -23,6 +23,62 @@ Features
 - **PCM to PDM Conversion**: First-order delta-sigma modulator for class-D amplifier output
 - **Fixed-Point Arithmetic**: Q1.15 format for gain and Q0.32 format for phase accumulation
 
+Signal interface
+-----------------
+
+Port directions are relative to the ``audio_synthesis_unit`` module. Its
+register signals are the local SoC memory-mapped interface; the top-level APU
+supplies transaction completion and interrupt routing.
+
+.. list-table:: ASU module signals
+   :header-rows: 1
+   :widths: 34 12 14 40
+
+   * - Signal
+     - Direction
+     - Width
+     - Description
+   * - ``clk_i``
+     - Input
+     - 1
+     - System clock.
+   * - ``rst_n_i``
+     - Input
+     - 1
+     - Active-low reset.
+   * - ``write_i`` / ``read_i``
+     - Input
+     - 1 each
+     - Register write and read requests.
+   * - ``write_address_i[11:0]`` / ``read_address_i[11:0]``
+     - Input
+     - 12 each
+     - Word indices in the ASU-local address space.
+   * - ``write_data_i[31:0]``
+     - Input
+     - 32
+     - Register or waveform-table write data.
+   * - ``write_strobe_i[3:0]``
+     - Input
+     - 4
+     - Byte write enables.
+   * - ``write_error_o`` / ``read_error_o``
+     - Output
+     - 1 each
+     - Invalid register or table access responses.
+   * - ``read_data_o[31:0]``
+     - Output
+     - 32
+     - Register or waveform-table read data.
+   * - ``pwm_o``
+     - Output
+     - 1
+     - Mixed audio output in the current PDM/PWM representation.
+   * - ``audio_enable_o``
+     - Output
+     - 1
+     - Indicates that at least one audio channel is active.
+
 Address Space
 =============
 
@@ -68,37 +124,37 @@ The Audio Synthesis Unit consists of three main processing stages:
     ┌─────────────────────────────────────────────────────────────────┐
     │                    Audio Synthesis Pipeline                     │
     ├─────────────────────────────────────────────────────────────────┤
-    │                                                                  │
-    │  ┌──────────────┐    ┌────────────────┐    ┌──────────────┐   │
-    │  │ Sine Wave    │───▶│ ADSR Modulator │───▶│              │   │
-    │  │ Generator    │    │  (Channel 0)   │    │              │   │
-    │  └──────────────┘    └────────────────┘    │              │   │
-    │                                              │              │   │
-    │  ┌──────────────┐    ┌────────────────┐    │              │   │
-    │  │ Square Wave  │───▶│ ADSR Modulator │───▶│              │   │
-    │  │ Generator    │    │  (Channel 1)   │    │  Audio       │   │
-    │  └──────────────┘    └────────────────┘    │  Mixer       │   │
-    │                                              │              │   │
-    │  ┌──────────────┐    ┌────────────────┐    │  (4-channel) │   │
-    │  │ Triangle Wave│───▶│ ADSR Modulator │───▶│              │   │
-    │  │ Generator    │    │  (Channel 2)   │    │              │   │
-    │  └──────────────┘    └────────────────┘    │              │   │
-    │                                              │              │   │
-    │  ┌──────────────┐    ┌────────────────┐    │              │   │
-    │  │ Custom Wave  │───▶│ ADSR Modulator │───▶│              │   │
-    │  │ Generator    │    │  (Channel 3)   │    │              │   │
-    │  └──────────────┘    └────────────────┘    └──────┬───────┘   │
-    │                                                     │           │
-    └─────────────────────────────────────────────────────┼───────────┘
-                                                          │ 16-bit PCM
-                                                          ▼
-                                                  ┌───────────────┐
-                                                  │  PCM to PDM   │
-                                                  │  Converter    │
-                                                  └───────┬───────┘
-                                                          │ PDM
-                                                          ▼
-                                                     PWM Output
+    │                                                                 │
+    │  ┌──────────────┐    ┌────────────────┐    ┌──────────────┐     │
+    │  │ Sine Wave    │───▶│ ADSR Modulator │───▶│              │     │
+    │  │ Generator    │    │  (Channel 0)   │    │              │     │
+    │  └──────────────┘    └────────────────┘    │              │     │
+    │                                            │              │     │
+    │  ┌──────────────┐    ┌────────────────┐    │              │     │
+    │  │ Square Wave  │───▶│ ADSR Modulator │───▶│              │     │
+    │  │ Generator    │    │  (Channel 1)   │    │  Audio       │     │
+    │  └──────────────┘    └────────────────┘    │  Mixer       │     │
+    │                                            │              │     │
+    │  ┌──────────────┐    ┌────────────────┐    │  (4-channel) │     │
+    │  │ Triangle Wave│───▶│ ADSR Modulator │───▶│              │     │
+    │  │ Generator    │    │  (Channel 2)   │    │              │     │
+    │  └──────────────┘    └────────────────┘    │              │     │
+    │                                            │              │     │
+    │  ┌──────────────┐    ┌────────────────┐    │              │     │
+    │  │ Custom Wave  │───▶│ ADSR Modulator │───▶│              │     │
+    │  │ Generator    │    │  (Channel 3)   │    │              │     │
+    │  └──────────────┘    └────────────────┘    └──────┬───────┘     │
+    │                                                   │             │
+    └───────────────────────────────────────────────────┼─────────────┘
+                                                        │ 16-bit PCM
+                                                        ▼
+                                                ┌───────────────┐
+                                                │  PCM to PDM   │
+                                                │  Converter    │
+                                                └───────┬───────┘
+                                                        │ PDM
+                                                        ▼
+                                                    PWM Output
 
 Waveform Generators
 ===================
@@ -294,11 +350,11 @@ Each channel's waveform is multiplied by its gain (Q1.15 format):
 
 .. code-block:: systemverilog
 
-    // 16-bit waveform × 16-bit gain = 32-bit result
-    sine_wave_scaled = sine_wave × sine_wave_gain       // Q0.15 × Q1.15 = Q1.30
-    square_wave_scaled = square_wave × square_wave_gain
-    triangle_wave_scaled = triangle_wave × triangle_wave_gain
-    custom_wave_scaled = custom_wave × custom_wave_gain
+    // 16-bit waveform x 16-bit gain = 32-bit result
+    sine_wave_scaled = sine_wave x sine_wave_gain       // Q0.15 x Q1.15 = Q1.30
+    square_wave_scaled = square_wave x square_wave_gain
+    triangle_wave_scaled = triangle_wave x triangle_wave_gain
+    custom_wave_scaled = custom_wave x custom_wave_gain
 
 Extract Q1.15 result: ``scaled_wave[30:15]``
 
@@ -352,22 +408,6 @@ PCM to PDM Converter
 ====================
 
 The PCM to PDM converter implements a first-order delta-sigma modulator using error feedback.
-
-**Algorithm**:
-
-.. code-block:: systemverilog
-
-    // 1. Convert unsigned PCM to signed
-    sample_scaled = signed(pcm_input) - 32768
-
-    // 2. Add bias (center around half-scale)
-    sample_biased = sample_scaled + 32768  // BIAS = 2^15
-
-    // 3. Accumulate with feedback
-    accumulator = accumulator[15:0] + sample_biased
-
-    // 4. PDM output is MSB
-    pdm_output = accumulator[16]
 
 **Oversampling**: The PDM output updates at the system clock rate, providing high oversampling ratio for noise shaping.
 

@@ -21,7 +21,7 @@ Key Features
 * **PHY Management**: SMII interface for PHY register access
 * **Interrupt System**: TX done, RX done, RX error, PHY interrupt
 * **Filtering**: MAC address filtering for received packets
-* **Memory-Mapped**: AXI bus interface for register access
+* **Memory-Mapped**: SoC register interface for register access
 
 Architecture
 ------------
@@ -39,42 +39,95 @@ The Ethernet controller consists of the following main components:
 * **Clock Generator**: 50MHz reference clock and speed-dependent sampling
 * **Interrupt Controller**: Edge-triggered interrupt generation
 
-Signal Description
+Signal interface
 ~~~~~~~~~~~~~~~~~~
 
-===============================  =========  ========  ====================================
-Signal Name                      Direction  Width     Description
-===============================  =========  ========  ====================================
-**Global**
-``clk_i``                        Input      1         System clock (100MHz for 50MHz RMII)
-``rst_n_i``                      Input      1         Active-low asynchronous reset
-``interrupt_o``                  Output     1         Interrupt request
-``busy_o``                       Output     1         SMII operation in progress
-**AXI Write Interface**
-``write_i``                      Input      1         Write enable
-``write_address_i[5:0]``         Input      6         Register address
-``write_data_i[31:0]``           Input      32        Write data
-``write_done_o``                 Output     1         Write acknowledge
-``write_error_o``                Output     1         Write error (invalid address)
-**AXI Read Interface**
-``read_i``                       Input      1         Read enable
-``read_address_i[5:0]``          Input      6         Register address
-``read_data_o[31:0]``            Output     32        Read data
-``read_done_o``                  Output     1         Read acknowledge
-``read_error_o``                 Output     1         Read error (invalid address)
-**RMII Interface**
-``rmii_txd_o[1:0]``              Output     2         Transmit data (2-bit DDR)
-``rmii_txen_o``                  Output     1         Transmit enable
-``rmii_rxd_io[1:0]``             Inout      2         Receive data (2-bit DDR)
-``rmii_crsdv_io``                Inout      1         Carrier sense / RX data valid
-``rmii_rxer_i``                  Input      1         Receive error
-``rmii_refclk_o``                Output     1         50MHz reference clock
-``rmii_rstn_o``                  Output     1         PHY reset
-**SMII Interface**
-``smii_mdc_o``                   Output     1         Management data clock
-``smii_mdio_io``                 Inout      1         Management data I/O
-``phy_interrupt_i``              Input      1         PHY interrupt input
-===============================  =========  ========  ====================================
+Port directions are relative to the ``ethernet`` module. The register signals
+form the local SoC memory-mapped interface; they are not a complete standalone
+AXI channel. Address values are word indices inside the Ethernet register
+window, and ``write_data_i`` is a 32-bit value represented internally as four
+bytes.
+
+.. list-table:: Ethernet module signals
+   :header-rows: 1
+   :widths: 34 12 14 40
+
+   * - Signal
+     - Direction
+     - Width
+     - Description
+   * - ``clk_i``
+     - Input
+     - 1
+     - System clock.
+   * - ``rst_n_i``
+     - Input
+     - 1
+     - Active-low reset.
+   * - ``interrupt_o``
+     - Output
+     - 1
+     - Interrupt request.
+   * - ``busy_o``
+     - Output
+     - 1
+     - SMII operation in progress; also used by the SoC bus wrapper.
+   * - ``write_i`` / ``read_i``
+     - Input
+     - 1 each
+     - Register write and read requests.
+   * - ``write_address_i[5:0]`` / ``read_address_i[5:0]``
+     - Input
+     - 6 each
+     - Word indices in the Ethernet register window.
+   * - ``write_data_i[31:0]``
+     - Input
+     - 32
+     - Register write data.
+   * - ``write_done_o`` / ``read_done_o``
+     - Output
+     - 1 each
+     - Register transaction completion responses.
+   * - ``write_error_o`` / ``read_error_o``
+     - Output
+     - 1 each
+     - Invalid register access responses.
+   * - ``rmii_txd_o[1:0]``
+     - Output
+     - 2
+     - RMII transmit data.
+   * - ``rmii_txen_o``
+     - Output
+     - 1
+     - RMII transmit enable.
+   * - ``rmii_rxd_io[1:0]``
+     - Inout
+     - 2
+     - RMII receive data.
+   * - ``rmii_crsdv_io``
+     - Inout
+     - 1
+     - RMII carrier sense / receive-data-valid signal.
+   * - ``rmii_rxer_i``
+     - Input
+     - 1
+     - RMII receive error.
+   * - ``rmii_refclk_o``
+     - Output
+     - 1
+     - 50 MHz RMII reference clock.
+   * - ``rmii_rstn_o``
+     - Output
+     - 1
+     - Active-low PHY reset.
+   * - ``smii_mdc_o`` / ``smii_mdio_io``
+     - Output / Inout
+     - 1 each
+     - SMII management clock and bidirectional data.
+   * - ``phy_interrupt_i``
+     - Input
+     - 1
+     - PHY interrupt input.
 
 Functional Description
 ----------------------
@@ -126,7 +179,7 @@ TX Path Operation
 
 **TX Buffer:**
   * Byte-wide FIFO
-  * Configurable depth (default 512 bytes)
+  * Configurable depth (4 KiB TX/RX payload buffers in the SoC integration)
   * Supports multiple packets queued
 
 RX Path Operation
@@ -152,8 +205,8 @@ RX Path Operation
 
 **RX Buffer:**
   * Byte-wide FIFO
-  * Configurable depth (default 512 bytes)
-  * Packet descriptor queue (default 32 entries)
+  * Configurable depth (4 KiB in the SoC integration)
+  * Packet descriptor queue (16 entries in the SoC integration)
 
 CRC32 Engine
 ~~~~~~~~~~~~
@@ -282,17 +335,6 @@ State Definitions
   * **Duration**: 12 bytes = 48 cycles
   * **Transition**: byte_count == 12 → IDLE
 
-FSM Control Signals
-~~~~~~~~~~~~~~~~~~~
-
-* ``read_descriptor_o``: Pop descriptor from FIFO (IDLE state)
-* ``read_data_o``: Pop payload byte from FIFO (PAYLOAD state)
-* ``crc32_init``: Initialize CRC engine (IDLE → PREAMBLE)
-* ``crc32_compute``: Compute CRC on current byte (MAC_DST through PAYLOAD)
-* ``byte_increment``: Increment byte counter (every 4th bit)
-* ``bit_increment``: Increment bit counter (every transmit cycle)
-* ``rmii_txen_o``: PHY transmit enable (1 during PREAMBLE through CRC)
-* ``rmii_txd_o``: 2-bit transmit data (LSB first)
 
 RX FSM Description
 ------------------
@@ -377,17 +419,6 @@ State Definitions
   * **Duration**: 1 cycle
   * **Transition**: Unconditional → IDLE
 
-FSM Control Signals
-~~~~~~~~~~~~~~~~~~~
-
-* ``packet_valid_o``: Write descriptor to FIFO (end of valid reception)
-* ``payload_valid_o``: Write payload byte to FIFO (PAYLOAD state)
-* ``packet_error_o``: CRC mismatch or framing error
-* ``crc32_init``: Initialize CRC engine (IDLE → PREAMBLE/SDF)
-* ``crc32_compute``: Verify CRC on current byte (MAC_DST through PAYLOAD)
-* ``byte_increment``: Increment byte counter (every 4th bit)
-* ``bit_increment``: Increment bit counter (every sample cycle)
-* ``idle_o``: FSM in IDLE state
 
 Error Handling
 ~~~~~~~~~~~~~~
@@ -408,7 +439,8 @@ Register Map
 Base Address
 ~~~~~~~~~~~~
 
-The Ethernet base address is determined by the SoC memory map. Default: 0x2000_6000
+The Ethernet base address in the current SoC integration is ``0x0000_C000``.
+See :doc:`../architecture/memory_map` for the complete window allocation.
 
 Address Structure
 ~~~~~~~~~~~~~~~~~
