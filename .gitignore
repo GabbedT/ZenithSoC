@@ -30,6 +30,9 @@ sw/benchmark/Embench-IoT/out
 
 sw/test/out
 
-/build/
+/build
+
+/docs/_build
+
 /fpga/nexys_a7/.Xil
 /fpga/nexys_a7/build
