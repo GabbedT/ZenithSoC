@@ -6,6 +6,7 @@ The project will be developed using an incremental approach, structured into fou
 
 * Implement successfully in FPGA ✅
 * Run real benchmark on it
+* Run Fractal with VGA output
 * Run DOOM?
 
 ### Project Structure
@@ -59,6 +60,8 @@ The project will be developed using an incremental approach, structured into fou
 
 ### Design
 
+* Add VGA
+* Modify ddr interface to accomodate 3 masters
 * Re-analyze and upgrade AXI bus
 * Add external slave port for AXI bus
 * Add external interrupts
