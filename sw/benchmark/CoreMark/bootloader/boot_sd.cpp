@@ -2,13 +2,15 @@
 #include "../../../lib/driver/UART.h"
 
 #define IMG_BLK_START  0x2000       /* Start SD block */
-#define IMG_BLOCKS     64           /* Number of blocks to load */
+#ifndef IMG_BLOCKS
+#define IMG_BLOCKS     64           /* Default: 32 KiB application image */
+#endif
 #define DDR_ENTRY      0x80000000
 
 extern "C" void boot_sd() {
     /* UART for logging */
     UART uart(0);
-    uart.init();
+    uart.init(115200, false);
     
     const char msg_start[] = "[BOOT] ZenithSoC SD Boot...\r\n";
     for (const char *c = msg_start; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
