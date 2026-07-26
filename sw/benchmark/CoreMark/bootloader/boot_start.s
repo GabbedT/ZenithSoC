@@ -3,8 +3,8 @@
 .extern boot_sd
 
 boot_program:
-    # NC Memory boot rom
-    li sp, 0x00012800
+    # Use DDR for the stack: 0x00012800 is in the MMIO address space.
+    li sp, 0x88000000
 
     # Call actual bootloader
     call boot_sd
