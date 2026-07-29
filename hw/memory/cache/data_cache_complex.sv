@@ -400,28 +400,29 @@ module data_cache_complex #(
                 cache_store_status = flush_cache_status;
                 cache_byte_write = '0;
                 sctrl_port_halt = 1'b1;
-            end else case ({sctrl_cache_store != '0, lctrl_cache_store != '0})
+            end else begin
+                case ({sctrl_cache_store != '0, lctrl_cache_store != '0})
+                    2'b11, 2'b01: begin
+                        cache_store = lctrl_cache_store;
+                        cache_address[0] = lctrl_cache_address;
+                        cache_store_data = lctrl_store_data;
+                        cache_store_status = lctrl_status_packet;
+                        cache_byte_write = '1;
 
-                2'b11, 2'b01: begin
-                    cache_store = lctrl_cache_store;
-                    cache_address[0] = lctrl_cache_address;
-                    cache_store_data = lctrl_store_data;
-                    cache_store_status = lctrl_status_packet;
-                    cache_byte_write = '1;
+                        sctrl_port_halt = 1'b1;
+                    end
 
-                    sctrl_port_halt = 1'b1;
-                end
+                    2'b00, 2'b10: begin
+                        cache_store = sctrl_cache_store;
+                        cache_address[0] = sctrl_cache_address;
+                        cache_store_data = sctrl_store_data;
+                        cache_store_status = sctrl_status_packet;
+                        cache_byte_write = store_byte_write;
 
-                2'b00, 2'b10: begin
-                    cache_store = sctrl_cache_store;
-                    cache_address[0] = sctrl_cache_address;
-                    cache_store_data = sctrl_store_data;
-                    cache_store_status = sctrl_status_packet;
-                    cache_byte_write = store_byte_write;
-
-                    sctrl_port_halt = 1'b0;
-                end
-            endcase
+                        sctrl_port_halt = 1'b0;
+                    end
+                endcase
+            end
 
 
             /* Default values */ 
@@ -438,25 +439,27 @@ module data_cache_complex #(
                 ddr_store_channel.address = flush_store_address;
                 ddr_store_channel.width = WORD;
                 sctrl_memory_halt = 1'b1;
-            end else case ({sctrl_store_channel.request, lctrl_store_channel.request})
-                2'b11, 2'b01: begin
-                    ddr_store_channel.data = lctrl_store_channel.data;
-                    ddr_store_channel.address = lctrl_store_channel.address;
-                    ddr_store_channel.width = lctrl_store_channel.width;  
+            end else begin
+                case ({sctrl_store_channel.request, lctrl_store_channel.request})
+                    2'b11, 2'b01: begin
+                        ddr_store_channel.data = lctrl_store_channel.data;
+                        ddr_store_channel.address = lctrl_store_channel.address;
+                        ddr_store_channel.width = lctrl_store_channel.width;  
 
-                    sctrl_memory_halt = 1'b1;
-                end
+                        sctrl_memory_halt = 1'b1;
+                    end
 
-                2'b10: begin
-                    ddr_store_channel.data = sctrl_store_channel.data;
-                    ddr_store_channel.address = sctrl_store_channel.address;
-                    ddr_store_channel.width = sctrl_store_channel.width;  
+                    2'b10: begin
+                        ddr_store_channel.data = sctrl_store_channel.data;
+                        ddr_store_channel.address = sctrl_store_channel.address;
+                        ddr_store_channel.width = sctrl_store_channel.width;  
 
-                    single_trx_o = 1'b1;
+                        single_trx_o = 1'b1;
 
-                    sctrl_memory_halt = 1'b0;
-                end
-            endcase
+                        sctrl_memory_halt = 1'b0;
+                    end
+                endcase
+            end
         end : arbiter
 
     assign ddr_store_channel.request = flush_busy_o
