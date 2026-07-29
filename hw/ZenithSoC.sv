@@ -33,7 +33,7 @@ module ZenithSoC #(
 
     parameter DDR_MEMORY = 1,
 
-    parameter string BOOT_INIT_FILE = "output.hex"
+    parameter string BOOT_INIT_FILE = "bootloader.hex"
 ) (
     input logic clk_i,
     input logic rst_n_i,
@@ -82,7 +82,7 @@ module ZenithSoC #(
     input logic sd_cd_n_i,
     inout logic sd_cmd_io,
     inout logic [3:0] sd_data_io,
-    output logic sd_reset_n_o,
+    output logic sd_reset_o,
     output logic sd_clk_o,
 
     /* DDR Interface */
@@ -149,10 +149,10 @@ module ZenithSoC #(
             if (!rst_n_i) begin
                 rst_sync <= 1'b0;
                 reset_n <= 1'b0;
-            end else if (!locked | !ddr_ready) begin 
+            end else if (!locked) begin
                 rst_sync <= 1'b0;
                 reset_n <= 1'b0;
-            end else if (locked & ddr_ready) begin 
+            end else begin
                 rst_sync <= rst_n_i;
                 reset_n <= rst_sync;
             end 
@@ -197,7 +197,7 @@ module ZenithSoC #(
     /* CPU Trace channel */
     trace_interface trace_channel();
 
-    logic single_store_trx, load_instruction, load_trx_room;
+    logic single_store_trx, load_instruction, load_trx_room, store_trx_idle;
 
     /* Interrupt nets */
     logic interrupt, general_interrupt, nmsk_interrupt, timer_interrupt, interrupt_ackn;
@@ -241,6 +241,7 @@ module ZenithSoC #(
 
         /* Room for load requests */
         .ldr_ready_i ( load_trx_room ),
+        .str_ready_i ( store_trx_idle ),
 
         /* Interrupts */
         .gen_interrupt_i    ( general_interrupt ),
@@ -967,11 +968,11 @@ module ZenithSoC #(
             .read_done_o    ( read_done[_SD_]         ),
             .read_error_o   ( read_error[_SD_]        ),
 
-            .sd_cd_n_i    ( sd_cd_n_i    ),
-            .sd_cmd_io    ( sd_cmd_io    ),
-            .sd_data_io   ( sd_data_io   ),
-            .sd_reset_n_o ( sd_reset_n_o ),
-            .sd_clk_o     ( sd_clk_o     ) 
+            .sd_cd_n_i    ( sd_cd_n_i  ),
+            .sd_cmd_io    ( sd_cmd_io  ),
+            .sd_data_io   ( sd_data_io ),
+            .sd_reset_o   ( sd_reset_o ),
+            .sd_clk_o     ( sd_clk_o   )
         );
 
         assign write_busy[_SD_] = 1'b0;
@@ -1043,7 +1044,7 @@ module ZenithSoC #(
 //      DDR CONTROLLER
 //====================================================================================
 
-    logic [26:0] ddr_address; logic ddr_write, ddr_read, push_trx, pull_trx, ddr_data_valid, ddr_done; 
+    logic [26:0] ddr_address; logic ddr_write, ddr_read, push_trx, pull_trx, ddr_data_valid, ddr_done, ddr_hold;
     logic [63:0] ddr_data_write, ddr_data_read; logic [7:0] ddr_mask; 
 
         
@@ -1055,7 +1056,7 @@ module ZenithSoC #(
         .rst_n_i ( reset_n ),
 
         /* Arbiter */
-        .hold_i ( 1'b0 ),
+        .hold_i ( ddr_hold ),
 
         /* Memory interface */
         .load_channel  ( ddr_load_channel  ),
@@ -1064,6 +1065,7 @@ module ZenithSoC #(
         .single_trx_i ( single_store_trx ),
         .instr_req_i  ( load_instruction ),
         .load_empty_o ( load_trx_room    ),
+        .store_idle_o ( store_trx_idle   ),
 
         /* Common address */
         .address_o ( ddr_address ), 
@@ -1149,6 +1151,7 @@ module ZenithSoC #(
             /* Status */
             .done_i  ( ddr_done  ),
             .ready_o ( ddr_ready ),
+            .hold_o  ( ddr_hold  ),
             .start_o (           )
         );
         
@@ -1156,6 +1159,8 @@ module ZenithSoC #(
     `endif // _DEF_DDR_MEMORY_
 
     `ifdef _DDR_BEHAVIOURAL_
+
+    assign ddr_hold = 1'b0;
 
     /** USED FOR SIMULATION **/
     localparam int DDR_SIZE_BYTES  = 128 * 1024 * 1024;
