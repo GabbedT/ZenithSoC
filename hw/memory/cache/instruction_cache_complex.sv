@@ -14,6 +14,10 @@ module instruction_cache_complex #(
     input logic region_switch_i,
     input logic conflict_i,
 
+    input logic flush_i,
+    output logic flush_busy_o,
+    output logic flush_done_o,
+
     /* Fetch unit interface */
     fetch_interface.slave fetch_channel,
 
@@ -41,10 +45,62 @@ module instruction_cache_complex #(
 //      INSTRUCTION CACHE
 //====================================================================================
 
-    logic [31:0] cache_write_address, cache_read_address; 
-    logic [BLOCK_WORDS - 1:0][31:0] cache_write_instruction, cache_read_bundle; 
-    instruction_enable_t cache_write, cache_read; 
+    logic [31:0] cache_write_address, controller_cache_write_address, cache_read_address;
+    logic [BLOCK_WORDS - 1:0][31:0] cache_write_instruction, cache_read_bundle;
+    instruction_enable_t cache_write, controller_cache_write, cache_read;
     logic cache_hit, cache_write_valid;
+
+    logic [INDEX - 1:0] flush_index;
+    logic flush_active, flush_invalidating;
+    logic controller_fetch_stall;
+
+    assign flush_busy_o = flush_active | flush_i;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                flush_index <= '0;
+                flush_active <= 1'b0;
+                flush_invalidating <= 1'b0;
+                flush_done_o <= 1'b0;
+            end else begin
+                flush_done_o <= 1'b0;
+
+                if (flush_i & !flush_active) begin
+                    /* Keep the CPU halted, but let an older I$ refill finish
+                     * before taking over the cache write port. */
+                    flush_active <= 1'b1;
+                    flush_invalidating <= 1'b0;
+                    flush_index <= '0;
+                end else if (flush_active & !flush_invalidating) begin
+                    if (!controller_fetch_stall) begin
+                        flush_invalidating <= 1'b1;
+                        flush_index <= '0;
+                    end
+                end else if (flush_invalidating) begin
+                    if (&flush_index) begin
+                        flush_index <= '0;
+                        flush_active <= 1'b0;
+                        flush_invalidating <= 1'b0;
+                        flush_done_o <= 1'b1;
+                    end else begin
+                        flush_index <= flush_index + 1'b1;
+                    end
+                end
+            end
+        end
+
+    always_comb begin
+        cache_write_address = controller_cache_write_address;
+        cache_write = controller_cache_write;
+        cache_write_valid = 1'b1;
+
+        if (flush_invalidating) begin
+            cache_write_address = {{TAG{1'b0}}, flush_index, {OFFSET{1'b0}}, 2'b0};
+            cache_write = '0;
+            cache_write.valid = 1'b1;
+            cache_write_valid = 1'b0;
+        end
+    end
 
     instruction_cache #(CACHE_SIZE, BLOCK_SIZE, TAG) icache (
         .clk_i ( clk_i ),
@@ -52,7 +108,7 @@ module instruction_cache_complex #(
         .write_address_i ( cache_write_address     ),
         .write_i         ( cache_write             ),
         .instruction_i   ( cache_write_instruction ),
-        .valid_i         ( 1'b1                    ),
+        .valid_i         ( cache_write_valid       ),
 
         .read_address_i  ( cache_read_address ),
         .read_i          ( cache_read         ),
@@ -70,19 +126,19 @@ module instruction_cache_complex #(
     fetch_controller #(BLOCK_WORDS, OFFSET, TAG, INDEX) controller (
         .clk_i           ( clk_i           ),
         .rst_n_i         ( rst_n_i         ),
-        .stall_i         ( stall_i         ), 
+        .stall_i         ( stall_i | flush_invalidating ),
         .region_switch_i ( region_switch_i ),
         .conflict_i      ( conflict_i      ),
 
         .invalidate_i      ( fetch_channel.invalidate             ),
-        .stall_fetch_o     ( fetch_channel.stall                  ),
+        .stall_fetch_o     ( controller_fetch_stall               ),
         .fetch_i           ( request_bundle & fetch_channel.fetch ),
         .program_counter_i ( fetch_channel.address                ),
         .instruction_o     ( bundle                               ),  
         .valid_o           ( valid_bundle                         ),
 
-        .cache_write_address_o ( cache_write_address     ),
-        .cache_write_o         ( cache_write             ),
+        .cache_write_address_o ( controller_cache_write_address ),
+        .cache_write_o         ( controller_cache_write         ),
         .cache_instruction_o   ( cache_write_instruction ),
 
         .cache_read_address_o ( cache_read_address ),
@@ -92,6 +148,8 @@ module instruction_cache_complex #(
 
         .load_channel ( load_channel )
     );
+
+    assign fetch_channel.stall = controller_fetch_stall | flush_busy_o;
 
 
 //====================================================================================
@@ -135,7 +193,7 @@ module instruction_cache_complex #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 sequencer_size <= '0;
-            end else if (fetch_channel.invalidate) begin 
+            end else if (fetch_channel.invalidate | flush_busy_o) begin
                 sequencer_size <= '0;
             end else if (fetch_channel.fetch) begin
                 if (request_bundle) begin
@@ -155,8 +213,9 @@ module instruction_cache_complex #(
     /* Request if the sequencer is empty or if there is a jump */
     assign request_bundle = (sequencer_size == '0) | (fetch_channel.address != (previous_pc + 'd4));
 
-    assign fetch_channel.valid = (!request_bundle & fetch_channel.fetch) | valid_bundle;
+    assign fetch_channel.valid = !flush_busy_o
+                               & ((!request_bundle & fetch_channel.fetch) | valid_bundle);
 
 endmodule : instruction_cache_complex 
 
-`endif 
+`endif

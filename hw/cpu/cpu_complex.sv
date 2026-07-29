@@ -83,12 +83,20 @@ module cpu_complex #(
     load_interface cpu_load_channel();
     store_interface cpu_store_channel();
 
+    logic cache_flush_request;
+    logic dcache_flush_busy, dcache_flush_done;
+    logic icache_flush_busy, icache_flush_done;
+    logic cache_flush_busy;
+
+    assign cache_flush_busy = dcache_flush_busy | icache_flush_busy;
+
     /* Core instantiation */
     ApogeoRV #(PREDICTOR_SIZE, BTB_SIZE, STORE_BUFFER_SIZE, INSTRUCTION_BUFFER_SIZE, ROB_DEPTH) system_cpu (
-        .clk_i    ( clk_i   ),
-        .rst_n_i  ( rst_n_i ),
-        .halt_i   ( halt_i  ),
-        .halted_o (         ),
+        .clk_i    ( clk_i                     ),
+        .rst_n_i  ( rst_n_i                   ),
+        .halt_i   ( halt_i | cache_flush_busy ),
+        .halted_o (                           ),
+        .flush_o  ( cache_flush_request       ),
 
         .trace_channel ( trace_channel ),
 
@@ -122,6 +130,10 @@ module cpu_complex #(
         .clk_i   ( clk_i      ),
         .rst_n_i ( rst_n_i    ),
         .stall_i ( stall_data ),
+
+        .flush_i      ( cache_flush_request ),
+        .flush_busy_o ( dcache_flush_busy   ),
+        .flush_done_o ( dcache_flush_done   ),
 
         .single_trx_o ( single_strx_o ),
 
@@ -167,6 +179,10 @@ module cpu_complex #(
         .stall_i         ( stall_fetch                 ),
         .region_switch_i ( region_switch               ),
         .conflict_i      ( dcache_load_channel.request ),
+
+        .flush_i      ( cache_flush_request ),
+        .flush_busy_o ( icache_flush_busy   ),
+        .flush_done_o ( icache_flush_done   ),
 
         /* Fetch unit interface */
         .fetch_channel ( icache_fetch_channel ),
@@ -260,7 +276,10 @@ module cpu_complex #(
                 valid_stall <= 1'b0;
             end else begin 
                 if (ddr_load_channel.request & !valid_stall) begin
-                    priority_bit <= dcache_load_channel.request & !icache_load_channel.request;
+                    /* request_arbiter selects the data-cache address when both
+                     * caches request a refill. Latch the same selection so
+                     * the returning burst is routed to the data cache. */
+                    priority_bit <= dcache_load_channel.request;
                 end
 
                 if (valid_negedge) begin
@@ -293,4 +312,4 @@ module cpu_complex #(
 
 endmodule : cpu_complex
 
-`endif 
+`endif

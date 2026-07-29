@@ -340,11 +340,12 @@ module cache_ddr_interface #(
                             write_data_o = {32'b0, str_rd_packet.data[31:0]};
                         end
                     end else begin
-                        if (str_empty) begin
+                        if (str_empty & !hold_i) begin
                             state_NXT = WAIT;
 
                             /* Push last data */
                             push_o = 1'b1;
+                            store_channel.done = 1'b1;
                         end
 
                         if (!str_empty & !hold_i) begin
@@ -359,7 +360,7 @@ module cache_ddr_interface #(
                     end
 
                     address_o = {1'b0, str_rd_packet.address[26:3], 2'b0};
-                    write_o = !valid_address;
+                    write_o = !valid_address & !hold_i;
                 end
 
                 LOAD: begin
@@ -380,7 +381,7 @@ module cache_ddr_interface #(
                 WAIT_DATA: begin
                     if (read_valid_i) begin
                         state_NXT = LOAD_DATA;
-                        
+
                         pull_o = 1'b1;
                     end
                 end
@@ -390,7 +391,7 @@ module cache_ddr_interface #(
 
                     load_channel.valid = 1'b1;
                     load_channel.data = read_data_i[valid_data];
-                    
+
                     if (valid_negedge) begin
                         state_NXT = WAIT;
 
@@ -410,9 +411,10 @@ module cache_ddr_interface #(
         .clk_i   ( clk_i ),
         .rst_n_i ( rst_n_i ),
 
-        .signal_i ( read_valid_i  ),
+        .signal_i ( read_valid_i ),
         .edge_o   ( valid_negedge )
     );
+
 
 endmodule : cache_ddr_interface
 

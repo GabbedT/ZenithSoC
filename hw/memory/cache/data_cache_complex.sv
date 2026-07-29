@@ -12,6 +12,10 @@ module data_cache_complex #(
     input logic rst_n_i,
     input logic stall_i,
 
+    input logic flush_i,
+    output logic flush_busy_o,
+    output logic flush_done_o,
+
     output logic single_trx_o,
 
     /* Load unit interface */
@@ -44,6 +48,8 @@ module data_cache_complex #(
     localparam INDEX = $clog2(CACHE_SIZE / BLOCK_SIZE);
 
     localparam TAG = 32 - (2 + OFFSET + INDEX);
+    localparam BLOCK_WORDS = BLOCK_SIZE / 4;
+    localparam FLUSH_STORE_RESPONSES = BLOCK_SIZE / 8;
 
 
     typedef struct packed {
@@ -107,7 +113,7 @@ module data_cache_complex #(
     data_word_t cache_load_data; logic [TAG - 1:0] cache_load_tag;
 
     /* Shared nets */
-    data_enable_t [1:0] cache_load; logic [1:0] cache_hit, cache_dirty;
+    data_enable_t [1:0] cache_load; logic [1:0] cache_hit, cache_valid, cache_dirty;
 
     data_cache #(CACHE_SIZE, BLOCK_SIZE, TAG) dcache (
         .clk_i ( clk_i ),
@@ -123,6 +129,7 @@ module data_cache_complex #(
         .read_tag_o     ( cache_load_tag   ),
 
         .read_i  ( cache_load  ),
+        .valid_o ( cache_valid ),
         .dirty_o ( cache_dirty ),
         .hit_o   ( cache_hit   )
     );
@@ -134,14 +141,14 @@ module data_cache_complex #(
 
     status_packet_t lctrl_status_packet;
     logic [31:0] lctrl_store_data, lctrl_cache_address, lctrl_load_data; logic lctrl_valid_data, lctrl_stall, ld_lock, ld_lock_request;
-    data_enable_t lctrl_cache_store; 
+    data_enable_t lctrl_cache_store, lctrl_cache_read;
 
     store_interface lctrl_store_channel(); assign lctrl_store_channel.done = ddr_store_channel.done;
 
     load_controller #(OFFSET, TAG, INDEX) load_cache_controller (
-        .clk_i   ( clk_i       ),
-        .rst_n_i ( rst_n_i     ), 
-        .stall_i ( stall_i     ),
+        .clk_i   ( clk_i                  ),
+        .rst_n_i ( rst_n_i                ), 
+        .stall_i ( stall_i | flush_busy_o ),
 
         .lock_i         ( ld_lock         ),
         .lock_status_i  ( lctrl_stall     ),
@@ -163,11 +170,12 @@ module data_cache_complex #(
         .cache_address_o ( lctrl_cache_address ),
         .cache_data_i    ( cache_load_data     ),
         .cache_data_o    ( lctrl_store_data    ),
-        .cache_read_o    ( cache_load[1]       ),
+        .cache_read_o    ( lctrl_cache_read    ),
         .cache_write_o   ( lctrl_cache_store   )
     ); 
 
-    assign cache_address[1] = lctrl_cache_address;
+    assign cache_address[1] = flush_busy_o ? flush_cache_address : lctrl_cache_address;
+    assign cache_load[1] = flush_busy_o ? flush_cache_read : lctrl_cache_read;
 
 
 //====================================================================================
@@ -177,7 +185,7 @@ module data_cache_complex #(
     logic sctrl_halt, sctrl_port_halt, sctrl_memory_halt, sctrl_store_done, sctrl_stall, st_lock, st_lock_request; 
     status_packet_t sctrl_status_packet;
     data_word_t sctrl_store_data, sctrl_cache_address;
-    data_enable_t sctrl_cache_store; logic [3:0] store_byte_write;
+    data_enable_t sctrl_cache_store, sctrl_cache_read; logic [3:0] store_byte_write;
 
     store_interface sctrl_store_channel(); assign sctrl_store_channel.done = ddr_store_channel.done;
 
@@ -186,8 +194,8 @@ module data_cache_complex #(
     store_controller store_cache_controller (
         .clk_i   ( clk_i       ),
         .rst_n_i ( rst_n_i     ), 
-        .halt_i  ( sctrl_halt  ),
-        .stall_i ( stall_i     ),
+        .halt_i  ( sctrl_halt | flush_busy_o ),
+        .stall_i ( stall_i | flush_busy_o     ),
 
         .lock_i         ( st_lock         ),
         .lock_status_i  ( sctrl_stall     ),
@@ -204,10 +212,161 @@ module data_cache_complex #(
         .cache_hit_i     ( cache_hit[0]        ),
         .cache_dirty_i   ( cache_dirty[0]      ),
         .cache_status_o  ( sctrl_status_packet ),
-        .cache_read_o    ( cache_load[0]       ),
+        .cache_read_o    ( sctrl_cache_read    ),
         .cache_write_o   ( sctrl_cache_store   ),
         .cache_byte_o    ( store_byte_write    )
     );
+
+    assign cache_load[0] = flush_busy_o ? '0 : sctrl_cache_read;
+
+
+//====================================================================================
+//      FULL CACHE FLUSH
+//====================================================================================
+
+    typedef enum logic [2:0] {
+        FLUSH_IDLE,
+        FLUSH_READ_META,
+        FLUSH_CHECK_META,
+        FLUSH_WRITEBACK,
+        FLUSH_WAIT_STORE
+    } flush_state_t;
+
+    flush_state_t flush_state_CRT, flush_state_NXT;
+    logic [INDEX - 1:0] flush_index_CRT, flush_index_NXT;
+    logic [OFFSET - 1:0] flush_word_CRT, flush_word_NXT;
+    logic [TAG - 1:0] flush_tag_CRT, flush_tag_NXT;
+    logic [$clog2(FLUSH_STORE_RESPONSES + 1) - 1:0] flush_store_responses_CRT, flush_store_responses_NXT;
+
+    data_enable_t flush_cache_read, flush_cache_write;
+    status_packet_t flush_cache_status;
+    logic [31:0] flush_cache_address, flush_store_address, flush_store_data;
+    logic flush_store_request, flush_done_NXT;
+
+    assign flush_busy_o = flush_state_CRT != FLUSH_IDLE;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : flush_registers
+            if (!rst_n_i) begin
+                flush_state_CRT <= FLUSH_IDLE;
+                flush_index_CRT <= '0;
+                flush_word_CRT <= '0;
+                flush_tag_CRT <= '0;
+                flush_store_responses_CRT <= '0;
+                flush_done_o <= 1'b0;
+            end else begin
+                flush_state_CRT <= flush_state_NXT;
+                flush_index_CRT <= flush_index_NXT;
+                flush_word_CRT <= flush_word_NXT;
+                flush_tag_CRT <= flush_tag_NXT;
+                flush_store_responses_CRT <= flush_store_responses_NXT;
+                flush_done_o <= flush_done_NXT;
+            end
+        end : flush_registers
+
+        always_comb begin : flush_control
+            /* Default values */
+            flush_state_NXT = flush_state_CRT;
+            flush_index_NXT = flush_index_CRT;
+            flush_word_NXT = flush_word_CRT;
+            flush_tag_NXT = flush_tag_CRT;
+            flush_store_responses_NXT = flush_store_responses_CRT;
+            flush_done_NXT = 1'b0;
+
+            flush_cache_read = '0;
+            flush_cache_write = '0;
+            flush_cache_status = '0;
+            flush_cache_address = '0;
+
+            flush_store_request = 1'b0;
+            flush_store_address = '0;
+            flush_store_data = cache_load_data;
+
+            case (flush_state_CRT)
+                FLUSH_IDLE: begin
+                    if (flush_i) begin
+                        /* Start from cache index 0 */
+                        flush_index_NXT = '0;
+                        flush_state_NXT = FLUSH_READ_META;
+                    end
+                end
+
+                FLUSH_READ_META: begin
+                    /* Read i-th cache line */
+                    flush_cache_read = '1;
+                    flush_cache_address = {{TAG{1'b0}}, flush_index_CRT, {OFFSET{1'b0}}, 2'b0};
+                    flush_state_NXT = FLUSH_CHECK_META;
+                end
+
+                FLUSH_CHECK_META: begin
+                    /* Invalidate every line. Word zero and its metadata are
+                     * available from FLUSH_READ_META. */
+                    flush_cache_write.valid = 1'b1;
+                    flush_cache_write.dirty = 1'b1;
+                    flush_cache_address = {cache_load_tag, flush_index_CRT, {OFFSET{1'b0}}, 2'b0};
+
+                    /* Meanwhile check if the very same line is dirty */
+                    if (cache_valid[1] & cache_dirty[1]) begin
+                        flush_tag_NXT = cache_load_tag;
+                        flush_word_NXT = 'd1;
+                        flush_state_NXT = FLUSH_WRITEBACK;
+
+                        /* Request DDR store, for first word. Go to FLUSH_WRITEBACK
+                         * flush other words */
+                        flush_store_request = 1'b1;
+                        flush_store_address = {cache_load_tag, flush_index_CRT, {OFFSET{1'b0}}, 2'b0};
+
+                        flush_cache_read.data = 1'b1;
+                        flush_cache_address = {cache_load_tag, flush_index_CRT, {{(OFFSET - 1){1'b0}}, 1'b1}, 2'b0};
+                    end else if (flush_index_CRT == '1) begin
+                        /* GO idle once every line has been written back
+                         * and the current is not dirty/invalid */
+                        flush_state_NXT = FLUSH_IDLE;
+                        flush_done_NXT = 1'b1;
+                    end else begin
+                        /* Read next line */
+                        flush_index_NXT = flush_index_CRT + 1'b1;
+                        flush_state_NXT = FLUSH_READ_META;
+                    end
+                end
+
+                FLUSH_WRITEBACK: begin
+                    /* Store in DDR each line wrod */
+                    flush_store_request = 1'b1;
+                    flush_store_address = {flush_tag_CRT, flush_index_CRT, flush_word_CRT, 2'b0};
+
+                    if (flush_word_CRT == BLOCK_WORDS - 1) begin
+                        flush_store_responses_NXT = '0;
+                        flush_state_NXT = FLUSH_WAIT_STORE;
+                    end else begin
+                        flush_word_NXT = flush_word_CRT + 1'b1;
+
+                        flush_cache_read.data = 1'b1;
+                        flush_cache_address = {flush_tag_CRT, flush_index_CRT, flush_word_CRT + 1'b1, 2'b0};
+                    end
+                end
+
+                FLUSH_WAIT_STORE: begin
+                    if (ddr_store_channel.done) begin
+                        if (flush_store_responses_CRT == FLUSH_STORE_RESPONSES - 1) begin
+                            if (flush_index_CRT == '1) begin
+                                /* Everything has been flushed, go idle */
+                                flush_state_NXT = FLUSH_IDLE;
+                                flush_done_NXT = 1'b1;
+                            end else begin
+                                flush_index_NXT = flush_index_CRT + 1'b1;
+                                flush_state_NXT = FLUSH_READ_META;
+                            end
+                        end else begin
+                            flush_store_responses_NXT = flush_store_responses_CRT + 1'b1;
+                        end
+                    end
+                end
+
+                default: begin
+                    flush_state_NXT = FLUSH_IDLE;
+                end
+            endcase
+        end
 
 
 //====================================================================================
@@ -223,7 +382,13 @@ module data_cache_complex #(
             cache_store_status = '0;
             cache_byte_write = '0;
 
-            case ({sctrl_cache_store != '0, lctrl_cache_store != '0})
+            if (flush_busy_o) begin
+                cache_store = flush_cache_write;
+                cache_address[0] = flush_cache_address;
+                cache_store_status = flush_cache_status;
+                cache_byte_write = '0;
+                sctrl_port_halt = 1'b1;
+            end else case ({sctrl_cache_store != '0, lctrl_cache_store != '0})
 
                 2'b11, 2'b01: begin
                     cache_store = lctrl_cache_store;
@@ -244,7 +409,7 @@ module data_cache_complex #(
 
                     sctrl_port_halt = 1'b0;
                 end
-            endcase 
+            endcase
 
 
             /* Default values */ 
@@ -256,7 +421,12 @@ module data_cache_complex #(
 
             single_trx_o = 1'b0;
 
-            case ({sctrl_store_channel.request, lctrl_store_channel.request})
+            if (flush_busy_o) begin
+                ddr_store_channel.data = flush_store_data;
+                ddr_store_channel.address = flush_store_address;
+                ddr_store_channel.width = WORD;
+                sctrl_memory_halt = 1'b1;
+            end else case ({sctrl_store_channel.request, lctrl_store_channel.request})
                 2'b11, 2'b01: begin
                     ddr_store_channel.data = lctrl_store_channel.data;
                     ddr_store_channel.address = lctrl_store_channel.address;
@@ -274,10 +444,12 @@ module data_cache_complex #(
 
                     sctrl_memory_halt = 1'b0;
                 end
-            endcase 
+            endcase
         end : arbiter
 
-    assign ddr_store_channel.request = sctrl_store_channel.request | lctrl_store_channel.request;
+    assign ddr_store_channel.request = flush_busy_o
+                                     ? flush_store_request
+                                     : (sctrl_store_channel.request | lctrl_store_channel.request);
 
 
 //====================================================================================
