@@ -19,6 +19,7 @@ module cache_ddr_interface #(
     input logic single_trx_i,
     input logic instr_req_i,
     output logic load_empty_o,
+    output logic store_idle_o,
 
     /* Common address */
     output logic [26:0] address_o, 
@@ -221,6 +222,10 @@ module cache_ddr_interface #(
         end 
 
     assign load_empty_o = ldr_empty;
+    /* A FENCE may start only after every older store packet has left this
+     * bridge.  store_channel.done acknowledges individual packets, not the
+     * complete drain of the bridge FSM. */
+    assign store_idle_o = str_empty & !str_ready & !str_select;
     
 
 //====================================================================================
