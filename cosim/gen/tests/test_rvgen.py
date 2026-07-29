@@ -89,7 +89,11 @@ class GeneratorArchitectureTests(unittest.TestCase):
             spec for spec in memory.GENERATORS if spec.generate.__name__ == "generate_fence"
         )
 
-        self.assertEqual(fence_generator.generate(random.Random(17), 0), "fence")
+        fence_block = fence_generator.generate(random.Random(17), 0)
+        self.assertIn("sw x5, 0(x31)\n", fence_block)
+        self.assertIn("sw x6, 12(x31)\n", fence_block)
+        self.assertIn("fence\nlw x7, 0(x31)\n", fence_block)
+        self.assertIn("lw x10, 12(x31)", fence_block)
         self.assertTrue(fence_generator.is_enabled({"mem"}, {"i"}))
         self.assertTrue(fence_generator.is_enabled({"fence"}, {"i"}))
 
