@@ -99,15 +99,20 @@ module cpu_complex #(
             end
         end
 
+
+    logic core_flush_busy;
+    assign core_flush_busy = cache_flush_request | cache_flush_pending | dcache_flush_busy;
+
     /* Core instantiation */
     ApogeoRV #(PREDICTOR_SIZE, BTB_SIZE, STORE_BUFFER_SIZE, INSTRUCTION_BUFFER_SIZE, ROB_DEPTH) system_cpu (
-        .clk_i    ( clk_i                     ),
-        .rst_n_i  ( rst_n_i                   ),
-        .halt_i   ( halt_i                    ),
-        .halted_o (                           ),
-        .flush_o  ( cache_flush_request       ),
-        .fence_busy_i ( cache_flush_request | cache_flush_pending
-                      | dcache_flush_busy ),
+        .clk_i    ( clk_i   ),
+        .rst_n_i  ( rst_n_i ),
+
+        .halt_i   ( halt_i ),
+        .halted_o (        ),
+
+        .flush_o      ( cache_flush_request ),
+        .flush_busy_i ( core_flush_busy     ),
 
         .trace_channel ( trace_channel ),
 
