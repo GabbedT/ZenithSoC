@@ -49,6 +49,7 @@ module cpu_complex #(
 
     /* Room for load requests */
     input logic ldr_ready_i,
+    input logic str_ready_i,
 
     /* Interrupts */
     input logic gen_interrupt_i,
@@ -84,19 +85,29 @@ module cpu_complex #(
     store_interface cpu_store_channel();
 
     logic cache_flush_request;
+    logic cache_flush_pending;
     logic dcache_flush_busy, dcache_flush_done;
     logic icache_flush_busy, icache_flush_done;
-    logic cache_flush_busy;
 
-    assign cache_flush_busy = dcache_flush_busy | icache_flush_busy;
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                cache_flush_pending <= 1'b0;
+            end else if (cache_flush_request) begin
+                cache_flush_pending <= 1'b1;
+            end else if (dcache_flush_done) begin
+                cache_flush_pending <= 1'b0;
+            end
+        end
 
     /* Core instantiation */
     ApogeoRV #(PREDICTOR_SIZE, BTB_SIZE, STORE_BUFFER_SIZE, INSTRUCTION_BUFFER_SIZE, ROB_DEPTH) system_cpu (
         .clk_i    ( clk_i                     ),
         .rst_n_i  ( rst_n_i                   ),
-        .halt_i   ( halt_i | cache_flush_busy ),
+        .halt_i   ( halt_i                    ),
         .halted_o (                           ),
         .flush_o  ( cache_flush_request       ),
+        .fence_busy_i ( cache_flush_request | cache_flush_pending
+                      | dcache_flush_busy ),
 
         .trace_channel ( trace_channel ),
 
@@ -131,7 +142,8 @@ module cpu_complex #(
         .rst_n_i ( rst_n_i    ),
         .stall_i ( stall_data ),
 
-        .flush_i      ( cache_flush_request ),
+        .flush_i       ( cache_flush_request ),
+        .flush_ready_i ( str_ready_i         ),
         .flush_busy_o ( dcache_flush_busy   ),
         .flush_done_o ( dcache_flush_done   ),
 
@@ -180,7 +192,7 @@ module cpu_complex #(
         .region_switch_i ( region_switch               ),
         .conflict_i      ( dcache_load_channel.request ),
 
-        .flush_i      ( cache_flush_request ),
+        .flush_i      ( 1'b0              ),
         .flush_busy_o ( icache_flush_busy   ),
         .flush_done_o ( icache_flush_done   ),
 
@@ -191,7 +203,8 @@ module cpu_complex #(
         .load_channel ( icache_load_channel )
     );
 
-    assign icache_fetch_channel.fetch = cpu_fetch_channel.fetch & (cpu_fetch_channel.address >= `USER_MEMORY_REGION_START);
+    assign icache_fetch_channel.fetch = cpu_fetch_channel.fetch
+                                      & (cpu_fetch_channel.address >= `USER_MEMORY_REGION_START);
     assign icache_fetch_channel.address = cpu_fetch_channel.address;
     assign icache_fetch_channel.invalidate = cpu_fetch_channel.invalidate;
 
