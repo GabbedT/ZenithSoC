@@ -13,6 +13,7 @@ module data_cache_complex #(
     input logic stall_i,
 
     input logic flush_i,
+    input logic flush_ready_i,
     output logic flush_busy_o,
     output logic flush_done_o,
 
@@ -182,7 +183,7 @@ module data_cache_complex #(
 //      STORE CONTROLLER
 //====================================================================================
 
-    logic sctrl_halt, sctrl_port_halt, sctrl_memory_halt, sctrl_store_done, sctrl_stall, st_lock, st_lock_request; 
+    logic sctrl_halt, sctrl_port_halt, sctrl_memory_halt, sctrl_store_done, sctrl_idle, sctrl_stall, st_lock, st_lock_request;
     status_packet_t sctrl_status_packet;
     data_word_t sctrl_store_data, sctrl_cache_address;
     data_enable_t sctrl_cache_store, sctrl_cache_read; logic [3:0] store_byte_write;
@@ -204,6 +205,7 @@ module data_cache_complex #(
         .request_i      ( stu_channel.request & !io_store_request                    ),
         .buffer_entry_i ( {stu_channel.data, stu_channel.address, stu_channel.width} ),
         .valid_o        ( sctrl_store_done                                           ),
+        .idle_o         ( sctrl_idle                                                 ),
 
         .store_channel ( sctrl_store_channel ),
 
@@ -226,10 +228,12 @@ module data_cache_complex #(
 
     typedef enum logic [2:0] {
         FLUSH_IDLE,
+        FLUSH_WAIT_DRAIN,
         FLUSH_READ_META,
         FLUSH_CHECK_META,
         FLUSH_WRITEBACK,
-        FLUSH_WAIT_STORE
+        FLUSH_WAIT_STORE,
+        FLUSH_INVALIDATE
     } flush_state_t;
 
     flush_state_t flush_state_CRT, flush_state_NXT;
@@ -286,6 +290,14 @@ module data_cache_complex #(
                     if (flush_i) begin
                         /* Start from cache index 0 */
                         flush_index_NXT = '0;
+                        flush_state_NXT = FLUSH_WAIT_DRAIN;
+                    end
+                end
+
+                FLUSH_WAIT_DRAIN: begin
+                    /* Older write-throughs and eviction writebacks can still
+                     * be buffered below the cache controller. */
+                    if (flush_ready_i & sctrl_idle) begin
                         flush_state_NXT = FLUSH_READ_META;
                     end
                 end
@@ -298,13 +310,9 @@ module data_cache_complex #(
                 end
 
                 FLUSH_CHECK_META: begin
-                    /* Invalidate every line. Word zero and its metadata are
-                     * available from FLUSH_READ_META. */
-                    flush_cache_write.valid = 1'b1;
-                    flush_cache_write.dirty = 1'b1;
-                    flush_cache_address = {cache_load_tag, flush_index_CRT, {OFFSET{1'b0}}, 2'b0};
-
-                    /* Meanwhile check if the very same line is dirty */
+                    /* Word zero and its metadata are available from
+                     * FLUSH_READ_META.  A dirty line must remain valid until
+                     * all of its data has reached DDR. */
                     if (cache_valid[1] & cache_dirty[1]) begin
                         flush_tag_NXT = cache_load_tag;
                         flush_word_NXT = 'd1;
@@ -317,15 +325,8 @@ module data_cache_complex #(
 
                         flush_cache_read.data = 1'b1;
                         flush_cache_address = {cache_load_tag, flush_index_CRT, {{(OFFSET - 1){1'b0}}, 1'b1}, 2'b0};
-                    end else if (flush_index_CRT == '1) begin
-                        /* GO idle once every line has been written back
-                         * and the current is not dirty/invalid */
-                        flush_state_NXT = FLUSH_IDLE;
-                        flush_done_NXT = 1'b1;
                     end else begin
-                        /* Read next line */
-                        flush_index_NXT = flush_index_CRT + 1'b1;
-                        flush_state_NXT = FLUSH_READ_META;
+                        flush_state_NXT = FLUSH_INVALIDATE;
                     end
                 end
 
@@ -348,17 +349,28 @@ module data_cache_complex #(
                 FLUSH_WAIT_STORE: begin
                     if (ddr_store_channel.done) begin
                         if (flush_store_responses_CRT == FLUSH_STORE_RESPONSES - 1) begin
-                            if (flush_index_CRT == '1) begin
-                                /* Everything has been flushed, go idle */
-                                flush_state_NXT = FLUSH_IDLE;
-                                flush_done_NXT = 1'b1;
-                            end else begin
-                                flush_index_NXT = flush_index_CRT + 1'b1;
-                                flush_state_NXT = FLUSH_READ_META;
-                            end
+                            flush_state_NXT = FLUSH_INVALIDATE;
                         end else begin
                             flush_store_responses_NXT = flush_store_responses_CRT + 1'b1;
                         end
+                    end
+                end
+
+                FLUSH_INVALIDATE: begin
+                    /* Invalidate only after a dirty line's complete DDR
+                     * writeback has been acknowledged. */
+                    flush_cache_write.valid = 1'b1;
+                    flush_cache_write.dirty = 1'b1;
+                    flush_cache_status.valid = 1'b0;
+                    flush_cache_status.dirty = 1'b0;
+                    flush_cache_address = {flush_tag_CRT, flush_index_CRT, {OFFSET{1'b0}}, 2'b0};
+
+                    if (flush_index_CRT == '1) begin
+                        flush_state_NXT = FLUSH_IDLE;
+                        flush_done_NXT = 1'b1;
+                    end else begin
+                        flush_index_NXT = flush_index_CRT + 1'b1;
+                        flush_state_NXT = FLUSH_READ_META;
                     end
                 end
 
