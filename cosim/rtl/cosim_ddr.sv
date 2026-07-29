@@ -17,7 +17,8 @@ module cosim_ddr #(
 
     input  logic single_trx_i,
     input  logic instr_req_i,
-    output logic load_empty_o
+    output logic load_empty_o,
+    output logic store_idle_o
 );
 
     localparam int DDR_WORDS = SIZE_BYTES / 8;
@@ -45,6 +46,7 @@ module cosim_ddr #(
         .single_trx_i ( single_trx_i ),
         .instr_req_i  ( instr_req_i  ),
         .load_empty_o ( load_empty_o ),
+        .store_idle_o ( store_idle_o ),
 
         .address_o ( ddr_address ),
 
