@@ -17,6 +17,12 @@ def generate_memory_access(rng, _label_id):
     return f"{LOAD_OP[width]} {random_register(rng)}, {offset}({MEM_BASE_REG})"
 
 
+def generate_fence(_rng, _label_id):
+    """Serialize memory accesses and exercise the cache-flush path."""
+
+    return "fence"
+
+
 def generate_same_cache_line(rng, _label_id):
     """Interleave widths and byte lanes inside one 16-byte cache block."""
 
@@ -67,6 +73,7 @@ def generate_store_load_forwarding(rng, _label_id):
 
 BASIC_GENERATORS = (
     GeneratorSpec("mem", generate_memory_access),
+    GeneratorSpec("mem", generate_fence, aliases=("fence",)),
 )
 
 CORNER_CASE_GENERATORS = (
