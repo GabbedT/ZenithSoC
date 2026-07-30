@@ -54,11 +54,15 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
 
     /* ----------- Card Preparation ----------- */
 
-    reset();
+    /* On the Nexys A7 the auxiliary microcontroller already power-cycles the
+     * microSD slot when FPGA configuration completes. A second 1 ms power
+     * interruption here can be too short for VDD to discharge and leaves
+     * physical cards indefinitely reporting OCR.POWER_UP_STATUS = 0. */
     control->enableSD = true;
 
-    /* Need ~74 SD clock cycles before starting CMD0 */
-    for (int i = 0; i < 10000; ++i) {
+    /* Allow the slot supply to settle while providing far more than the 74
+     * SD clock cycles required before CMD0. */
+    for (int i = 0; i < 200000; ++i) {
         /* Dummy read */
         int sink = status->cardDetected;
     }
@@ -76,43 +80,71 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
     flushResponseBuffer();
 
 
-    /* CMD8: SEND_IF_COND -> check voltage range (2.7–3.6V) and SD version >= 2.0 */
-    sendCommand(8, 0x1AA);
-    readResponse(cmd8_response, error);
+    /* CMD8: SEND_IF_COND -> check voltage range (2.7–3.6V) and SD version >= 2.0.
+     * Retry in case the first command lands while a physical card is still
+     * completing its power-on reset. */
+    for (int cmd8Attempt = 0; cmd8Attempt < 3; ++cmd8Attempt) {
+        sendCommand(8, 0x1AA);
+        readResponse(cmd8_response, error);
+
+        if (error == SD::NO_ERROR) {
+            break;
+        }
+
+        if (error != SD::CMD_TIMEOUT) {
+            return *this;
+        }
+
+        error = SD::NO_ERROR;
+    }
 
     if (error == SD::CMD_CRC_ERR) {
         return *this;
     }
 
-    /* Reset since we don't care about timeouts */
+    /* SD v1.x cards do not implement CMD8 and signal this with a timeout. */
+    if (error != SD::NO_ERROR && error != SD::CMD_TIMEOUT) {
+        return *this;
+    }
+
     error = SD::NO_ERROR;
 
     /* ----------- Initialization Loop ----------- */
 
+    const uint32_t maxInitAttempts = 10000;
     bool cardReady = false;
     uint32_t attempts = 0;
 
     do {
         /* CMD55: APP_CMD */
         sendCommand(55, 0);
-        flushResponseBuffer();
-
-        /* ACMD41: SEND_OP_COND -> request operating conditions + HCS bit */
-        sendCommand(41, 0x40300000);
         readResponse(resp, error);
 
-        if (error == SD::CMD_CRC_ERR) {
+        if (error != SD::NO_ERROR) {
             return *this;
         }
-        
-        /* Reset since we don't care about timeouts */
-        error = SD::NO_ERROR;
 
-        /* Busy flag is bit 39,  */
-        cardReady = (resp[1] & 0x80) != 0;
+        this->lastCmd55Status = (((uint32_t) resp[0]) << 24) | (((uint32_t) resp[1]) << 16) |
+                                (((uint32_t) resp[2]) << 8)  | ((uint32_t) resp[3]);
+
+        /* Advertise the complete 2.7-3.6 V window, HCS and XPC. The Nexys A7
+         * slot can provide the >150 mA power class requested by XPC. */
+        sendCommand(41, 0x50FF8000u);
+        readResponse(resp, error);
+
+        if (error != SD::NO_ERROR) {
+            return *this;
+        }
+
+        /* The response reader removes the R3 header, so resp[0..3] is OCR.
+         * Keep every response available for diagnostics if initialization
+         * reaches the timeout. */
+        this->cardOCR = (((uint32_t) resp[0]) << 24) | (((uint32_t) resp[1]) << 16) |
+                        (((uint32_t) resp[2]) << 8)  | ((uint32_t) resp[3]);
+        cardReady = (this->cardOCR & 0x80000000u) != 0;
 
         ++attempts;
-    } while (!cardReady && attempts < 200);
+    } while (!cardReady && attempts < maxInitAttempts);
 
     /* Exit init */
     if (!cardReady) {
@@ -121,33 +153,10 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
     }
 
 
-    /* ----------- OCR Register Reading ----------- */
-
-    /* CMD58: READ_OCR -> get the official OCR register */
-    sendCommand(58, 0);
-    readResponse(resp, error);
-
-    if (error == SD::NO_ERROR) {
-        /* Store OCR in class variable, pack 4 bytes into uint32_t */
-        this->cardOCR = (((uint32_t) resp[0]) << 24) | (((uint32_t) resp[1]) << 16) |
-                        (((uint32_t) resp[2]) << 8)  | ((uint32_t) resp[3]);
-
-        /* CCS (Card Capacity Status) is bit 30 of OCR which tell us if the card is SDSC vs SDHC/SDXC */
-        isHighCapacity = (resp[0] & 0x40) != 0;
-    } else {
-        /* Assume SDSC if OCR not available */
-        isHighCapacity = false;
-
-        this->cardOCR = 0;
-    }
-
-    if (error == SD::CMD_CRC_ERR) {
-        return *this;
-    }
-
-    error = SD::NO_ERROR;
-
-    flushResponseBuffer();
+    /* Keep the OCR returned by the successful ACMD41. CMD58 belongs to the
+     * SPI initialization flow and is not needed in native SD mode. */
+    /* CCS (Card Capacity Status) is OCR bit 30. */
+    isHighCapacity = (this->cardOCR & 0x40000000u) != 0;
 
 
     /* ----------- Clock Configuration ----------- */
@@ -162,23 +171,18 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
     sendCommand(2, 0);
     readResponse(resp, error);
 
-    if (error == SD::NO_ERROR) {
-        /* Store CID in class variable (15 bytes = 120 bits) */
-        uint8_t* cidBytes = reinterpret_cast<uint8_t*>(this->cardCID);
-
-        /* The response reader has already removed the transmission/header byte. */
-        for (int i = 0; i < 16; i++) {
-            cidBytes[15 - i] = resp[i];
-        }
-    } else {
+    if (error != SD::NO_ERROR) {
         this->cardCID[0] = this->cardCID[1] = 0;
-    }
-
-    if (error == SD::CMD_CRC_ERR) {
         return *this;
     }
 
-    error = SD::NO_ERROR;
+    /* Store CID in class variable (15 bytes = 120 bits) */
+    uint8_t* cidBytes = reinterpret_cast<uint8_t*>(this->cardCID);
+
+    /* The response reader has already removed the transmission/header byte. */
+    for (int i = 0; i < 16; i++) {
+        cidBytes[15 - i] = resp[i];
+    }
 
 
     /* ----------- RCA Register Reading ----------- */
@@ -187,17 +191,12 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
     sendCommand(3, 0);
     readResponse(resp, error);
 
-
-    if (error == SD::NO_ERROR) {
-        /* Extract RCA from bits [39:24] of response */
-        this->cardRCA = (((uint32_t) resp[0]) << 8) | resp[1];
-    }
-
-    if (error == SD::CMD_CRC_ERR) {
+    if (error != SD::NO_ERROR) {
         return *this;
     }
 
-    error = SD::NO_ERROR;
+    /* Extract RCA from bits [39:24] of response */
+    this->cardRCA = (((uint32_t) resp[0]) << 8) | resp[1];
 
     flushResponseBuffer();
 
@@ -208,24 +207,18 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
     sendCommand(9, static_cast<uint32_t>(cardRCA) << 16);
     readResponse(resp, error);
 
-
-    if (error == SD::NO_ERROR) {
-        /* Store CSD in class variable (15 bytes = 120 bits) */
-        uint8_t* csdBytes = reinterpret_cast<uint8_t*>(this->cardCSD);
-
-        /* The response reader has already removed the transmission/header byte. */
-        for (int i = 0; i < 16; i++) {
-            csdBytes[15 - i] = resp[i];
-        }
-    } else {
+    if (error != SD::NO_ERROR) {
         this->cardCSD[0] = this->cardCSD[1] = 0;
-    }
-
-    if (error == SD::CMD_CRC_ERR) {
         return *this;
     }
 
-    error = SD::NO_ERROR;
+    /* Store CSD in class variable (15 bytes = 120 bits) */
+    uint8_t* csdBytes = reinterpret_cast<uint8_t*>(this->cardCSD);
+
+    /* The response reader has already removed the transmission/header byte. */
+    for (int i = 0; i < 16; i++) {
+        csdBytes[15 - i] = resp[i];
+    }
 
     flushResponseBuffer();
 
@@ -233,8 +226,17 @@ SD& SD::init(clockSpeed_e speed, busWidth_e width, uint8_t* cmd8_response, bool&
     /* ----------- Card Selection / Transfer State ----------- */
 
     /* CMD7 SELECT_CARD: Move card to TRANSFER state */
-    sendCommand(7, ((uint32_t) this->cardRCA) << 16);
-    flushResponseBuffer();
+    sendCommand(7, ((uint32_t)cardRCA) << 16);
+    readResponse(resp, error);
+
+    if (error != SD::NO_ERROR) {
+        return *this;
+    }
+
+    /* Test temporaneo: lascia terminare R1b busy */
+    for (volatile uint32_t i = 0; i < 1000000; ++i) {
+        asm volatile ("nop");
+    }
 
 
 
@@ -432,6 +434,8 @@ SD& SD::sendCommand(uint32_t cmdNumber, uint32_t argument) {
     /* Send Command */
     control->sendCommand = true;
 
+    while (status->cmdIdle) {  }
+
     return *this;
 };
 
@@ -467,12 +471,16 @@ SD& SD::readResponse(uint8_t* responseBuffer, errorType_e& error) {
     for (unsigned int i = 0; i < responseLength; ++i) {
         uint8_t byte = *this->responseBuffer;
 
-        if (i != 0) {
+        if (i == 0) {
+            this->lastResponseHeader = byte;
+        } else if (responseBuffer != nullptr) {
             responseBuffer[i - 1] = byte;
         }
     }
 
-    responseBuffer[responseLength - 1] = 0;
+    if (responseBuffer != nullptr) {
+        responseBuffer[responseLength - 1] = 0;
+    }
 
     return *this;
 };
