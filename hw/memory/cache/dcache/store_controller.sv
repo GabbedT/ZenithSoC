@@ -16,6 +16,7 @@ module store_controller (
     input logic request_i,
     input store_buffer_entry_t buffer_entry_i,
     output logic valid_o,
+    output logic idle_o,
 
     /* Memory store interface */ 
     store_interface.master store_channel,
@@ -223,7 +224,8 @@ module store_controller (
     assign store_channel.data = cache_data_o;
 
     assign cache_address_o = (state_CRT == IDLE) ? buffer_entry_i.address : buffer_entry.address; 
+    assign idle_o = state_CRT == IDLE;
 
 endmodule : store_controller
 
-`endif 
+`endif

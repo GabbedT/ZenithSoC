@@ -27,6 +27,7 @@ module data_cache #(
 
     /* Ports shared IO */
     input data_enable_t [1:0] read_i,
+    output logic [1:0] valid_o,
     output logic [1:0] dirty_o,
     output logic [1:0] hit_o
 );
@@ -107,6 +108,7 @@ module data_cache #(
     ); 
 
     assign dirty_o[0] = status[0].dirty; assign dirty_o[1] = status[1].dirty; 
+    assign valid_o[0] = status[0].valid; assign valid_o[1] = status[1].valid;
 
 
     valid_memory #(INDEX) valid_memory (

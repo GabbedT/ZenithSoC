@@ -34,7 +34,7 @@ module cosim_top (
     load_interface  io_ld();
     store_interface io_st();
 
-    logic single_strx, instr_load, load_room;
+    logic single_strx, instr_load, load_room, store_idle;
 
 
 //=============================================================================
@@ -60,6 +60,7 @@ module cosim_top (
         .instr_load_o       ( instr_load ),
 
         .ldr_ready_i        ( load_room ),
+        .str_ready_i        ( store_idle ),
 
         /* No interrupts */
         .gen_interrupt_i    ( 1'b0 ),
@@ -93,7 +94,8 @@ module cosim_top (
         .store_channel  ( ddr_st ),
         .single_trx_i   ( single_strx ),
         .instr_req_i    ( instr_load ),
-        .load_empty_o   ( load_room )
+        .load_empty_o   ( load_room ),
+        .store_idle_o   ( store_idle )
     );
 
     cosim_io io_stub (

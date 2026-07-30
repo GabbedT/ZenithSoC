@@ -157,7 +157,7 @@ def parse_args(argv=None):
         "--class",
         dest="classes",
         default="arith,mem,branch,ctrl",
-        help="classes: arith,mem,branch,ctrl,float (csv)",
+        help="classes: arith,mem,branch,ctrl,float,fence (csv)",
     )
     parser.add_argument(
         "--ext",

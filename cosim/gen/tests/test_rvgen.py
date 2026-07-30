@@ -84,10 +84,24 @@ class GeneratorArchitectureTests(unittest.TestCase):
         self.assertNotIn("fnmadd", text)
         self.assertNotIn("fnmsub", text)
 
+    def test_fence_generator_is_enabled_by_memory_and_fence_classes(self):
+        fence_generator = next(
+            spec for spec in memory.GENERATORS if spec.generate.__name__ == "generate_fence"
+        )
+
+        fence_block = fence_generator.generate(random.Random(17), 0)
+        self.assertIn("sw x5, 0(x31)\n", fence_block)
+        self.assertIn("sw x6, 12(x31)\n", fence_block)
+        self.assertIn("fence\nlw x7, 0(x31)\n", fence_block)
+        self.assertIn("lw x10, 12(x31)", fence_block)
+        self.assertTrue(fence_generator.is_enabled({"mem"}, {"i"}))
+        self.assertTrue(fence_generator.is_enabled({"fence"}, {"i"}))
+
     def test_each_cli_class_generates_a_program(self):
         cases = (
             ("arith", "rv32im_zba_zbs_zbb"),
             ("mem", "rv32i"),
+            ("fence", "rv32i"),
             ("branch,ctrl", "rv32i"),
             ("float", "rv32im_zfinx"),
         )

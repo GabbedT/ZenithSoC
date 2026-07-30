@@ -52,6 +52,7 @@ module ddr_memory_interface (
     /* Status */
     input logic done_i,
     output logic ready_o,
+    output logic hold_o,
     output logic start_o
 );
 
@@ -127,6 +128,11 @@ module ddr_memory_interface (
         .read_data_o  ( write_data                   )
     );
 
+    /* These FIFO-full flags are generated in clk_i's write domain.  Feed
+     * them back to the cache bridge so a temporary MIG stall cannot drop a
+     * command or data beat. */
+    assign hold_o = command_full | write_data_full;
+
 
     logic [63:0] read_data; logic read_data_empty, read_data_full, write_fifo;
 
@@ -154,7 +160,6 @@ module ddr_memory_interface (
     logic read_sync, pull_sync;
 
         synchronizer read_synchronizer (
-            /* Global signals */
             .clk_i   ( ui_clk  ),
             .rst_n_i ( rst_n_i ),
 
@@ -163,7 +168,6 @@ module ddr_memory_interface (
         );
 
         synchronizer pull_synchronizer (
-            /* Global signals */
             .clk_i   ( ui_clk  ),
             .rst_n_i ( rst_n_i ),
 
@@ -175,10 +179,10 @@ module ddr_memory_interface (
     logic [3:0] read_cmd_count, read_data_count; logic read_valid;
 
         always_ff @(posedge ui_clk `ifdef ASYNC or posedge ui_rst `endif) begin
-            if (ui_rst) begin 
+            if (ui_rst) begin
                 read_cmd_count <= '0;
                 read_data_count <= '0;
-            end else begin 
+            end else begin
                 if (read_sync) begin
                     read_cmd_count <= read_cmd_count + 1'b1;
                 end else if (pull_sync) begin
@@ -190,13 +194,12 @@ module ddr_memory_interface (
                 end else if (pull_sync) begin
                     read_data_count <= read_data_count - 1'b1;
                 end
-            end 
-        end 
+            end
+        end
 
     assign read_valid = !read_data_empty & (read_data_count == (read_cmd_count >> 1));
 
     synchronizer valid_synchronizer (
-        /* Global signals */
         .clk_i   ( clk_i   ),
         .rst_n_i ( rst_n_i ),
 
@@ -465,4 +468,4 @@ module ddr_memory_interface (
 
 endmodule : ddr_memory_interface
 
-`endif 
+`endif
