@@ -55,6 +55,15 @@ proc write_implementation_reports {build_dir} {
     report_drc -file [file join $build_dir drc_impl.rpt]
 }
 
+proc copy_bitstream_outputs {bit_file build_dir} {
+    set base_bit [file join $build_dir ZenithSoC_nexys_a7_base.bit]
+    set deploy_bit [file join $build_dir ZenithSoC_nexys_a7.bit]
+    file copy -force $bit_file $base_bit
+    file copy -force $bit_file $deploy_bit
+    puts "Base bitstream: $base_bit"
+    puts "Bitstream: $deploy_bit"
+}
+
 if {$target eq "finish_routed"} {
     set routed_dcp [file join $build_dir project ZenithSoC.runs impl_1 ${top}_routed.dcp]
     if {[file exists $routed_dcp]} {
@@ -74,8 +83,7 @@ if {$target eq "finish_routed"} {
 
     set bit_file [file join $build_dir project ZenithSoC.runs impl_1 ${top}.bit]
     write_bitstream -force $bit_file
-    file copy -force $bit_file [file join $build_dir ZenithSoC_nexys_a7.bit]
-    puts "Bitstream: [file join $build_dir ZenithSoC_nexys_a7.bit]"
+    copy_bitstream_outputs $bit_file $build_dir
     exit 0
 }
 
@@ -144,8 +152,7 @@ if {$target eq "retry_impl"} {
     if {![file exists $bit_file]} {
         error "Bitstream was not created at $bit_file"
     }
-    file copy -force $bit_file [file join $build_dir ZenithSoC_nexys_a7.bit]
-    puts "Bitstream: [file join $build_dir ZenithSoC_nexys_a7.bit]"
+    copy_bitstream_outputs $bit_file $build_dir
     exit 0
 }
 
@@ -253,5 +260,4 @@ set bit_file [file join $build_dir project ZenithSoC.runs impl_1 ${top}.bit]
 if {![file exists $bit_file]} {
     error "Bitstream was not created at $bit_file"
 }
-file copy -force $bit_file [file join $build_dir ZenithSoC_nexys_a7.bit]
-puts "Bitstream: [file join $build_dir ZenithSoC_nexys_a7.bit]"
+copy_bitstream_outputs $bit_file $build_dir

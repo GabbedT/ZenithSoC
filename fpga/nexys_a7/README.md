@@ -82,16 +82,34 @@ program, provide its byte-oriented initialization file:
 make bitstream BOOTLOADER_HEX=/absolute/path/to/bootloader.hex
 ```
 
-After changing only that boot program, provide the corresponding ELF:
+The update target is independent of the software project. If the ELF has
+already been built, pass it directly:
 
 ```bash
 make update-bootloader BOOTLOADER_ELF=/absolute/path/to/bootloader.elf
 ```
 
-The software must already have been built; the FPGA target does not invoke a
-software-project-specific Makefile. It writes
-`build/vivado/ZenithSoC_nexys_a7_bootloader.bit` with `updatemem`; synthesis,
-placement, and routing are not repeated. Override the tool or output path with
+To rebuild it first, also specify its Make directory and, optionally, its Make
+target:
+
+```bash
+make update-bootloader \
+    BOOTLOADER_ELF=/absolute/path/to/project/out/bootloader.elf \
+    BOOTLOADER_BUILD_DIR=/absolute/path/to/project \
+    BOOTLOADER_BUILD_TARGET=bootloader
+```
+
+`BOOTLOADER_BUILD_TARGET` can be omitted to run the software project's default
+target. With no overrides, the default CoreMark ELF is rebuilt through its
+`fpga` target. Other projects use the same mechanism by overriding the three
+variables shown above. If UpdateMEM produces an unchanged configuration
+payload, the command prints a warning that the ELF may be stale.
+
+The target atomically updates the deployable
+`build/vivado/ZenithSoC_nexys_a7.bit` with `updatemem`; synthesis, placement,
+and routing are not repeated. A full bitstream build also writes the preserved
+`build/vivado/ZenithSoC_nexys_a7_base.bit`, which is used as the source for
+later bootloader updates. Override the tool or output path with
 `UPDATEMEM=/path/to/updatemem` or `BOOTLOADER_BIT=/path/to/output.bit`.
 
 The two bootloader files have different roles:

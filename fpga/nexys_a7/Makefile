@@ -5,10 +5,21 @@ JOBS ?= 8
 
 BUILD_DIR := ../../build/vivado
 BOOTLOADER_HEX ?= ../../sw/benchmark/CoreMark/out/bootloader.hex
-BOOTLOADER_ELF ?= ../../sw/benchmark/CoreMark/out/bootloader.elf
+COREMARK_DIR := ../../sw/benchmark/CoreMark
+DEFAULT_BOOTLOADER_ELF := $(COREMARK_DIR)/out/bootloader.elf
+BOOTLOADER_ELF ?= $(DEFAULT_BOOTLOADER_ELF)
+
+ifeq ($(abspath $(BOOTLOADER_ELF)),$(abspath $(DEFAULT_BOOTLOADER_ELF)))
+BOOTLOADER_BUILD_DIR ?= $(COREMARK_DIR)
+BOOTLOADER_BUILD_TARGET ?= fpga
+else
+BOOTLOADER_BUILD_DIR ?=
+BOOTLOADER_BUILD_TARGET ?=
+endif
 BOOT_MMI := $(BUILD_DIR)/bootloader.mmi
-BASE_BIT := $(BUILD_DIR)/ZenithSoC_nexys_a7.bit
-BOOTLOADER_BIT ?= $(BUILD_DIR)/ZenithSoC_nexys_a7_bootloader.bit
+DEPLOY_BIT := $(BUILD_DIR)/ZenithSoC_nexys_a7.bit
+BASE_BIT := $(BUILD_DIR)/ZenithSoC_nexys_a7_base.bit
+BOOTLOADER_BIT ?= $(DEPLOY_BIT)
 BOOTLOADER_TMP := $(basename $(BOOTLOADER_BIT))_tmp.bit
 
 # project_config.tcl reads this exported, absolute path for full synthesis and
@@ -29,19 +40,28 @@ retry-impl:
 finish-routed:
 	$(VIVADO) -mode batch -nojournal -nolog -source build.tcl -tclargs finish_routed $(JOBS)
 
-# A full bitstream build reads BOOTLOADER_HEX while synthesizing the inferred
-# block RAM. After implementation, UpdateMEM consumes BOOTLOADER_ELF instead:
-# the ELF retains load addresses, allowing any boot program linked inside the
-# 0x0000-0x3fff boot region to be patched without synthesis or implementation.
 update-bootloader:
-	@test -s "$(BASE_BIT)" || { echo "Base bitstream not found: $(BASE_BIT); run 'make bitstream' first." >&2; exit 1; }
+ifneq ($(strip $(BOOTLOADER_BUILD_DIR)),)
+	$(MAKE) -C "$(BOOTLOADER_BUILD_DIR)" $(BOOTLOADER_BUILD_TARGET)
+endif
+	@test -s "$(BASE_BIT)" || { \
+		test -s "$(DEPLOY_BIT)" || { echo "Bitstream not found: $(DEPLOY_BIT); run 'make bitstream' first." >&2; exit 1; }; \
+		cp -p "$(DEPLOY_BIT)" "$(BASE_BIT)"; \
+		echo "Preserved base bitstream: $(abspath $(BASE_BIT))"; \
+	}
 	@test -s "$(BOOT_MMI)" || { echo "Bootloader memory map not found: $(BOOT_MMI); run 'make bitstream' first." >&2; exit 1; }
 	@test -s "$(BOOTLOADER_ELF)" || { echo "Bootloader ELF not found: $(BOOTLOADER_ELF)" >&2; exit 1; }
 	$(RM) "$(BOOTLOADER_TMP)"
 	$(UPDATEMEM) -meminfo "$(BOOT_MMI)" -data "$(BOOTLOADER_ELF)" -bit "$(BASE_BIT)" -proc zenith_cpu -out "$(BOOTLOADER_TMP)" -force
 	@test -s "$(BOOTLOADER_TMP)" || { echo "UpdateMEM did not create a bitstream." >&2; exit 1; }
+	@if cmp -s -i 256 "$(BASE_BIT)" "$(BOOTLOADER_TMP)"; then \
+		echo "WARNING: Bitstream payload is unchanged; verify that $(abspath $(BOOTLOADER_ELF)) was rebuilt." >&2; \
+	else \
+		echo "Bitstream payload changed."; \
+	fi
 	mv -f "$(BOOTLOADER_TMP)" "$(BOOTLOADER_BIT)"
-	@echo "Patched bitstream: $(BOOTLOADER_BIT)"
+	@echo "Bootloader ELF: $(abspath $(BOOTLOADER_ELF))"
+	@echo "Program this bitstream: $(abspath $(BOOTLOADER_BIT))"
 
 
 SIM_RUNTIME ?= 1ms
