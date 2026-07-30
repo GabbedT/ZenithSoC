@@ -155,6 +155,8 @@ ee_u32 default_num_contexts = 1;
 void portable_init(core_portable *p, int *argc, char *argv[]) {
     volatile struct uartCtrlStatus_s* status = (volatile struct uartCtrlStatus_s*) (UART_BASE);
 
+    coremark_uart_marker('E');
+
     /* Initialize UART */
     status->parityEnable = 0;
     status->dataBits = BIT8;
@@ -163,6 +165,7 @@ void portable_init(core_portable *p, int *argc, char *argv[]) {
     status->clockDivider = (CLK_FREQUENCY / (BAUDRATE * 16)) - 1;
     status->enableTX = 1;
 
+    coremark_uart_marker('F');
     ee_printf("\n======== CoreMark Benchmark Starting ========\n");
     ee_printf(" Iterations : %d\n", ITERATIONS);
     ee_printf(" Clock      : %d Hz", CLK_FREQUENCY);

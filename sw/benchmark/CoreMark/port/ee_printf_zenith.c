@@ -665,7 +665,12 @@ ee_vsprintf(char *buf, const char *fmt, va_list args)
 void
 uart_send_char(char c)
 {
+    volatile struct uartCtrlStatus_s *status =
+        (volatile struct uartCtrlStatus_s *) UART_BASE;
     volatile uint8_t* txbuf = (volatile uint8_t*) (UART_BASE + 0x4);
+
+    while (status->fullTX) {
+    }
 
     *txbuf = c;
 }
@@ -677,9 +682,11 @@ ee_printf(const char *fmt, ...)
     va_list args;
     int     n = 0;
 
+    coremark_uart_marker('G');
     va_start(args, fmt);
     ee_vsprintf(buf, fmt, args);
     va_end(args);
+    coremark_uart_marker('H');
     p = buf;
     while (*p)
     {
