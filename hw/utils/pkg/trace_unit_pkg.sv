@@ -89,8 +89,8 @@ package trace_unit_pkg;
     /* Divergence Packet (5/8 Bytes) */
     /* TYPE DIVERGENCE (1 BYTE) | DELTA PC (4 BYTE) | TIMESTAMP (IF ENABLED) (3 BYTE) */
 
-    /* Time overflow Packet (2 Bytes) */
-    /* SYNC (1 BYTE) | TYPE OVERFLOW + OV_FLAG (1 BYTE) | */
+    /* Time overflow packet (1 byte on the UART stream) */
+    /* TYPE OVERFLOW (2 bits) | RESERVED (6 bits) */
     typedef union packed {
 
         struct packed {
