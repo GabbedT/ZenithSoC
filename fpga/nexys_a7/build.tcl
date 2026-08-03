@@ -1,6 +1,10 @@
 set script_dir [file dirname [file normalize [info script]]]
 set root_dir [file normalize [file join $script_dir ../..]]
-set build_dir [file join $root_dir build vivado]
+if {[info exists ::env(ZENITH_VIVADO_BUILD_DIR)]} {
+    set build_dir [file normalize $::env(ZENITH_VIVADO_BUILD_DIR)]
+} else {
+    set build_dir [file join $root_dir build vivado]
+}
 source [file join $script_dir project_config.tcl]
 source [file join $script_dir bootloader_mmi.tcl]
 
