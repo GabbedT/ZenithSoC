@@ -57,6 +57,10 @@ module cpu_complex #(
     input logic timer_interrupt_i, 
     input logic [7:0] interrupt_vector_i,
     output logic interrupt_ackn_o
+`ifdef ZENITH_DEBUG_ILA
+    ,
+    output logic [31:0] debug_cpu_o
+`endif
 );
 
 //====================================================================================
@@ -173,6 +177,30 @@ module cpu_complex #(
         .io_store_channel ( io_store_channel )
     );
 
+`ifdef ZENITH_DEBUG_ILA
+    logic [29:0] debug_fault_instruction;
+
+    /* Freeze the frontend instruction in the CPU clock domain when it creates
+     * an exception. The ILA-side array synchronizer may otherwise show a
+     * bitwise mixture while this bus changes on consecutive instructions. */
+    always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+        if (!rst_n_i) begin
+            debug_fault_instruction <= '0;
+        end else if (system_cpu.apogeo_frontend.if_stage_valid &
+                     (system_cpu.apogeo_frontend.if_stage_exception |
+                      system_cpu.apogeo_frontend.decoder_exception)) begin
+            debug_fault_instruction <= system_cpu.apogeo_frontend.if_stage_instruction[29:0];
+        end
+    end
+
+    /* Bits 31:30 remain the ILA trace/exception trigger status. */
+    assign debug_cpu_o = {
+        trace_channel.valid,
+        system_cpu.exception,
+        debug_fault_instruction
+    };
+`endif
+
 
     assign ddr_store_channel.address = dcache_store_channel.address - `USER_MEMORY_REGION_START;
     assign ddr_store_channel.data = dcache_store_channel.data;
@@ -256,7 +284,7 @@ module cpu_complex #(
             /* Default value */
             ddr_load_channel.address = '0;
             instr_load_o = 1'b0;
-            
+
             case ({icache_load_channel.request, dcache_load_channel.request})
                 2'b11, 2'b01: begin
                     /* Data cache has more priority */
@@ -270,8 +298,8 @@ module cpu_complex #(
                 end
             endcase
 
-            ddr_load_channel.request = icache_load_channel.request | dcache_load_channel.request; 
-            ddr_load_channel.invalidate = icache_load_channel.invalidate | dcache_load_channel.invalidate; 
+            ddr_load_channel.request = icache_load_channel.request | dcache_load_channel.request;
+            ddr_load_channel.invalidate = icache_load_channel.invalidate | dcache_load_channel.invalidate;
         end : request_arbiter
 
 

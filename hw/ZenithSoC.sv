@@ -198,6 +198,9 @@ module ZenithSoC #(
     trace_interface trace_channel();
 
     logic single_store_trx, load_instruction, load_trx_room, store_trx_idle;
+`ifdef ZENITH_DEBUG_ILA
+    logic [31:0] cpu_debug;
+`endif
 
     /* Interrupt nets */
     logic interrupt, general_interrupt, nmsk_interrupt, timer_interrupt, interrupt_ackn;
@@ -249,6 +252,10 @@ module ZenithSoC #(
         .timer_interrupt_i  ( timer_interrupt   ),
         .interrupt_vector_i ( int_vector        ),
         .interrupt_ackn_o   ( interrupt_ackn    )
+`ifdef ZENITH_DEBUG_ILA
+        ,
+        .debug_cpu_o ( cpu_debug )
+`endif
     );
 
 
@@ -383,6 +390,9 @@ module ZenithSoC #(
 
     logic [UART_DEVICE_NUMBER - 1:0] uart_interrupt;
     logic uart_tx_full;
+`ifdef ZENITH_DEBUG_ILA
+    logic [UART_DEVICE_NUMBER - 1:0][15:0] uart_debug;
+`endif
 
     /* From trace unit */
     logic [7:0] trace_chunk; logic write_chunk;
@@ -406,6 +416,10 @@ module ZenithSoC #(
                 .interrupt_o ( uart_interrupt[i] ),
 
                 .uart_tx_full_o ( uart_tx_full ),
+
+`ifdef ZENITH_DEBUG_ILA
+                .debug_tx_o ( uart_debug[i] ),
+`endif
 
                 .trace_data_i  ( trace_chunk                   ),
                 .trace_write_i ( (i == 0) ? write_chunk : 1'b0 ),
@@ -1044,7 +1058,12 @@ module ZenithSoC #(
 //      DDR CONTROLLER
 //====================================================================================
 
-    logic [26:0] ddr_address; logic ddr_write, ddr_read, push_trx, pull_trx, ddr_data_valid, ddr_done, ddr_hold;
+    logic [26:0] ddr_address;
+    (* mark_debug = "true" *) logic ddr_write, ddr_read, push_trx, pull_trx;
+    (* mark_debug = "true" *) logic ddr_data_valid, ddr_done, ddr_hold;
+`ifdef ZENITH_DEBUG_ILA
+    logic ddr_read_data_empty_debug;
+`endif
     logic [63:0] ddr_data_write, ddr_data_read; logic [7:0] ddr_mask; 
 
         
@@ -1153,6 +1172,14 @@ module ZenithSoC #(
             .ready_o ( ddr_ready ),
             .hold_o  ( ddr_hold  ),
             .start_o (           )
+`ifdef ZENITH_DEBUG_ILA
+            ,
+            .debug_read_data_empty_o ( ddr_read_data_empty_debug ),
+            .debug_pc_i              ( trace_channel.address ),
+            .debug_bridge_state_i    ( ddr_controller_interface.state_CRT ),
+            .debug_uart_i            ( uart_debug[0] ),
+            .debug_cpu_i             ( cpu_debug )
+`endif
         );
         
     `endif // _VIVADO_
