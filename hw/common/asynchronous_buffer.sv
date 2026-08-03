@@ -49,7 +49,9 @@ module asynchronous_buffer #(
 
         /* Read clocked port */
         always_ff @(posedge read_clk_i) begin
+            if (read_i & !empty_o) begin
                 read_data_o <= buffer_memory[read_ptr[PTR_SIZE - 1:0]];
+            end
         end 
 
 
