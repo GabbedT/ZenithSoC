@@ -91,6 +91,22 @@ extern "C" void boot_sd() {
     /* DDR */
     volatile uint32_t* ddr = (volatile uint32_t*) DDR_ENTRY;
 
+    /* Read before the SD reload as well: after a trap this distinguishes a
+     * word physically overwritten in DDR from an I-cache/fetch mismatch. */
+    const uint32_t preloadDiagnosticOffsets[] = {0x0B7Cu, 0x0FE8u};
+    const char* preloadDiagnosticLabels[] = {
+        "[BOOT] PRE DDR[B7C]: 0x",
+        "[BOOT] PRE DDR[FE8]: 0x"
+    };
+    for (unsigned int i = 0; i < 2; ++i) {
+        for (const char *c = preloadDiagnosticLabels[i]; *c != '\0'; ++c) {
+            uart.sendByte((uint8_t) *c);
+        }
+        sendHexWord(uart, ddr[preloadDiagnosticOffsets[i] / sizeof(uint32_t)]);
+        uart.sendByte('\r');
+        uart.sendByte('\n');
+    }
+
     /* Build address, SDHC = block address, SDSC = byte address */
     uint32_t addr = highCap ? IMG_BLK_START : (IMG_BLK_START * 512);
 
@@ -152,6 +168,29 @@ extern "C" void boot_sd() {
         const char msg_bad_image[] = "[BOOT] Invalid image in DDR!\r\n";
         for (const char *c = msg_bad_image; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
         while (1) {  }
+    }
+
+    /* Software-only diagnostic for the repeatable illegal-instruction trap
+     * observed at PC 0x80000b7c on the physical FPGA. */
+    const uint32_t diagnosticOffsets[] = {
+        0x0B78u, 0x0B7Cu, 0x0B80u,
+        0x0FE4u, 0x0FE8u, 0x0FECu
+    };
+    const char* diagnosticLabels[] = {
+        "[BOOT] DDR[B78]: 0x",
+        "[BOOT] DDR[B7C]: 0x",
+        "[BOOT] DDR[B80]: 0x",
+        "[BOOT] DDR[FE4]: 0x",
+        "[BOOT] DDR[FE8]: 0x",
+        "[BOOT] DDR[FEC]: 0x"
+    };
+    for (unsigned int i = 0; i < 6; ++i) {
+        for (const char *c = diagnosticLabels[i]; *c != '\0'; ++c) {
+            uart.sendByte((uint8_t) *c);
+        }
+        sendHexWord(uart, ddr[diagnosticOffsets[i] / sizeof(uint32_t)]);
+        uart.sendByte('\r');
+        uart.sendByte('\n');
     }
 
     const char msg_boot_end[] = "[BOOT] Image loaded! Jumping to CoreMark benchmark...\r\n";
