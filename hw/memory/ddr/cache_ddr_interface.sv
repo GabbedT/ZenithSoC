@@ -234,8 +234,7 @@ module cache_ddr_interface #(
 
     typedef enum logic [2:0] { WAIT, STORE, LOAD, LOAD_DATA, WAIT_DATA, EXTRACT_DATA } fsm_states_t;
 
-    (* mark_debug = "true" *) fsm_states_t state_CRT;
-    fsm_states_t state_NXT;
+    fsm_states_t state_CRT, state_NXT;
 
     logic [$clog2(MAX_BURST):0] load_words_CRT;
     logic [$clog2(MAX_BURST):0] load_word_count_CRT;

@@ -16,11 +16,6 @@ module uart #(
     input logic [7:0] trace_data_i,
     input logic trace_write_i,
 
-`ifdef ZENITH_DEBUG_ILA
-    /* Debug-only snapshot exported to the packed system ILA. */
-    output logic [15:0] debug_tx_o,
-`endif
-
     /* UART interface */
     input logic uart_rx_i,
     output logic uart_tx_o,
@@ -102,25 +97,6 @@ module uart #(
     );
 
     assign uart_rts_o = flow_control & uart_rts;
-
-`ifdef ZENITH_DEBUG_ILA
-    assign debug_tx_o = {
-        read_address_i,
-        write_address_i,
-        read_data_o[3],
-        read_i,
-        trace_write_i,
-        write_i,
-        uart_tx,
-        sample,
-        tx_done,
-        transmit,
-        tx_idle,
-        tx_enable,
-        tx_empty,
-        uart_tx_full_o
-    };
-`endif
     
     assign write_done_o = write_i;
 

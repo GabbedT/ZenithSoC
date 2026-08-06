@@ -54,16 +54,6 @@ module ddr_memory_interface (
     output logic ready_o,
     output logic hold_o,
     output logic start_o
-
-`ifdef ZENITH_DEBUG_ILA
-    ,
-    /* Debug visibility in the system-clock domain. */
-    output logic debug_read_data_empty_o,
-    input logic [31:0] debug_pc_i,
-    input logic [2:0] debug_bridge_state_i,
-    input logic [15:0] debug_uart_i,
-    input logic [31:0] debug_cpu_i
-`endif
 );
 
 //====================================================================================
@@ -145,7 +135,7 @@ module ddr_memory_interface (
 
 
     logic [63:0] read_data;
-    (* mark_debug = "true" *) logic read_data_empty, read_data_full, write_fifo;
+    logic read_data_empty, read_data_full, write_fifo;
 
     asynchronous_buffer #(16, 64) read_data_buffer (
         /* Global signals */
@@ -167,63 +157,8 @@ module ddr_memory_interface (
         .read_data_o  ( read_data_o )
     );
 
-    `ifdef ZENITH_DEBUG_ILA
-        assign debug_read_data_empty_o = read_data_empty;
 
-        /* Debug-only multi-bit snapshots. They are intended to identify a
-         * stable deadlock state, not to transfer functional data. */
-        logic [31:0] debug_pc_ui;
-        logic [2:0] debug_bridge_state_ui;
-        logic [15:0] debug_uart_ui;
-        logic [31:0] debug_cpu_ui;
-        logic debug_exception_ui;
-
-        /* XPM supplies the CDC timing exceptions/placement attributes.  These
-         * buses are observational snapshots only; no functional logic uses
-         * them and atomic multi-bit transfer is intentionally not required. */
-        xpm_cdc_array_single #(
-            .DEST_SYNC_FF(2), .INIT_SYNC_FF(0), .SIM_ASSERT_CHK(0),
-            .SRC_INPUT_REG(0), .WIDTH(32)
-        ) debug_pc_cdc (
-            .src_clk(), .src_in(debug_pc_i), .dest_clk(ui_clk),
-            .dest_out(debug_pc_ui)
-        );
-
-        xpm_cdc_array_single #(
-            .DEST_SYNC_FF(2), .INIT_SYNC_FF(0), .SIM_ASSERT_CHK(0),
-            .SRC_INPUT_REG(0), .WIDTH(3)
-        ) debug_bridge_state_cdc (
-            .src_clk(), .src_in(debug_bridge_state_i), .dest_clk(ui_clk),
-            .dest_out(debug_bridge_state_ui)
-        );
-
-        xpm_cdc_array_single #(
-            .DEST_SYNC_FF(2), .INIT_SYNC_FF(0), .SIM_ASSERT_CHK(0),
-            .SRC_INPUT_REG(0), .WIDTH(16)
-        ) debug_uart_cdc (
-            .src_clk(), .src_in(debug_uart_i), .dest_clk(ui_clk),
-            .dest_out(debug_uart_ui)
-        );
-
-        xpm_cdc_array_single #(
-            .DEST_SYNC_FF(2), .INIT_SYNC_FF(0), .SIM_ASSERT_CHK(0),
-            .SRC_INPUT_REG(0), .WIDTH(32)
-        ) debug_cpu_cdc (
-            .src_clk(), .src_in(debug_cpu_i), .dest_clk(ui_clk),
-            .dest_out(debug_cpu_ui)
-        );
-
-        xpm_cdc_single #(
-            .DEST_SYNC_FF(2), .INIT_SYNC_FF(0), .SIM_ASSERT_CHK(0),
-            .SRC_INPUT_REG(0)
-        ) debug_exception_cdc (
-            .src_clk(), .src_in(debug_cpu_i[30]), .dest_clk(ui_clk),
-            .dest_out(debug_exception_ui)
-        );
-    `endif
-
-
-    (* mark_debug = "true" *) logic read_sync, pull_sync;
+    logic read_sync, pull_sync;
 
         synchronizer read_synchronizer (
             .clk_i   ( ui_clk  ),
@@ -242,8 +177,8 @@ module ddr_memory_interface (
         );
 
 
-    (* mark_debug = "true" *) logic [3:0] read_cmd_count, read_data_count;
-    (* mark_debug = "true" *) logic read_valid;
+    logic [3:0] read_cmd_count, read_data_count;
+    logic read_valid;
     logic read_batch_ready_sys;
     logic read_batch_seen_sys, read_batch_consumed_sys, read_batch_consumed_ui;
 
@@ -268,12 +203,12 @@ module ddr_memory_interface (
 //====================================================================================
 
     logic [26:0] app_addr;
-    (* mark_debug = "true" *) logic [2:0] app_cmd;
-    (* mark_debug = "true" *) logic app_en, app_rdy;
+    logic [2:0] app_cmd;
+    logic app_en, app_rdy;
     logic [63:0] app_wdf_data; logic [7:0] app_wdf_mask; logic app_wdf_end, app_wdf_rdy, app_wdf_wren;
     logic [63:0] app_rd_data;
-    (* mark_debug = "true" *) logic app_rd_data_end, app_rd_data_valid;
-    (* mark_debug = "true" *) logic init_calib_complete;
+    logic app_rd_data_end, app_rd_data_valid;
+    logic init_calib_complete;
 
     /* Vivado IP */
     ddr_controller ddr_memory_controller (
@@ -328,9 +263,9 @@ module ddr_memory_interface (
     typedef enum logic [2:0] {CMD_IDLE, CMD_TYPE, CMD_SEND} command_fsm_states_t;
     typedef enum logic [1:0] {DAT_IDLE, DAT_WRITE, DAT_WAIT, DAT_LAST} data_fsm_states_t;
 
-    (* mark_debug = "true" *) command_fsm_states_t cmd_state_CRT;
+    command_fsm_states_t cmd_state_CRT;
     command_fsm_states_t cmd_state_NXT;
-    (* mark_debug = "true" *) data_fsm_states_t dat_state_CRT;
+    data_fsm_states_t dat_state_CRT;
     data_fsm_states_t dat_state_NXT;
     logic write_burst_ready;
     logic write_command_accept;
@@ -622,23 +557,6 @@ module ddr_memory_interface (
         .signal_i ( ready   ),
         .sync_o   ( ready_o )
     );
-
-    `ifdef ZENITH_DEBUG_ILA
-        /* BASIC licensing permits one ILA with at most five probes, so related
-         * signals are packed into named vectors and decoded by gpt_debug. */
-        zenith_ila_ui ui_clock_ila (
-            .clk    ( ui_clk ),
-            .probe0 ( {debug_pc_ui, debug_cpu_ui} ),
-            .probe1 ( debug_bridge_state_ui ),
-            .probe2 ( {debug_exception_ui, read_sync, read_valid_o, pull_sync, ready_o,
-                       hold_o, read_data_empty, rst_n_i} ),
-            .probe3 ( {app_en, app_cmd, app_rdy, app_rd_data_valid,
-                       app_rd_data_end, init_calib_complete, ui_rst,
-                       write_fifo, cmd_state_CRT, dat_state_CRT} ),
-            .probe4 ( {read_cmd_count, read_data_count, read_valid,
-                       debug_uart_ui} )
-        );
-    `endif
 
 endmodule : ddr_memory_interface
 

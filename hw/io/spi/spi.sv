@@ -103,8 +103,6 @@ module spi #(
             clock_CRT <= clock_NXT;
         end 
 
-    assign sclk_o = clock_CRT;
-
     
     logic [15:0] counter; logic [2:0] bit_counter; logic transition, count, bit_sent;
 

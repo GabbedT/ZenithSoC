@@ -34,10 +34,6 @@ module dut_wrapper (
         .trace_data_i  ( 8'b0 ),
         .trace_write_i ( 1'b0 ),
 
-`ifdef ZENITH_DEBUG_ILA
-        .debug_tx_o ( ),
-`endif
-
         .uart_rx_i  ( uart_rx  ),
         .uart_tx_o  ( uart_tx  ),
         .uart_rts_o ( uart_rts ),
