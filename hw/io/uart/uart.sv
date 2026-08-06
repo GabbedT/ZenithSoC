@@ -202,4 +202,4 @@ module uart #(
 
 endmodule : uart
 
-`endif 
+`endif

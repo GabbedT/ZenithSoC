@@ -173,13 +173,13 @@ module cpu_complex #(
         .io_store_channel ( io_store_channel )
     );
 
-
     assign ddr_store_channel.address = dcache_store_channel.address - `USER_MEMORY_REGION_START;
     assign ddr_store_channel.data = dcache_store_channel.data;
     assign ddr_store_channel.request = dcache_store_channel.request;
     assign ddr_store_channel.width = dcache_store_channel.width;
 
     assign dcache_store_channel.done = ddr_store_channel.done;
+
 
 //====================================================================================
 //      INSTRUCTION CACHE
@@ -256,7 +256,7 @@ module cpu_complex #(
             /* Default value */
             ddr_load_channel.address = '0;
             instr_load_o = 1'b0;
-            
+
             case ({icache_load_channel.request, dcache_load_channel.request})
                 2'b11, 2'b01: begin
                     /* Data cache has more priority */
@@ -270,8 +270,8 @@ module cpu_complex #(
                 end
             endcase
 
-            ddr_load_channel.request = icache_load_channel.request | dcache_load_channel.request; 
-            ddr_load_channel.invalidate = icache_load_channel.invalidate | dcache_load_channel.invalidate; 
+            ddr_load_channel.request = icache_load_channel.request | dcache_load_channel.request;
+            ddr_load_channel.invalidate = icache_load_channel.invalidate | dcache_load_channel.invalidate;
         end : request_arbiter
 
 

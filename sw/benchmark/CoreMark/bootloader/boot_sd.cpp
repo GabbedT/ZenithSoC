@@ -6,6 +6,18 @@
 #define IMG_BLOCKS     64           /* Default: 32 KiB application image */
 #endif
 #define DDR_ENTRY      0x80000000
+#define DDR_PACE_CYCLES 2048
+
+static void sendHexNibble(UART& uart, uint8_t value) {
+    value &= 0x0F;
+    uart.sendByte((uint8_t) (value < 10 ? ('0' + value) : ('A' + value - 10)));
+}
+
+static void sendHexWord(UART& uart, uint32_t value) {
+    for (int shift = 28; shift >= 0; shift -= 4) {
+        sendHexNibble(uart, (uint8_t) (value >> shift));
+    }
+}
 
 extern "C" void boot_sd() {
     /* UART for logging */
@@ -20,10 +32,46 @@ extern "C" void boot_sd() {
     bool highCap = false;
 
     SD card;
-    card.init(SD::CLK_25MHZ, SD::BUS_NARROW, cmd8, highCap, err);
+
+    card.init(SD::CLK_25MHZ, SD::BUS_WIDE, cmd8, highCap, err);
+
+    if (err == SD::NO_CARD) {
+        const char msg_init_fail[] = "[BOOT] No card detected!\r\n";
+        for (const char *c = msg_init_fail; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
+
+        while (1) {  }
+    }
+
+    if (err == SD::CMD_CRC_ERR) {
+        const char msg_init_fail[] = "[BOOT] Command CRC error!\r\n";
+        for (const char *c = msg_init_fail; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
+
+        while (1) {  }
+    }
+
+    if (err == SD::CMD_TIMEOUT) {
+        const char msg_init_fail[] = "[BOOT] Command timeout!\r\n";
+        for (const char *c = msg_init_fail; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
+
+        while (1) {  }
+    }
+
+    if (err == SD::DAT_TIMEOUT) {
+        const char msg_init_fail[] = "[BOOT] Data timeout!\r\n";
+        for (const char *c = msg_init_fail; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
+
+        while (1) {  }
+    }
+
+    if (err == SD::CARD_ERR) {
+        const char msg_init_fail[] = "[BOOT] Card error during initialization!\r\n";
+        for (const char *c = msg_init_fail; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
+
+        while (1) {  }
+    }
 
     if (err != SD::NO_ERROR) {
-        const char msg_init_fail[] = "[BOOT] SD Initialization failed!\r\n";
+        const char msg_init_fail[] = "[BOOT] Initialization error D:!\r\n";
         for (const char *c = msg_init_fail; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
 
         while (1) {  }
@@ -44,32 +92,34 @@ extern "C" void boot_sd() {
     /* Build address, SDHC = block address, SDSC = byte address */
     uint32_t addr = highCap ? IMG_BLK_START : (IMG_BLK_START * 512);
 
-    /* Load blocks */
-    uint32_t block[128];
+
+    const char msg_load[] = "[BOOT] Loading";
+    for (const char *c = msg_load; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
 
     for (int blk = 0; blk < IMG_BLOCKS; ++blk) {
         err = SD::NO_ERROR;
 
         uint32_t blkAddr = highCap ? (addr + blk) : (addr + (blk * 512));
-        card.readBlock(blkAddr, block, nullptr, err);
+        card.readBlock(blkAddr, (uint32_t *) &ddr[128 * blk], nullptr, err);
 
         if (err != SD::NO_ERROR) {
-            const char msg_fail_blk[] = "[BOOT] Fail reading block\r\n";
+            const char msg_fail_blk[] = "\n[BOOT] Fail reading block\r\n";
             for (const char *c = msg_fail_blk; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
 
             while (1) {  }
         }
 
-        for (int i = 0; i < 128; ++i) {
-            ddr[(blk * 128) + i] = block[i];
-        }
+        if ((blk & 7) == 7) { uart.sendByte('.'); }
     }
+
+    uart.sendByte('\r');
+    uart.sendByte('\n');
 
     const char msg_boot_end[] = "[BOOT] Image loaded! Jumping to CoreMark benchmark...\r\n";
     for (const char *c = msg_boot_end; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
 
-    void (*entry)() = (void(*)()) DDR_ENTRY;
-    entry();
-
-    while (1) {  }
+    /* Write back dirty cache lines, invalidate both caches, then transfer
+     * control without executing any further C code. */
+    asm volatile ("fence rw, rw\n\tjr %0" :: "r" (DDR_ENTRY) : "memory");
+    __builtin_unreachable();
 };

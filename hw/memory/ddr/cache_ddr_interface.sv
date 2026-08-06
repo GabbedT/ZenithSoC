@@ -236,6 +236,9 @@ module cache_ddr_interface #(
 
     fsm_states_t state_CRT, state_NXT;
 
+    logic [$clog2(MAX_BURST):0] load_words_CRT;
+    logic [$clog2(MAX_BURST):0] load_word_count_CRT;
+
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 state_CRT <= WAIT;
@@ -243,6 +246,23 @@ module cache_ddr_interface #(
                 state_CRT <= state_NXT;
             end 
         end 
+
+
+        /* Remember the exact response size before ldr_ackn clears the request
+         * count. A 64-bit DDR beat supplies two 32-bit cache words. */
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                load_words_CRT <= '0;
+                load_word_count_CRT <= '0;
+            end else begin
+                if ((state_CRT == WAIT) & ready_i & !hold_i & ldr_ready) begin
+                    load_words_CRT <= {ldr_count, 1'b0};
+                    load_word_count_CRT <= '0;
+                end else if (state_CRT == LOAD_DATA) begin
+                    load_word_count_CRT <= load_word_count_CRT + 1'b1;
+                end
+            end
+        end
 
 
     logic valid_address, valid_data;
@@ -264,9 +284,6 @@ module cache_ddr_interface #(
                 end
             end 
         end 
-
-
-    logic valid_negedge;
 
         always_comb begin
             state_NXT = state_CRT;
@@ -397,29 +414,18 @@ module cache_ddr_interface #(
                     load_channel.valid = 1'b1;
                     load_channel.data = read_data_i[valid_data];
 
-                    if (valid_negedge) begin
-                        state_NXT = WAIT;
-
-                        load_channel.valid = 1'b0;
-                        pull_o = 1'b0;
+                    if (load_word_count_CRT == load_words_CRT - 1'b1) begin
+                        state_NXT = EXTRACT_DATA;
                     end
                 end
 
                 EXTRACT_DATA: begin
-                    load_channel.valid = 1'b1;
+                    if (!read_valid_i) begin
+                        state_NXT = WAIT;
+                    end
                 end
             endcase 
         end
-
-
-    edge_detector #(0, 0) valid_negedge_detector (
-        .clk_i   ( clk_i ),
-        .rst_n_i ( rst_n_i ),
-
-        .signal_i ( read_valid_i ),
-        .edge_o   ( valid_negedge )
-    );
-
 
 endmodule : cache_ddr_interface
 

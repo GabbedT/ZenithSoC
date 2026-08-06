@@ -75,7 +75,8 @@ module zenith_tb_top (
     wire tmr_pwm_o;
 
     /* SD card */
-    logic      sd_cd_n_i = 1'b1;
+    /* The full-SoC testbench always instantiates an SD-card model. */
+    logic      sd_cd_n_i = 1'b0;
     tri1       sd_cmd_io;
     tri1 [3:0] sd_data_io;
     wire       sd_reset_o;

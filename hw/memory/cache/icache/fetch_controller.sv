@@ -208,13 +208,16 @@ module fetch_controller #(
                  * Once the requests have been issued, wait for a response,
                  * then allocate */
                 ALLOCATION_REQ: begin
-                    if (!stall_i) begin
+                    /* A D-cache refill has priority at the shared DDR port.
+                     * Hold both the request and word counter while that
+                     * conflict exists */
+                    if (!stall_i & !conflict_i) begin
                         if (!word_counter_CRT[OFFSET] & word_counter_CRT[OFFSET - 1:0] != '0) begin
                             /* Increment word counter */
                             word_counter_NXT = word_counter_CRT + 1'b1;
 
                             /* Request a load to memory controller */
-                            load_channel.request = 1'b1; 
+                            load_channel.request = 1'b1;
                         end else if (word_counter_CRT[OFFSET]) begin
                             /* Wait for response */
                             state_NXT = WAIT_BUNDLE;
@@ -229,6 +232,7 @@ module fetch_controller #(
                 end
 
 
+                /* Just wait for data from DDR */
                 WAIT_BUNDLE: begin
                     if (load_channel.valid) begin
                         /* Increment word counter */

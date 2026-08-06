@@ -60,6 +60,9 @@ The project will be developed using an incremental approach, structured into fou
 
 ### Design
 
+* Add FENCE.I
+* Add fused FPU instructions
+
 * Add VGA
 * Modify ddr interface to accomodate 3 masters
 * Re-analyze and upgrade AXI bus

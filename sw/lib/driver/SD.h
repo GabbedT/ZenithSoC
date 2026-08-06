@@ -160,6 +160,10 @@ public:
     /* */
     uint32_t cardOCR = 0;
 
+    /* Raw initialization diagnostics. */
+    uint8_t lastResponseHeader = 0;
+    uint32_t lastCmd55Status = 0;
+
     uint64_t cardSCR = 0;
 
     uint64_t cardCSD[2] = {0};

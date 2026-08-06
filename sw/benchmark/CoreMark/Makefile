@@ -72,6 +72,10 @@ CFLAGS_BASE := \
     -nostartfiles -fno-use-cxa-atexit \
     -I$(PORT_DIR) -I$(CORE_DIR) -I$(LIB_DIR)
 
+# The boot RAM is 16 KiB and its upper 2 KiB are the pre-DDR stack.  Optimize
+# boot-only objects for size so the linker can enforce that separation.
+CFLAGS_BOOT := $(CFLAGS_BASE) -Os -fno-unroll-loops -fno-inline-functions
+
 LFLAGS_BASE := \
     -march=$(MARCH) -mabi=$(MABI) \
     -nostartfiles -fno-exceptions -fno-use-cxa-atexit
@@ -145,7 +149,7 @@ $(SD_OUT)/cm_core_portme.o: $(PORT_DIR)/core_portme.c | $(SD_OUT)
 	$(CC) $(CFLAGS_BASE) $(SD_DEFS) -c $< -o $@
 
 $(SD_OUT)/cm_ee_printf_zenith.o: $(PORT_DIR)/ee_printf_zenith.c | $(SD_OUT)
-	$(CC) $(CFLAGS_BASE) $(SD_DEFS) -c $< -o $@
+	$(CC) $(CFLAGS_BOOT) $(SD_DEFS) -c $< -o $@
 
 $(SD_OUT)/cm_uart.o: $(SRC_DIR)/UART.cpp | $(SD_OUT)
 	$(CXX) $(CFLAGS_BASE) -c $< -o $@
@@ -162,13 +166,13 @@ $(SD_OUT)/boot_start.o: $(BOOT_DIR)/boot_start.s | $(SD_OUT)
 	$(AS) -march=$(MARCH) -mabi=$(MABI) $< -o $@
 
 $(SD_OUT)/boot_sd.o: $(BOOT_DIR)/boot_sd.cpp $(APP_BIN) | $(SD_OUT)
-	$(CXX) $(CFLAGS_BASE) -DIMG_BLOCKS=$$((($$(stat -c%s "$(APP_BIN)") + 511) / 512)) -c $< -o $@
+	$(CXX) $(CFLAGS_BOOT) -DIMG_BLOCKS=$$((($$(stat -c%s "$(APP_BIN)") + 511) / 512)) -c $< -o $@
 
 $(SD_OUT)/boot_uart.o: $(SRC_DIR)/UART.cpp | $(SD_OUT)
-	$(CXX) $(CFLAGS_BASE) -c $< -o $@
+	$(CXX) $(CFLAGS_BOOT) -c $< -o $@
 
 $(SD_OUT)/boot_sddrv.o: $(SRC_DIR)/SD.cpp | $(SD_OUT)
-	$(CXX) $(CFLAGS_BASE) -c $< -o $@
+	$(CXX) $(CFLAGS_BOOT) -c $< -o $@
 
 $(BOOT_ELF): $(BOOT_OBJS) | $(OUT)
 	$(LD) $(LFLAGS_BASE) -T $(BOOT_DIR)/boot.ld -o $@ $^ $(LIBGCC)

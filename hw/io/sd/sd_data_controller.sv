@@ -76,7 +76,7 @@ module sd_data_controller (
 
 
     /* Timeout counter */
-    logic [$clog2(1_000_000) - 1:0] timeout_counter; logic timeout_increment, timeout_reset;
+    logic [$clog2(10_000_000) - 1:0] timeout_counter; logic timeout_increment, timeout_reset;
 
         always_ff @(posedge clk_i) begin
             if (!rst_n_i) begin 
@@ -227,7 +227,7 @@ module sd_data_controller (
 
                     timeout_increment = 1'b1;
 
-                    if (timeout_counter == 'd10_000) begin
+                    if (timeout_counter == 'd10_000_000) begin
                         /* Timeout, reset the state machine */
                         state_NXT = IDLE;
                     end
@@ -513,7 +513,7 @@ module sd_data_controller (
                         bit_reset = 1'b1;
 
                         state_NXT = READ_TOKEN;
-                    end else if (timeout_counter >= 'd1_000_000) begin
+                    end else if (timeout_counter >= 'd10_000_000) begin
                         state_NXT = IDLE;
                         timeout_o = 1'b1;
                     end
@@ -562,7 +562,7 @@ module sd_data_controller (
                             timeout_reset = 1'b1;
                             bit_reset = 1'b1;
                             crc16_initialize = 1'b1;
-                        end else if (timeout_counter >= 'd1_000_000) begin
+                        end else if (timeout_counter >= 'd10_000_000) begin
                             /* Timeout, reset the state machine */
                             state_NXT = IDLE;
 

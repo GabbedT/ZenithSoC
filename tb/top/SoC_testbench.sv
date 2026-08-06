@@ -50,7 +50,7 @@ module soc_testbench;
     wire  tmr_pwm_o;
 
     /* SD card pins have the pull-ups required by the physical interface. */
-    logic      sd_cd_n_i = 1'b1;
+    logic      sd_cd_n_i = 1'b0;
     tri1       sd_cmd_io;
     tri1 [3:0] sd_data_io;
     wire       sd_reset_o;
@@ -147,10 +147,13 @@ module soc_testbench;
         .opt_enable_hs ( 1'b0             )
     );
 
-    bram_whishbone sd_storage (
+
+    bram_whishbone #(
+        .ADDR_WIDTH ( 16 )
+    ) sd_storage (
         .clk       ( wbm_clk        ),
         .rst       ( rst_n_i        ),
-        .wbm_adr_i ( wbm_addr[11:2] ),
+        .wbm_adr_i ( wbm_addr[17:2] ),
         .wbm_dat_i ( wbm_write_data ),
         .wbm_dat_o ( wbm_read_data  ),
         .wbm_we_i  ( wbm_write      ),
@@ -175,15 +178,19 @@ module soc_testbench;
 
     assign sd_model_dat_i = sd_data_io;
 
+
     integer output_file;
+
+    initial begin
+        #1ps;
+        $readmemh("coremark_sd_words.hex", sd_storage.mem, 16'h0000);
+    end
 
     initial begin
         output_file = $fopen("output_trace.txt", "w");
 
         repeat (40) @(posedge clk_i);
         rst_n_i = 1'b1;
-        sd_cd_n_i = 1'b0;
-
         fork
             begin : simulation_timeout
                 #TEST_TIMEOUT;
@@ -205,7 +212,10 @@ module soc_testbench;
     always_ff @(posedge clk_i) begin
         if (rst_n_i && dut.genblk1[0].uart_device.write_i &&
             dut.genblk1[0].uart_device.write_address_i == UART_TX_BUFFER) begin
+
             $fwrite(output_file, "%c", dut.genblk1[0].uart_device.write_data_i[7:0]);
+            $fflush(output_file);
+            $write("%c", dut.genblk1[0].uart_device.write_data_i[7:0]);
         end
     end
 

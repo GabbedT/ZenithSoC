@@ -134,7 +134,8 @@ module ddr_memory_interface (
     assign hold_o = command_full | write_data_full;
 
 
-    logic [63:0] read_data; logic read_data_empty, read_data_full, write_fifo;
+    logic [63:0] read_data;
+    logic read_data_empty, read_data_full, write_fifo;
 
     asynchronous_buffer #(16, 64) read_data_buffer (
         /* Global signals */
@@ -176,36 +177,10 @@ module ddr_memory_interface (
         );
 
 
-    logic [3:0] read_cmd_count, read_data_count; logic read_valid;
-
-        always_ff @(posedge ui_clk `ifdef ASYNC or posedge ui_rst `endif) begin
-            if (ui_rst) begin
-                read_cmd_count <= '0;
-                read_data_count <= '0;
-            end else begin
-                if (read_sync) begin
-                    read_cmd_count <= read_cmd_count + 1'b1;
-                end else if (pull_sync) begin
-                    read_cmd_count <= read_cmd_count - 1'b1;
-                end
-
-                if (write_fifo) begin
-                    read_data_count <= read_data_count + 1'b1;
-                end else if (pull_sync) begin
-                    read_data_count <= read_data_count - 1'b1;
-                end
-            end
-        end
-
-    assign read_valid = !read_data_empty & (read_data_count == (read_cmd_count >> 1));
-
-    synchronizer valid_synchronizer (
-        .clk_i   ( clk_i   ),
-        .rst_n_i ( rst_n_i ),
-
-        .signal_i ( read_valid   ),
-        .sync_o   ( read_valid_o )
-    );
+    logic [3:0] read_cmd_count, read_data_count;
+    logic read_valid;
+    logic read_batch_ready_sys;
+    logic read_batch_seen_sys, read_batch_consumed_sys, read_batch_consumed_ui;
 
 
     logic done_sync;
@@ -227,9 +202,12 @@ module ddr_memory_interface (
 //      MEMORY CONTROLLER
 //====================================================================================
 
-    logic [26:0] app_addr; logic [2:0] app_cmd; logic app_en, app_rdy; 
+    logic [26:0] app_addr;
+    logic [2:0] app_cmd;
+    logic app_en, app_rdy;
     logic [63:0] app_wdf_data; logic [7:0] app_wdf_mask; logic app_wdf_end, app_wdf_rdy, app_wdf_wren;
-    logic [63:0] app_rd_data; logic app_rd_data_end, app_rd_data_valid;
+    logic [63:0] app_rd_data;
+    logic app_rd_data_end, app_rd_data_valid;
     logic init_calib_complete;
 
     /* Vivado IP */
@@ -283,10 +261,14 @@ module ddr_memory_interface (
 //====================================================================================
 
     typedef enum logic [2:0] {CMD_IDLE, CMD_TYPE, CMD_SEND} command_fsm_states_t;
-    typedef enum logic [1:0] {DAT_IDLE, DAT_WRITE, DAT_LAST} data_fsm_states_t;
+    typedef enum logic [1:0] {DAT_IDLE, DAT_WRITE, DAT_WAIT, DAT_LAST} data_fsm_states_t;
 
-    command_fsm_states_t cmd_state_CRT, cmd_state_NXT;
-    data_fsm_states_t dat_state_CRT, dat_state_NXT;
+    command_fsm_states_t cmd_state_CRT;
+    command_fsm_states_t cmd_state_NXT;
+    data_fsm_states_t dat_state_CRT;
+    data_fsm_states_t dat_state_NXT;
+    logic write_burst_ready;
+    logic write_command_accept;
 
         always_ff @(posedge ui_clk) begin
             if (ui_rst | !init_calib_complete) begin 
@@ -320,30 +302,30 @@ module ddr_memory_interface (
                 end
 
                 CMD_TYPE: begin
-                    app_en = 1'b1;
                     app_addr = read_packet.address;
 
-                    if (app_rdy) begin
-                        /* Go immediately IDLE if the transaction requested is 1 */
-                        cmd_state_NXT = command_empty ? CMD_IDLE : CMD_SEND;
+                    /* Keep command and write-data ordering explicit.  A read
+                     * may issue only while no write burst is staged.  A write
+                     * command issues only after its complete two-beat WDF
+                     * burst (including a masked pad beat when necessary) has
+                     * been accepted by MIG. */
+                    if (read_packet.command) begin
+                        app_en = (dat_state_CRT == DAT_IDLE) & !write_burst_ready;
+                    end else begin
+                        app_en = write_burst_ready;
+                    end
 
-                        read_fifo_command = !command_empty;
+                    if (app_en & app_rdy) begin
+                        /* Re-enter IDLE before prefetching the next command so
+                         * read_packet cannot change underneath the data FSM. */
+                        cmd_state_NXT = CMD_IDLE;
                     end
                 end
 
                 CMD_SEND: begin
-                    app_en = 1'b1;
-                    app_addr = read_packet.address;
-
-                    if (app_rdy) begin
-                        if (command_empty) begin
-                            /* Once finished writing all the data, go to idle */
-                            cmd_state_NXT = CMD_IDLE;
-                        end
-
-                        /* Read only if FIFO is not empty */
-                        read_fifo_command = !command_empty;
-                    end
+                    /* Legacy state retained for encoding compatibility.  The
+                     * serialized controller no longer pipelines commands. */
+                    cmd_state_NXT = CMD_IDLE;
                 end
             endcase
         end : command_fsm_logic
@@ -373,6 +355,21 @@ module ddr_memory_interface (
         end 
 
 
+        /* One token represents exactly one complete MIG write-data burst.
+         * Hold it until the matching write command is accepted. */
+        always_ff @(posedge ui_clk) begin
+            if (ui_rst) begin
+                write_burst_ready <= 1'b0;
+            end else if (write_command_accept) begin
+                write_burst_ready <= 1'b0;
+            end else if (((dat_state_CRT == DAT_WRITE) & app_wdf_wren &
+                          app_wdf_rdy & app_wdf_end) |
+                         ((dat_state_CRT == DAT_LAST) & app_wdf_rdy)) begin
+                write_burst_ready <= 1'b1;
+            end
+        end
+
+
         always_comb begin : data_write_logic 
             /* Default Values */
             dat_state_NXT = dat_state_CRT;
@@ -387,12 +384,11 @@ module ddr_memory_interface (
 
             case (dat_state_CRT)
                 DAT_IDLE: begin
-                    if (!write_data_empty) begin
-                        if (!read_packet.command) begin
-                            dat_state_NXT = DAT_WRITE;
+                    if (!write_burst_ready & (cmd_state_CRT == CMD_TYPE) &
+                        !read_packet.command & !write_data_empty) begin
+                        dat_state_NXT = DAT_WRITE;
 
-                            read_fifo = 1'b1;
-                        end
+                        read_fifo = 1'b1;
                     end
 
                     wr_data_end_NXT = 1'b0;
@@ -405,21 +401,40 @@ module ddr_memory_interface (
                     app_wdf_mask = ~write_data.mask;
 
                     if (app_wdf_rdy) begin
-                        /* Read only if FIFO is not empty */
-                        read_fifo = !write_data_empty;
-
-                        /* Data end must alterate between 1 and 0 */
-                        wr_data_end_NXT = !wr_data_end_CRT;
-
-                        if (write_data_empty) begin
-                            if (wr_data_end_NXT) begin
-                                /* Last transaction on UI interface */
-                                dat_state_NXT = DAT_LAST;
-                            end else begin
-                                /* Once finished writing all the data, go to idle */
-                                dat_state_NXT = DAT_IDLE;
-                            end
+                        if (app_wdf_end) begin
+                            /* Exactly two accepted beats belong to one MIG
+                             * command.  Do not consume data for a later
+                             * command, even when the FIFO is non-empty. */
+                            wr_data_end_NXT = 1'b0;
+                            dat_state_NXT = DAT_IDLE;
+                        end else if (write_data.mask != '1) begin
+                            /* A masked beat is a standalone 32-bit/partial
+                             * store and is completed by a masked pad beat.
+                             * FIFO empty is not a transaction delimiter: the
+                             * second beat of a normal cache writeback may
+                             * still be crossing from clk_i. */
+                            wr_data_end_NXT = 1'b1;
+                            dat_state_NXT = DAT_LAST;
+                        end else if (!write_data_empty) begin
+                            wr_data_end_NXT = 1'b1;
+                            read_fifo = 1'b1;
+                        end else begin
+                            /* The first full-width beat was accepted before
+                             * its partner reached this clock domain. Do not
+                             * fabricate a pad or resend the first beat. */
+                            wr_data_end_NXT = 1'b1;
+                            dat_state_NXT = DAT_WAIT;
                         end
+                    end
+                end
+
+                DAT_WAIT: begin
+                    /* Prime the registered FIFO output only after the second
+                     * full-width beat is actually visible. DAT_WRITE will
+                     * present it to MIG with app_wdf_end asserted. */
+                    if (!write_data_empty) begin
+                        read_fifo = 1'b1;
+                        dat_state_NXT = DAT_WRITE;
                     end
                 end
 
@@ -430,6 +445,7 @@ module ddr_memory_interface (
                     app_wdf_mask = '1;
 
                     if (app_wdf_rdy) begin
+                        wr_data_end_NXT = 1'b0;
                         dat_state_NXT = DAT_IDLE;
                     end
                 end
@@ -450,6 +466,82 @@ module ddr_memory_interface (
                 read_data = app_rd_data;
             end
         end : data_read_logic
+
+
+    /* Count real MIG transactions in their native clock domain */
+    logic read_command_accept;
+
+    assign read_command_accept = app_en & app_rdy & (app_cmd == 3'b001);
+    assign write_command_accept = app_en & app_rdy & (app_cmd == 3'b000);
+
+        always_ff @(posedge ui_clk) begin
+            if (ui_rst) begin
+                read_cmd_count <= '0;
+                read_data_count <= '0;
+                read_valid <= 1'b0;
+            end else if (read_batch_consumed_ui) begin
+                read_cmd_count <= '0;
+                read_data_count <= '0;
+                read_valid <= 1'b0;
+            end else begin
+                if (read_command_accept) begin
+                    read_cmd_count <= read_cmd_count + 1'b1;
+                    read_valid <= 1'b0;
+                end
+
+                if (app_rd_data_valid) begin
+                    read_data_count <= read_data_count + 1'b1;
+                end
+
+                /* app_rd_data_end is meaningful only together with valid.
+                 * Each accepted command returns two 64-bit beats. */
+                if (app_rd_data_valid & app_rd_data_end &
+                    ((read_data_count + 1'b1) == (read_cmd_count << 1))) begin
+                    read_valid <= 1'b1;
+                end
+            end
+        end
+
+    synchronizer read_batch_ready_synchronizer (
+        .clk_i   ( clk_i   ),
+        .rst_n_i ( rst_n_i ),
+
+        .signal_i ( read_valid          ),
+        .sync_o   ( read_batch_ready_sys )
+    );
+
+        /* Keep valid asserted until the system-clock side has observed the full
+         * burst and drained the asynchronous FIFO.  This four-phase level
+         * handshake cannot lose a pulse in either clock domain. */
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                read_batch_seen_sys <= 1'b0;
+                read_batch_consumed_sys <= 1'b0;
+            end else if (!read_batch_ready_sys) begin
+                read_batch_seen_sys <= 1'b0;
+                read_batch_consumed_sys <= 1'b0;
+            end else begin
+                if (!read_data_empty) begin
+                    read_batch_seen_sys <= 1'b1;
+                end
+                if (read_batch_seen_sys & read_data_empty) begin
+                    read_batch_consumed_sys <= 1'b1;
+                end
+            end
+        end
+
+    synchronizer read_batch_consumed_synchronizer (
+        .clk_i   ( ui_clk  ),
+        .rst_n_i ( !ui_rst ),
+
+        .signal_i ( read_batch_consumed_sys ),
+        .sync_o   ( read_batch_consumed_ui  )
+    );
+
+    /* This is a batch-ready level, not merely FIFO-not-empty. The bridge uses
+     * it both to start extraction and to wait until the cross-domain consumed
+     * acknowledgement has fully reset the batch counters. */
+    assign read_valid_o = read_batch_ready_sys & read_batch_seen_sys;
 
 
     logic ready;

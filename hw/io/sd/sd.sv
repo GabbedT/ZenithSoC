@@ -27,7 +27,7 @@ module sd (
     input logic sd_cd_n_i,
     inout logic sd_cmd_io,
     inout logic [3:0] sd_data_io,
-    output logic sd_reset_n_o,
+    output logic sd_reset_o,
     output logic sd_clk_o
 );
 
@@ -174,7 +174,7 @@ module sd (
             end
         end
 
-    assign sd_reset_n_o = !active;
+    assign sd_reset_o = active;
 
 
         always_ff @(posedge clk_i) begin

@@ -10,6 +10,12 @@ co-simulation or the FPGA flow when the behavior is understood.
 
 ![SoC Schematic](docs/img/ZenithSoC_Top_Future_black.svg)
 
+Check the documentation:
+
+[ApogeoRV CPU](https://rv32-apogeo.readthedocs.io/en/latest/)
+
+[ZenithSoC](https://zenithsoc.readthedocs.io/en/latest/)
+
 ## Repository map
 
 * `hw/` — synthesizable SoC RTL. The top level is `hw/ZenithSoC.sv` and its

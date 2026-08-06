@@ -1044,7 +1044,9 @@ module ZenithSoC #(
 //      DDR CONTROLLER
 //====================================================================================
 
-    logic [26:0] ddr_address; logic ddr_write, ddr_read, push_trx, pull_trx, ddr_data_valid, ddr_done, ddr_hold;
+    logic [26:0] ddr_address;
+    logic ddr_write, ddr_read, push_trx, pull_trx;
+    logic ddr_data_valid, ddr_done, ddr_hold;
     logic [63:0] ddr_data_write, ddr_data_read; logic [7:0] ddr_mask; 
 
         
