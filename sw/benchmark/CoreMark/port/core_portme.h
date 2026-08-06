@@ -222,19 +222,6 @@ int ee_printf(const char *fmt, ...);
 
 #define UART_BASE 0x00004000
 
-static inline __attribute__((always_inline)) void
-coremark_uart_marker(unsigned char marker)
-{
-    volatile unsigned int *status = (volatile unsigned int *)UART_BASE;
-    volatile unsigned char *txbuf =
-        (volatile unsigned char *)(UART_BASE + 0x4);
-
-    while ((*status & (1u << 3)) != 0u)
-    {
-    }
-    *txbuf = marker;
-}
-
 struct uartCtrlStatus_s {
     /* Buffer status */
     unsigned int emptyRX : 1;

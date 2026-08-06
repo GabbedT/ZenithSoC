@@ -32,10 +32,8 @@ extern "C" void boot_sd() {
     bool highCap = false;
 
     SD card;
-    /* Keep the conservative clock for the complete boot transfer.  The RTL
-     * simulation tolerates 25 MHz, but the physical Nexys A7 SD path does not
-     * have input timing constraints/tuning and can stall on CMD17 data. */
-    card.init(SD::CLK_400KHZ, SD::BUS_NARROW, cmd8, highCap, err);
+
+    card.init(SD::CLK_25MHZ, SD::BUS_WIDE, cmd8, highCap, err);
 
     if (err == SD::NO_CARD) {
         const char msg_init_fail[] = "[BOOT] No card detected!\r\n";
@@ -91,107 +89,31 @@ extern "C" void boot_sd() {
     /* DDR */
     volatile uint32_t* ddr = (volatile uint32_t*) DDR_ENTRY;
 
-    /* Read before the SD reload as well: after a trap this distinguishes a
-     * word physically overwritten in DDR from an I-cache/fetch mismatch. */
-    const uint32_t preloadDiagnosticOffsets[] = {0x0B7Cu, 0x0FE8u};
-    const char* preloadDiagnosticLabels[] = {
-        "[BOOT] PRE DDR[B7C]: 0x",
-        "[BOOT] PRE DDR[FE8]: 0x"
-    };
-    for (unsigned int i = 0; i < 2; ++i) {
-        for (const char *c = preloadDiagnosticLabels[i]; *c != '\0'; ++c) {
-            uart.sendByte((uint8_t) *c);
-        }
-        sendHexWord(uart, ddr[preloadDiagnosticOffsets[i] / sizeof(uint32_t)]);
-        uart.sendByte('\r');
-        uart.sendByte('\n');
-    }
-
     /* Build address, SDHC = block address, SDSC = byte address */
     uint32_t addr = highCap ? IMG_BLK_START : (IMG_BLK_START * 512);
 
-    /* Load blocks */
-    uint32_t block[128];
 
-    const char msg_load[] = "[BOOT] Loading: ";
+    const char msg_load[] = "[BOOT] Loading";
     for (const char *c = msg_load; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
 
     for (int blk = 0; blk < IMG_BLOCKS; ++blk) {
         err = SD::NO_ERROR;
 
         uint32_t blkAddr = highCap ? (addr + blk) : (addr + (blk * 512));
-        card.readBlock(blkAddr, block, nullptr, err);
+        card.readBlock(blkAddr, (uint32_t *) &ddr[128 * blk], nullptr, err);
 
         if (err != SD::NO_ERROR) {
-            const char msg_fail_blk[] = "[BOOT] Fail reading block\r\n";
+            const char msg_fail_blk[] = "\n[BOOT] Fail reading block\r\n";
             for (const char *c = msg_fail_blk; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
 
             while (1) {  }
         }
 
-        if (blk == 0) { uart.sendByte('R'); }
-        if (blk >= 64) { uart.sendByte('r'); }
-
-        for (int i = 0; i < 128; ++i) {
-            ddr[(blk * 128) + i] = block[i];
-
-            /* The deployed base bitstream predates DDR FIFO backpressure.
-             * Flush after exactly one 16-byte cache line, so each fence can
-             * enqueue at most one dirty-line writeback.  Waiting until the
-             * end would flush the complete 8 KiB D-cache and overflow the
-             * bridge when the physical MIG applies backpressure. */
-            if ((i & 3) == 3) {
-                asm volatile ("fence rw, rw" ::: "memory");
-
-                for (volatile int pace = 0; pace < DDR_PACE_CYCLES; ++pace) {
-                    asm volatile ("nop");
-                }
-            }
-        }
-
-        if (blk == 0) { uart.sendByte('W'); }
-        if (blk >= 64) { uart.sendByte('w'); }
         if ((blk & 7) == 7) { uart.sendByte('.'); }
     }
 
     uart.sendByte('\r');
     uart.sendByte('\n');
-
-    const uint32_t firstInstruction = ddr[0];
-    const char msg_ddr[] = "[BOOT] DDR[0]: 0x";
-    for (const char *c = msg_ddr; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
-    sendHexWord(uart, firstInstruction);
-    uart.sendByte('\r');
-    uart.sendByte('\n');
-
-    if (firstInstruction != 0x88000137u) {
-        const char msg_bad_image[] = "[BOOT] Invalid image in DDR!\r\n";
-        for (const char *c = msg_bad_image; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }
-        while (1) {  }
-    }
-
-    /* Software-only diagnostic for the repeatable illegal-instruction trap
-     * observed at PC 0x80000b7c on the physical FPGA. */
-    const uint32_t diagnosticOffsets[] = {
-        0x0B78u, 0x0B7Cu, 0x0B80u,
-        0x0FE4u, 0x0FE8u, 0x0FECu
-    };
-    const char* diagnosticLabels[] = {
-        "[BOOT] DDR[B78]: 0x",
-        "[BOOT] DDR[B7C]: 0x",
-        "[BOOT] DDR[B80]: 0x",
-        "[BOOT] DDR[FE4]: 0x",
-        "[BOOT] DDR[FE8]: 0x",
-        "[BOOT] DDR[FEC]: 0x"
-    };
-    for (unsigned int i = 0; i < 6; ++i) {
-        for (const char *c = diagnosticLabels[i]; *c != '\0'; ++c) {
-            uart.sendByte((uint8_t) *c);
-        }
-        sendHexWord(uart, ddr[diagnosticOffsets[i] / sizeof(uint32_t)]);
-        uart.sendByte('\r');
-        uart.sendByte('\n');
-    }
 
     const char msg_boot_end[] = "[BOOT] Image loaded! Jumping to CoreMark benchmark...\r\n";
     for (const char *c = msg_boot_end; *c != '\0'; ++c) { uart.sendByte((uint8_t) *c); }

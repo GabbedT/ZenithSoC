@@ -682,11 +682,9 @@ ee_printf(const char *fmt, ...)
     va_list args;
     int     n = 0;
 
-    coremark_uart_marker('G');
     va_start(args, fmt);
     ee_vsprintf(buf, fmt, args);
     va_end(args);
-    coremark_uart_marker('H');
     p = buf;
     while (*p)
     {
