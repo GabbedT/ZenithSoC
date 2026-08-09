@@ -56,6 +56,21 @@ module load_controller #(
 ); 
 
 //====================================================================================
+//      LOAD QUEUE
+//====================================================================================
+
+    // TODO (CODEX): JUST A REGISTER THAT HOLDS NEXT LOAD INFO (JUST ADDRESS) MIGHT IMPLEMENT A QUEUE IF 
+    // MULTIPLE OUTSTANDING REQUESTS ARE POSSIBLE TO IMPLEMNT
+    logic push_load, valid_load; logic [31:0] queued_load_address;
+
+    // TODO (CODEX): INVALIDATION LOGIC MIGHT BE WEAK, SINCE FROM LOAD UNIT IS JUST A BIT BUT COULD BE A WHOLE
+    // FLUSH OR A SINGLE INVALIDATION
+
+    // TODO (CODEX): LOCK LOGIC MIGHT HAVE CORNER CASES WHEN A LOAD IS SERVICED AND INSTEAD OF GOING IDLE AND
+    // WAITING TO SERVICING THE NEXT WE SERVICE BACK TO BACK IN A PIPE FASHION. ALSO ANALYZE HOW IT WORKS IN
+    // THIS CASE
+
+//====================================================================================
 //      DATAPATH
 //====================================================================================
 
@@ -177,6 +192,7 @@ module load_controller #(
             lock_request_o = 1'b0;
 
             force_state = 1'b0;
+            push_load = 1'b0;
 
             case (state_CRT)
 
@@ -210,6 +226,10 @@ module load_controller #(
                 WAIT_LOCK: begin
                     /* Exit lock state if an invalidate is requested */
                     force_state = invalidate_i;
+
+                    if (request_i) begin
+                        push_load = 1'b1;
+                    end
                     
                     if (invalidate_i) begin
                         state_NXT = IDLE;
@@ -242,8 +262,40 @@ module load_controller #(
 
                         data_o = cache_data_i;
                         valid_o = !invalidate_i;
+
+                        /* Service another load back to back */
+                        if (lock_i) begin
+                            state_NXT = WAIT_LOCK;
+                        end else if (request_i) begin
+                            state_NXT = OUTCOME;
+
+                            load_access_NXT = load_access_CRT + 1'b1;
+
+                            /* Read cache */
+                            cache_read_o = '1; 
+                        end
+
+                        cache_address_o = address_i; 
                     end else begin
                         force_state = invalidate_i;
+
+                        if (request_i) begin
+                            if (invalidate) begin
+                                /* Service immediately the next load */
+                                state_NXT = OUTCOME;
+
+                                load_access_NXT = load_access_CRT + 1'b1;
+
+                                /* Read cache */
+                                cache_read_o = '1; 
+                                
+                                cache_address_o = address_i; 
+                            end else begin
+                                /* Need to push next load and wait for miss handling */
+                                push_load = 1'b1;
+                            end
+
+                        end
                         
                         if (cache_dirty_i) begin
                             state_NXT = invalidate_i ? IDLE : WRITE_BACK;
@@ -252,7 +304,9 @@ module load_controller #(
                             cache_read_o.data = !stall_i;
 
                             /* Start from block base */
-                            cache_address_o = stall_i ? address_i : {cache_tag_i, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0}; 
+                            if (!invalidate_i) begin
+                                cache_address_o = stall_i ? address_i : {cache_tag_i, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0}; 
+                            end 
 
                             /* Increment word counter */
                             word_counter_NXT = 'd1;
@@ -343,7 +397,20 @@ module load_controller #(
                             cache_write_o = invalidate_pending ? '0 : '1;
                         end else if (word_counter_CRT[OFFSET - 1:0] == '1) begin
                             /* Block has been allocated */
-                            state_NXT = IDLE; 
+                            if (valid_load) begin
+                                state_NXT = OUTCOME;
+
+                                load_access_NXT = load_access_CRT + 1'b1;
+
+                                /* Read cache */
+                                cache_read_o = '1; 
+                                cache_address_o = queued_load_address; 
+
+                                /* Save address for later use */
+                                word_counter_NXT = '0; 
+                            end else begin
+                                state_NXT = IDLE; 
+                            end
                             
                             /* If the requested data is the last word of the cache block, foward it immediately */
                             data_o = cache_address.offset == '1 ? load_channel.data : requested_data_CRT;
