@@ -59,16 +59,29 @@ module load_controller #(
 //      LOAD QUEUE
 //====================================================================================
 
-    // TODO (CODEX): JUST A REGISTER THAT HOLDS NEXT LOAD INFO (JUST ADDRESS) MIGHT IMPLEMENT A QUEUE IF 
-    // MULTIPLE OUTSTANDING REQUESTS ARE POSSIBLE TO IMPLEMNT
-    logic push_load, valid_load; logic [31:0] queued_load_address;
+    /* The CPU load FIFO has two entries. One address is active in this
+     * controller and, while that address misses, one younger address can wait
+     * here. Hits promote the next request directly without using the queue. */
+    logic push_load, pop_load, valid_load;
+    logic [31:0] queued_load_address;
 
-    // TODO (CODEX): INVALIDATION LOGIC MIGHT BE WEAK, SINCE FROM LOAD UNIT IS JUST A BIT BUT COULD BE A WHOLE
-    // FLUSH OR A SINGLE INVALIDATION
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                valid_load <= 1'b0;
+                queued_load_address <= '0;
+            end else if (invalidate_i) begin
+                valid_load <= 1'b0;
+            end else begin
+                if (pop_load) begin
+                    valid_load <= 1'b0;
+                end
 
-    // TODO (CODEX): LOCK LOGIC MIGHT HAVE CORNER CASES WHEN A LOAD IS SERVICED AND INSTEAD OF GOING IDLE AND
-    // WAITING TO SERVICING THE NEXT WE SERVICE BACK TO BACK IN A PIPE FASHION. ALSO ANALYZE HOW IT WORKS IN
-    // THIS CASE
+                if (push_load) begin
+                    valid_load <= 1'b1;
+                    queued_load_address <= address_i;
+                end
+            end
+        end
 
 //====================================================================================
 //      DATAPATH
@@ -80,13 +93,27 @@ module load_controller #(
         logic [OFFSET - 1:0] offset; 
     } cache_address_t;
 
-    cache_address_t cache_address; assign cache_address = address_i[31:2];
+    data_word_t active_address_CRT, active_address_NXT;
+    cache_address_t cache_address; assign cache_address = active_address_CRT[31:2];
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                active_address_CRT <= '0;
+            end else if ((state_CRT == IDLE) | force_state | !stall_i |
+                         ((state_CRT == ALLOCATE) & load_channel.valid)) begin
+                active_address_CRT <= active_address_NXT;
+            end
+        end
 
 
     data_word_t requested_data_NXT, requested_data_CRT;
 
-        always_ff @(posedge clk_i) begin
-            requested_data_CRT <= requested_data_NXT;
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                requested_data_CRT <= '0;
+            end else if (!stall_i | ((state_CRT == ALLOCATE) & load_channel.valid)) begin
+                requested_data_CRT <= requested_data_NXT;
+            end
         end
 
 
@@ -95,19 +122,10 @@ module load_controller #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : counter
             if (!rst_n_i) begin
                 word_counter_CRT <= '0;
-            end else if (!stall_i) begin
+            end else if (!stall_i | ((state_CRT == ALLOCATE) & load_channel.valid)) begin
                 word_counter_CRT <= word_counter_NXT;
             end
         end : counter
-
-    
-    logic [31:0] saved_address; 
-
-        always_ff @(posedge clk_i) begin
-            if (request_i) begin
-                saved_address <= address_i;
-            end
-        end
 
 
 //====================================================================================
@@ -139,7 +157,7 @@ module load_controller #(
                 state_CRT <= IDLE;
             end else if ((state_CRT == IDLE) | force_state) begin
                 state_CRT <= state_NXT;
-            end else if (!stall_i) begin
+            end else if (!stall_i | ((state_CRT == ALLOCATE) & load_channel.valid)) begin
                 state_CRT <= state_NXT;
             end
         end : state_register
@@ -168,6 +186,7 @@ module load_controller #(
         always_comb begin
             /* Default values */
             requested_data_NXT = requested_data_CRT;
+            active_address_NXT = active_address_CRT;
             word_counter_NXT = word_counter_CRT;
             state_NXT = state_CRT;
 
@@ -193,6 +212,7 @@ module load_controller #(
 
             force_state = 1'b0;
             push_load = 1'b0;
+            pop_load = 1'b0;
 
             case (state_CRT)
 
@@ -204,7 +224,11 @@ module load_controller #(
                  * on the same cache address there is a lock, wait    *
                  * until the lock is released                         */
                 IDLE: begin
-                    if (lock_i) begin
+                    if (request_i) begin
+                        active_address_NXT = address_i;
+                    end
+
+                    if (request_i & lock_i) begin
                         state_NXT = WAIT_LOCK;
                     end else if (request_i) begin
                         state_NXT = OUTCOME;
@@ -215,7 +239,7 @@ module load_controller #(
                         cache_read_o = '1; 
                     end
 
-                    cache_address_o = address_i; 
+                    cache_address_o = address_i;
 
                     /* Save address for later use */
                     word_counter_NXT = '0; 
@@ -227,7 +251,7 @@ module load_controller #(
                     /* Exit lock state if an invalidate is requested */
                     force_state = invalidate_i;
 
-                    if (request_i) begin
+                    if (request_i & !valid_load) begin
                         push_load = 1'b1;
                     end
                     
@@ -244,7 +268,7 @@ module load_controller #(
                         cache_read_o = '1;
                     end
 
-                    cache_address_o = saved_address; 
+                    cache_address_o = active_address_CRT;
                 end
 
                 /* Cache now has output the outcome of the previous    *
@@ -264,7 +288,11 @@ module load_controller #(
                         valid_o = !invalidate_i;
 
                         /* Service another load back to back */
-                        if (lock_i) begin
+                        if (request_i) begin
+                            active_address_NXT = address_i;
+                        end
+
+                        if (request_i & lock_i) begin
                             state_NXT = WAIT_LOCK;
                         end else if (request_i) begin
                             state_NXT = OUTCOME;
@@ -273,28 +301,33 @@ module load_controller #(
 
                             /* Read cache */
                             cache_read_o = '1; 
+                        end else if (valid_load) begin
+                            /* A request captured while the active load waited
+                             * on a store lock must also be promoted here. */
+                            active_address_NXT = queued_load_address;
+                            pop_load = 1'b1;
+                            lock_request_o = 1'b1;
+                            cache_address_o = queued_load_address;
+
+                            if (lock_status_i) begin
+                                state_NXT = WAIT_LOCK;
+                            end else begin
+                                state_NXT = OUTCOME;
+                                cache_read_o = '1;
+                                load_access_NXT = load_access_CRT + 1'b1;
+                            end
                         end
 
-                        cache_address_o = address_i; 
+                        if (!valid_load) begin
+                            cache_address_o = request_i ? address_i : active_address_CRT;
+                        end
                     end else begin
                         force_state = invalidate_i;
 
-                        if (request_i) begin
-                            if (invalidate) begin
-                                /* Service immediately the next load */
-                                state_NXT = OUTCOME;
-
-                                load_access_NXT = load_access_CRT + 1'b1;
-
-                                /* Read cache */
-                                cache_read_o = '1; 
-                                
-                                cache_address_o = address_i; 
-                            end else begin
-                                /* Need to push next load and wait for miss handling */
-                                push_load = 1'b1;
-                            end
-
+                        if (request_i & !invalidate_i) begin
+                            /* The active miss must retain its address until the
+                             * refill completes. Queue the one younger load. */
+                            push_load = 1'b1;
                         end
                         
                         if (cache_dirty_i) begin
@@ -305,7 +338,7 @@ module load_controller #(
 
                             /* Start from block base */
                             if (!invalidate_i) begin
-                                cache_address_o = stall_i ? address_i : {cache_tag_i, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0}; 
+                                cache_address_o = {cache_tag_i, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0};
                             end 
 
                             /* Increment word counter */
@@ -345,7 +378,7 @@ module load_controller #(
 
                         state_NXT = (invalidate_i | invalidate_pending) ? IDLE : ALLOCATION_REQ;
                         
-                        load_channel.request = !stall_i; 
+                        load_channel.request = !(invalidate_i | invalidate_pending) & !stall_i;
                         load_channel.address = {cache_address.tag, cache_address.index, word_counter_NXT[OFFSET - 1:1], 3'b0};
                         
                         /* Reset word counter */ 
@@ -397,14 +430,17 @@ module load_controller #(
                             cache_write_o = invalidate_pending ? '0 : '1;
                         end else if (word_counter_CRT[OFFSET - 1:0] == '1) begin
                             /* Block has been allocated */
-                            if (valid_load) begin
-                                state_NXT = OUTCOME;
+                            if (valid_load & !invalidate_pending) begin
+                                state_NXT = lock_status_i ? WAIT_LOCK : OUTCOME;
+                                active_address_NXT = queued_load_address;
+                                pop_load = 1'b1;
+                                lock_request_o = 1'b1;
 
                                 load_access_NXT = load_access_CRT + 1'b1;
 
                                 /* Read cache */
-                                cache_read_o = '1; 
-                                cache_address_o = queued_load_address; 
+                                cache_read_o = lock_status_i ? '0 : '1;
+                                cache_address_o = queued_load_address;
 
                                 /* Save address for later use */
                                 word_counter_NXT = '0; 
@@ -424,7 +460,12 @@ module load_controller #(
                         end
                     end 
 
-                    cache_address_o = {cache_address.tag, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0}; 
+                    if (!(load_channel.valid &
+                          (word_counter_CRT[OFFSET - 1:0] == '1) &
+                          valid_load & !invalidate_pending)) begin
+                        cache_address_o = {cache_address.tag, cache_address.index,
+                                           word_counter_CRT[OFFSET - 1:0], 2'b0};
+                    end
 
                     /* Set status to valid and clean */
                     cache_status_o.valid = 1'b1;
@@ -435,6 +476,17 @@ module load_controller #(
 
     assign store_channel.data = cache_data_i; 
     assign store_channel.width = WORD;
+
+    `ifdef SV_ASSERTION
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            !(push_load & valid_load));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            (state_CRT != IDLE) |-> !$isunknown(active_address_CRT));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            valid_o |-> ((state_CRT == OUTCOME) | (state_CRT == ALLOCATE)));
+    `endif
 
 endmodule : load_controller 
 
