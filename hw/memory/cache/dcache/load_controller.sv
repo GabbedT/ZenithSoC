@@ -19,6 +19,7 @@ module load_controller #(
     input logic lock_status_i,
     input logic lock_i,
     output logic lock_request_o,
+    output logic [31:0] lock_address_o,
 
     /* Load unit interface */
     input logic invalidate_i,
@@ -127,7 +128,6 @@ module load_controller #(
             end
         end : counter
 
-
 //====================================================================================
 //      LOAD PERFORMANCE (SIMULATION ONLY)
 //====================================================================================
@@ -151,6 +151,58 @@ module load_controller #(
     typedef enum logic [2:0] {IDLE, WAIT_LOCK, OUTCOME, ALLOCATION_REQ, ALLOCATE, WRITE_BACK} fsm_states_t;
 
     fsm_states_t state_CRT, state_NXT; logic force_state;
+
+    /* A cache response is meaningful to the CPU only after this controller
+     * issued a CPU lookup.  Data-only reads used by write-back must never
+     * create or refresh this valid bit. */
+    logic cpu_lookup_issue, cpu_lookup_consume, lookup_response_valid;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                lookup_response_valid <= 1'b0;
+            end else if (invalidate_i) begin
+                lookup_response_valid <= 1'b0;
+            end else begin
+                case ({cpu_lookup_issue, cpu_lookup_consume})
+                    2'b10, 2'b11: lookup_response_valid <= 1'b1;
+                    2'b01:        lookup_response_valid <= 1'b0;
+                    default:      lookup_response_valid <= lookup_response_valid;
+                endcase
+            end
+        end
+
+        /* Separate the transaction address used by the lock arbiter from the
+         * cache-port address, which walks refill/writeback words.  This output
+         * is deliberately independent of lock_status_i. */
+        always_comb begin
+            lock_address_o = active_address_CRT;
+
+            case (state_CRT)
+                IDLE: lock_address_o = address_i;
+
+                OUTCOME: begin
+                    if (cache_hit_i & request_i) begin
+                        lock_address_o = address_i;
+                    end else if (cache_hit_i & valid_load) begin
+                        lock_address_o = queued_load_address;
+                    end
+                end
+
+                ALLOCATE: begin
+                    if (load_channel.valid &
+                        (word_counter_CRT[OFFSET - 1:0] == '1) &
+                        !invalidate_pending) begin
+                        if (valid_load) begin
+                            lock_address_o = queued_load_address;
+                        end else if (request_i & !valid_load) begin
+                            lock_address_o = address_i;
+                        end
+                    end
+                end
+
+                default: lock_address_o = active_address_CRT;
+            endcase
+        end
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : state_register
             if (!rst_n_i) begin
@@ -213,6 +265,17 @@ module load_controller #(
             force_state = 1'b0;
             push_load = 1'b0;
             pop_load = 1'b0;
+            cpu_lookup_issue = 1'b0;
+            cpu_lookup_consume = 1'b0;
+
+            /* Once a miss or lock wait has started, the second CPU load may
+             * arrive in any later cycle, including during the refill itself.
+             * Preserve it until the active request completes. */
+            if (request_i & !invalidate_i & !valid_load &
+                ((state_CRT == WAIT_LOCK) | (state_CRT == WRITE_BACK) |
+                 (state_CRT == ALLOCATION_REQ) | (state_CRT == ALLOCATE))) begin
+                push_load = 1'b1;
+            end
 
             case (state_CRT)
 
@@ -232,6 +295,7 @@ module load_controller #(
                         state_NXT = WAIT_LOCK;
                     end else if (request_i) begin
                         state_NXT = OUTCOME;
+                        cpu_lookup_issue = 1'b1;
 
                         load_access_NXT = load_access_CRT + 1'b1;
 
@@ -251,14 +315,11 @@ module load_controller #(
                     /* Exit lock state if an invalidate is requested */
                     force_state = invalidate_i;
 
-                    if (request_i & !valid_load) begin
-                        push_load = 1'b1;
-                    end
-                    
                     if (invalidate_i) begin
                         state_NXT = IDLE;
                     end else if (!lock_status_i) begin
                         state_NXT = OUTCOME;
+                        cpu_lookup_issue = 1'b1;
 
                         /* Request lock on that address to avoid other
                          * operations on the same block */
@@ -277,7 +338,8 @@ module load_controller #(
                  * dirty, a new block can be allocated, else the block *
                  * needs to be written back first.                     */
                 OUTCOME: begin
-                    if (cache_hit_i) begin
+                    if (lookup_response_valid & cache_hit_i) begin
+                        cpu_lookup_consume = 1'b1;
                         state_NXT = IDLE;
 
                         load_hit_NXT = load_hit_CRT + 1'b1;
@@ -287,41 +349,46 @@ module load_controller #(
                         data_o = cache_data_i;
                         valid_o = !invalidate_i;
 
-                        /* Service another load back to back */
-                        if (request_i) begin
-                            active_address_NXT = address_i;
-                        end
-
-                        if (request_i & lock_i) begin
-                            state_NXT = WAIT_LOCK;
-                        end else if (request_i) begin
-                            state_NXT = OUTCOME;
-
-                            load_access_NXT = load_access_CRT + 1'b1;
-
-                            /* Read cache */
-                            cache_read_o = '1; 
-                        end else if (valid_load) begin
+                        /* Promote the oldest pending load before accepting a
+                         * same-cycle younger request.  The load unit can
+                         * retire the active hit and enqueue another load in
+                         * the same cycle, so a full pending slot must support
+                         * pop and push without reordering the two requests. */
+                        if (valid_load) begin
                             /* A request captured while the active load waited
                              * on a store lock must also be promoted here. */
                             active_address_NXT = queued_load_address;
                             pop_load = 1'b1;
-                            lock_request_o = 1'b1;
+                            push_load = request_i & !invalidate_i;
+                            lock_request_o = !lock_status_i;
                             cache_address_o = queued_load_address;
 
                             if (lock_status_i) begin
                                 state_NXT = WAIT_LOCK;
                             end else begin
                                 state_NXT = OUTCOME;
+                                cpu_lookup_issue = 1'b1;
                                 cache_read_o = '1;
                                 load_access_NXT = load_access_CRT + 1'b1;
                             end
+                        end else if (request_i & lock_i) begin
+                            active_address_NXT = address_i;
+                            state_NXT = WAIT_LOCK;
+                        end else if (request_i) begin
+                            active_address_NXT = address_i;
+                            state_NXT = OUTCOME;
+                            cpu_lookup_issue = 1'b1;
+
+                            load_access_NXT = load_access_CRT + 1'b1;
+
+                            /* Read cache */
+                            cache_read_o = '1;
                         end
 
                         if (!valid_load) begin
                             cache_address_o = request_i ? address_i : active_address_CRT;
                         end
-                    end else begin
+                    end else if (lookup_response_valid) begin
                         force_state = invalidate_i;
 
                         if (request_i & !invalidate_i) begin
@@ -329,27 +396,36 @@ module load_controller #(
                              * refill completes. Queue the one younger load. */
                             push_load = 1'b1;
                         end
-                        
-                        if (cache_dirty_i) begin
-                            state_NXT = invalidate_i ? IDLE : WRITE_BACK;
 
-                            /* Read only data */
-                            cache_read_o.data = !stall_i;
+                        /* A miss cannot be consumed until the DDR channel is
+                         * available.  Until then, leave the synchronous cache
+                         * response and its address association untouched. */
+                        if (!stall_i | invalidate_i) begin
+                            cpu_lookup_consume = 1'b1;
 
-                            /* Start from block base */
-                            if (!invalidate_i) begin
-                                cache_address_o = {cache_tag_i, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0};
-                            end 
+                            if (cache_dirty_i) begin
+                                state_NXT = invalidate_i ? IDLE : WRITE_BACK;
 
-                            /* Increment word counter */
-                            word_counter_NXT = 'd1;
+                                /* Read only data */
+                                cache_read_o.data = !stall_i;
+
+                                /* Start from block base */
+                                if (!invalidate_i) begin
+                                    cache_address_o = {cache_tag_i, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0};
+                                end
+
+                                /* Increment word counter */
+                                word_counter_NXT = 'd1;
+                            end else begin
+                                state_NXT = invalidate_i ? IDLE : ALLOCATION_REQ;
+
+                                load_channel.request = !invalidate_i & !stall_i;
+                                load_channel.address = {cache_address.tag, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0};
+
+                                word_counter_NXT = 'd1;
+                            end
                         end else begin
-                            state_NXT = invalidate_i ? IDLE : ALLOCATION_REQ;
-                            
-                            load_channel.request = !invalidate_i & !stall_i;
-                            load_channel.address = {cache_address.tag, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0};
-
-                            word_counter_NXT = 'd1;
+                            cache_address_o = active_address_CRT;
                         end
                     end
                 end
@@ -430,17 +506,27 @@ module load_controller #(
                             cache_write_o = invalidate_pending ? '0 : '1;
                         end else if (word_counter_CRT[OFFSET - 1:0] == '1) begin
                             /* Block has been allocated */
-                            if (valid_load & !invalidate_pending) begin
-                                state_NXT = lock_status_i ? WAIT_LOCK : OUTCOME;
-                                active_address_NXT = queued_load_address;
-                                pop_load = 1'b1;
-                                lock_request_o = 1'b1;
+                            if ((valid_load | push_load) & !invalidate_pending) begin
+                                /* If the younger request arrives on the last
+                                 * refill beat, promote it directly rather than
+                                 * enqueueing it for an IDLE state that would
+                                 * otherwise never consume it. */
+                                active_address_NXT = valid_load ? queued_load_address : address_i;
+                                pop_load = valid_load;
+                                /* Replace a consumed queued load with a
+                                 * younger request accepted on this final
+                                 * refill beat. */
+                                push_load = valid_load ? (request_i & !invalidate_i) : 1'b0;
+
+                                /* The cache write port still uses
+                                 * cache_address_o for the final refill beat.
+                                 * Defer the younger read to WAIT_LOCK so the
+                                 * refill data cannot be written into the
+                                 * younger request's bank. */
+                                state_NXT = WAIT_LOCK;
+                                lock_request_o = !lock_status_i;
 
                                 load_access_NXT = load_access_CRT + 1'b1;
-
-                                /* Read cache */
-                                cache_read_o = lock_status_i ? '0 : '1;
-                                cache_address_o = queued_load_address;
 
                                 /* Save address for later use */
                                 word_counter_NXT = '0; 
@@ -460,12 +546,8 @@ module load_controller #(
                         end
                     end 
 
-                    if (!(load_channel.valid &
-                          (word_counter_CRT[OFFSET - 1:0] == '1) &
-                          valid_load & !invalidate_pending)) begin
-                        cache_address_o = {cache_address.tag, cache_address.index,
-                                           word_counter_CRT[OFFSET - 1:0], 2'b0};
-                    end
+                    cache_address_o = {cache_address.tag, cache_address.index,
+                                       word_counter_CRT[OFFSET - 1:0], 2'b0};
 
                     /* Set status to valid and clean */
                     cache_status_o.valid = 1'b1;
@@ -479,13 +561,28 @@ module load_controller #(
 
     `ifdef SV_ASSERTION
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
-            !(push_load & valid_load));
+            !(push_load & valid_load & !pop_load));
 
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
             (state_CRT != IDLE) |-> !$isunknown(active_address_CRT));
 
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
             valid_o |-> ((state_CRT == OUTCOME) | (state_CRT == ALLOCATE)));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            ((state_CRT == OUTCOME) & valid_o) |-> lookup_response_valid);
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            (state_CRT == WRITE_BACK) |-> !valid_o);
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            (state_CRT == WAIT_LOCK) |-> (lock_address_o == active_address_CRT));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            (request_i & !invalidate_i & !valid_load &
+             ((state_CRT == WAIT_LOCK) | (state_CRT == WRITE_BACK) |
+              (state_CRT == ALLOCATION_REQ) | (state_CRT == ALLOCATE)))
+            |-> (push_load | ((state_CRT == ALLOCATE) & load_channel.valid & valid_o)));
     `endif
 
 endmodule : load_controller 

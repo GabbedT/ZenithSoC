@@ -149,8 +149,19 @@ module data_cache #(
 
     logic [1:0][TAG_SIZE - 1:0] compare_tag;
 
+        /* Keep the comparison tags aligned with the synchronous tag-memory
+         * responses.  The cache address also walks the victim line during a
+         * write-back, often with only the data read enabled; sampling that
+         * live address would reinterpret the previous CPU lookup response as
+         * an eviction lookup. */
         always_ff @(posedge clk_i) begin
-            compare_tag <= {read_address.tag, write_address.tag};
+            if (read_i[0].tag) begin
+                compare_tag[0] <= write_address.tag;
+            end
+
+            if (read_i[1].tag) begin
+                compare_tag[1] <= read_address.tag;
+            end
         end
 
     assign hit_o[0] = (compare_tag[0] == read_tag[0]) & status[0].valid;
