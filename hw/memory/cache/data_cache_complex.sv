@@ -142,6 +142,7 @@ module data_cache_complex #(
 
     status_packet_t lctrl_status_packet;
     logic [31:0] lctrl_store_data, lctrl_cache_address, lctrl_lock_address, lctrl_load_data;
+    logic [INDEX - 1:0] lctrl_lock_index;
     logic lctrl_valid_data, lctrl_stall, ld_lock, ld_lock_request;
     data_enable_t lctrl_cache_store, lctrl_cache_read;
 
@@ -156,6 +157,7 @@ module data_cache_complex #(
         .lock_status_i  ( lctrl_stall        ),
         .lock_request_o ( ld_lock_request    ),
         .lock_address_o ( lctrl_lock_address ),
+        .lock_index_o   ( lctrl_lock_index   ),
 
         .invalidate_i ( ldu_channel.invalidate                 ),
         .request_i    ( ldu_channel.request & !io_load_request ),
@@ -530,44 +532,47 @@ module data_cache_complex #(
 
     /* Generate lock signals to hold one FSM when the other is using the cache on the same cache address */
     cache_address_t ldu_address_check, stu_address_check;
-    cache_address_t lctrl_address_check, sctrl_address_check;
-    cache_address_t pending_ld_lock_address;
-    logic pending_ld_lock;
+    cache_address_t sctrl_address_check;
+    logic direct_ld_lock;
+    logic stu_pending_ld_lock, sctrl_pending_ld_lock;
 
     assign ldu_address_check = ldu_channel.address;
     assign stu_address_check = stu_channel.address;
-    assign lctrl_address_check = lctrl_lock_address;
     assign sctrl_address_check = sctrl_cache_address;
         
     assign ld_lock = (ldu_channel.request & !io_load_request)
                    & (ldu_address_check.index == st_lock_address.index)
                    & st_lock_acquired;
 
-    /* A load can claim a line either directly from the CPU channel or through
-     * a controller lock hand-off. Make that prospective ownership visible to
-     * the store side in the same cycle; otherwise both sequential lock records
-     * can acquire the same direct-mapped index before either sees the other. */
-    assign pending_ld_lock = ld_lock_request
-                           | (ldu_channel.request & !io_load_request & !ld_lock);
+    assign direct_ld_lock = ldu_channel.request & !io_load_request & !ld_lock;
 
-    assign pending_ld_lock_address = ld_lock_request ? lctrl_address_check : ldu_address_check;
+    /* Precompute both address comparisons before the late controller request.
+     * This is equivalent to selecting the pending address first, including
+     * controller-request priority when both sources are active. */
+    assign stu_pending_ld_lock = ld_lock_request
+                               ? (stu_address_check.index == lctrl_lock_index)
+                               : (direct_ld_lock &
+                                  (stu_address_check.index == ldu_address_check.index));
+
+    assign sctrl_pending_ld_lock = ld_lock_request
+                                 ? (sctrl_address_check.index == lctrl_lock_index)
+                                 : (direct_ld_lock &
+                                    (sctrl_address_check.index == ldu_address_check.index));
 
     /* Load requests have priority when both channels start a transaction in the
      * same cycle. Without this check both controllers can observe the same
      * direct-mapped line, allowing a later load refill to overwrite the store. */
     assign st_lock = (stu_channel.request & !io_store_request)
                     & (((stu_address_check.index == ld_lock_address.index) & ld_lock_acquired)
-                    | ((stu_address_check.index == pending_ld_lock_address.index)
-                    & pending_ld_lock));
+                    | stu_pending_ld_lock);
 
     /* Controllers in WAIT_LOCK compare their captured request against the
      * current opposite owner. Combinational status naturally handles a
      * back-to-back lock hand-off to a different index. */
-    assign lctrl_stall = st_lock_acquired & (lctrl_address_check.index == st_lock_address.index);
+    assign lctrl_stall = st_lock_acquired & (lctrl_lock_index == st_lock_address.index);
 
     assign sctrl_stall =  (ld_lock_acquired & (sctrl_address_check.index == ld_lock_address.index))
-                        | (pending_ld_lock
-                        & (sctrl_address_check.index == pending_ld_lock_address.index));
+                        | sctrl_pending_ld_lock;
 
     `ifdef SV_ASSERTION
         assert property (@(posedge clk_i) disable iff (!rst_n_i)

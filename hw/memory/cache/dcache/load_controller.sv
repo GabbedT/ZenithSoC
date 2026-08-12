@@ -20,6 +20,7 @@ module load_controller #(
     input logic lock_i,
     output logic lock_request_o,
     output logic [31:0] lock_address_o,
+    output logic [INDEX - 1:0] lock_index_o,
 
     /* Load unit interface */
     input logic invalidate_i,
@@ -201,6 +202,39 @@ module load_controller #(
                 end
 
                 default: lock_address_o = active_address_CRT;
+            endcase
+        end
+
+        /* The lock arbiter only compares cache indices.  Compute that index
+         * without the late cache-hit result; in cycles where the controller
+         * requests a lock it is identical to lock_address_o's index. */
+        always_comb begin
+            lock_index_o = active_address_CRT[OFFSET + INDEX + 1:OFFSET + 2];
+
+            case (state_CRT)
+                IDLE: lock_index_o = address_i[OFFSET + INDEX + 1:OFFSET + 2];
+
+                OUTCOME: begin
+                    if (request_i) begin
+                        lock_index_o = address_i[OFFSET + INDEX + 1:OFFSET + 2];
+                    end else if (valid_load) begin
+                        lock_index_o = queued_load_address[OFFSET + INDEX + 1:OFFSET + 2];
+                    end
+                end
+
+                ALLOCATE: begin
+                    if (load_channel.valid &
+                        (word_counter_CRT[OFFSET - 1:0] == '1) &
+                        !invalidate_pending) begin
+                        if (valid_load) begin
+                            lock_index_o = queued_load_address[OFFSET + INDEX + 1:OFFSET + 2];
+                        end else if (request_i & !valid_load) begin
+                            lock_index_o = address_i[OFFSET + INDEX + 1:OFFSET + 2];
+                        end
+                    end
+                end
+
+                default: lock_index_o = active_address_CRT[OFFSET + INDEX + 1:OFFSET + 2];
             endcase
         end
 
@@ -577,6 +611,10 @@ module load_controller #(
 
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
             (state_CRT == WAIT_LOCK) |-> (lock_address_o == active_address_CRT));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            lock_request_o |->
+            (lock_index_o == lock_address_o[OFFSET + INDEX + 1:OFFSET + 2]));
 
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
             (request_i & !invalidate_i & !valid_load &
