@@ -141,7 +141,9 @@ module data_cache_complex #(
 //====================================================================================
 
     status_packet_t lctrl_status_packet;
-    logic [31:0] lctrl_store_data, lctrl_cache_address, lctrl_load_data; logic lctrl_valid_data, lctrl_stall, ld_lock, ld_lock_request;
+    logic [31:0] lctrl_store_data, lctrl_cache_address, lctrl_lock_address, lctrl_load_data;
+    logic [INDEX - 1:0] lctrl_lock_index;
+    logic lctrl_valid_data, lctrl_stall, ld_lock, ld_lock_request;
     data_enable_t lctrl_cache_store, lctrl_cache_read;
 
     store_interface lctrl_store_channel(); assign lctrl_store_channel.done = ddr_store_channel.done;
@@ -151,9 +153,11 @@ module data_cache_complex #(
         .rst_n_i ( rst_n_i                ), 
         .stall_i ( stall_i | flush_busy_o ),
 
-        .lock_i         ( ld_lock         ),
-        .lock_status_i  ( lctrl_stall     ),
-        .lock_request_o ( ld_lock_request ),
+        .lock_i         ( ld_lock            ),
+        .lock_status_i  ( lctrl_stall        ),
+        .lock_request_o ( ld_lock_request    ),
+        .lock_address_o ( lctrl_lock_address ),
+        .lock_index_o   ( lctrl_lock_index   ),
 
         .invalidate_i ( ldu_channel.invalidate                 ),
         .request_i    ( ldu_channel.request & !io_load_request ),
@@ -191,6 +195,7 @@ module data_cache_complex #(
     store_interface sctrl_store_channel(); assign sctrl_store_channel.done = ddr_store_channel.done;
 
     assign sctrl_halt = sctrl_port_halt | sctrl_memory_halt;
+    assign sctrl_memory_halt = flush_busy_o | lctrl_store_channel.request;
 
     store_controller store_cache_controller (
         .clk_i   ( clk_i       ),
@@ -430,23 +435,18 @@ module data_cache_complex #(
             ddr_store_channel.address = '0;
             ddr_store_channel.width = WORD; 
 
-            sctrl_memory_halt = 1'b0;
-
             single_trx_o = 1'b0;
 
             if (flush_busy_o) begin
                 ddr_store_channel.data = flush_store_data;
                 ddr_store_channel.address = flush_store_address;
                 ddr_store_channel.width = WORD;
-                sctrl_memory_halt = 1'b1;
             end else begin
                 case ({sctrl_store_channel.request, lctrl_store_channel.request})
                     2'b11, 2'b01: begin
                         ddr_store_channel.data = lctrl_store_channel.data;
                         ddr_store_channel.address = lctrl_store_channel.address;
                         ddr_store_channel.width = lctrl_store_channel.width;  
-
-                        sctrl_memory_halt = 1'b1;
                     end
 
                     2'b10: begin
@@ -455,8 +455,6 @@ module data_cache_complex #(
                         ddr_store_channel.width = sctrl_store_channel.width;  
 
                         single_trx_o = 1'b1;
-
-                        sctrl_memory_halt = 1'b0;
                     end
                 endcase
             end
@@ -489,34 +487,44 @@ module data_cache_complex #(
                 ld_lock_address <= '0;
                 st_lock_address <= '0;
             end else begin
-                if (st_lock_request) begin
-                    st_lock_acquired <= 1'b1;
-                    st_lock_address <= sctrl_cache_address;
-                end
-
-                if (ld_lock_request) begin
-                    ld_lock_acquired <= 1'b1;
-                    ld_lock_address <= lctrl_cache_address;
-                end
-
-                case ({stu_channel.request, ldu_channel.request})
-                    2'b11, 2'b01: begin
+                /* A response normally releases the load lock. A back-to-back
+                 * hit, or promotion of the queued load after a refill, hands
+                 * ownership directly to the next address without an unlocked
+                 * cycle. Requests queued behind a miss must not overwrite the
+                 * active miss address. */
+                if (ldu_channel.invalidate) begin
+                    ld_lock_acquired <= 1'b0;
+                end else if (ldu_channel.valid) begin
+                    if (ld_lock_request) begin
+                        ld_lock_acquired <= 1'b1;
+                        ld_lock_address <= lctrl_lock_address;
+                    end else if (ldu_channel.request & !io_load_request & !ld_lock) begin
                         ld_lock_acquired <= 1'b1;
                         ld_lock_address <= ldu_channel.address;
+                    end else begin
+                        ld_lock_acquired <= 1'b0;
                     end
-
-                    2'b10: begin
-                        st_lock_acquired <= 1'b1;
-                        st_lock_address <= stu_channel.address;
-                    end
-                endcase
-
-                if (ldu_channel.valid | ldu_channel.invalidate) begin
-                    ld_lock_acquired <= 1'b0;
+                end else if (ld_lock_request) begin
+                    ld_lock_acquired <= 1'b1;
+                    ld_lock_address <= lctrl_lock_address;
+                end else if (!ld_lock_acquired & ldu_channel.request & !io_load_request & !ld_lock) begin
+                    ld_lock_acquired <= 1'b1;
+                    ld_lock_address <= ldu_channel.address;
                 end
 
                 if (stu_channel.done) begin
-                    st_lock_acquired <= 1'b0;
+                    if (stu_channel.request & !io_store_request & !st_lock) begin
+                        st_lock_acquired <= 1'b1;
+                        st_lock_address <= stu_channel.address;
+                    end else begin
+                        st_lock_acquired <= 1'b0;
+                    end
+                end else if (st_lock_request) begin
+                    st_lock_acquired <= 1'b1;
+                    st_lock_address <= sctrl_cache_address;
+                end else if (!st_lock_acquired & stu_channel.request & !io_store_request & !st_lock) begin
+                    st_lock_acquired <= 1'b1;
+                    st_lock_address <= stu_channel.address;
                 end
             end
         end
@@ -524,44 +532,53 @@ module data_cache_complex #(
 
     /* Generate lock signals to hold one FSM when the other is using the cache on the same cache address */
     cache_address_t ldu_address_check, stu_address_check;
+    cache_address_t sctrl_address_check;
+    logic direct_ld_lock;
+    logic stu_pending_ld_lock, sctrl_pending_ld_lock;
 
     assign ldu_address_check = ldu_channel.address;
     assign stu_address_check = stu_channel.address;
+    assign sctrl_address_check = sctrl_cache_address;
         
     assign ld_lock = (ldu_channel.request & !io_load_request)
                    & (ldu_address_check.index == st_lock_address.index)
                    & st_lock_acquired;
+
+    assign direct_ld_lock = ldu_channel.request & !io_load_request & !ld_lock;
+
+    /* Precompute both address comparisons before the late controller request.
+     * This is equivalent to selecting the pending address first, including
+     * controller-request priority when both sources are active. */
+    assign stu_pending_ld_lock = ld_lock_request
+                               ? (stu_address_check.index == lctrl_lock_index)
+                               : (direct_ld_lock &
+                                  (stu_address_check.index == ldu_address_check.index));
+
+    assign sctrl_pending_ld_lock = ld_lock_request
+                                 ? (sctrl_address_check.index == lctrl_lock_index)
+                                 : (direct_ld_lock &
+                                    (sctrl_address_check.index == ldu_address_check.index));
 
     /* Load requests have priority when both channels start a transaction in the
      * same cycle. Without this check both controllers can observe the same
      * direct-mapped line, allowing a later load refill to overwrite the store. */
     assign st_lock = (stu_channel.request & !io_store_request)
                     & (((stu_address_check.index == ld_lock_address.index) & ld_lock_acquired)
-                    | ((stu_address_check.index == ldu_address_check.index)
-                    & ldu_channel.request & !io_load_request));
+                    | stu_pending_ld_lock);
 
-        always_ff @(posedge clk_i) begin
-            if (!rst_n_i) begin
-                lctrl_stall <= 1'b0;
-                sctrl_stall <= 1'b0;
-            end else begin
-                if (ldu_channel.invalidate) begin
-                    lctrl_stall <= 1'b0;
-                end else if (ld_lock & !stu_channel.done) begin 
-                    lctrl_stall <= 1'b1;
-                end else if (stu_channel.done) begin
-                    lctrl_stall <= 1'b0;
-                end
+    /* Controllers in WAIT_LOCK compare their captured request against the
+     * current opposite owner. Combinational status naturally handles a
+     * back-to-back lock hand-off to a different index. */
+    assign lctrl_stall = st_lock_acquired & (lctrl_lock_index == st_lock_address.index);
 
-                if (ldu_channel.invalidate) begin
-                    sctrl_stall <= 1'b0;
-                end else if (st_lock & !ldu_channel.valid) begin 
-                    sctrl_stall <= 1'b1;
-                end else if (ldu_channel.valid) begin
-                    sctrl_stall <= 1'b0;
-                end
-            end
-        end
+    assign sctrl_stall =  (ld_lock_acquired & (sctrl_address_check.index == ld_lock_address.index))
+                        | sctrl_pending_ld_lock;
+
+    `ifdef SV_ASSERTION
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            !(ld_lock_acquired & st_lock_acquired &
+              (ld_lock_address.index == st_lock_address.index)));
+    `endif
 
 
 //====================================================================================
