@@ -36,6 +36,7 @@ BOOT_LD   = sw/boot_rom.ld
 
 OUT       = out
 PROG      ?= tests/prog.c
+TRACE     ?= $(OUT)/cosim.fst
 
 # --- Program generation / run parameters ------------------------------------
 SEED        ?= 0
@@ -77,6 +78,11 @@ VFLAGS = --cc --exe --trace-fst --trace-structs --timing \
          -Mdir obj_dir \
          -CFLAGS "-std=c++20 -O2 -I$(SPIKE_INC) -I$(SIM_DIR) $(COSIM_DEFS)" \
          -LDFLAGS "-L$(SPIKE_LIB) -lriscv -lfesvr -lpthread -ldl"
+
+ASSERTIONS ?= 1
+ifeq ($(strip $(ASSERTIONS)),1)
+    VFLAGS += --assert -DSV_ASSERTION
+endif
 
 
 # Structural (line + toggle) coverage is opt-in: --coverage slows the model and
@@ -157,13 +163,14 @@ boot:
 run: build gen firmware boot
 	@echo "=== [COSIM] Running lockstep (GEN_SEED=$(GEN_SEED) SEED=$(SEED)) ==="
 	./obj_dir/Vcosim_top +firmware=$(OUT)/firmware.elf +boot=$(OUT)/boot.elf \
+		+trace=$(TRACE) \
 		$(if $(filter-out 0,$(MAX_RETIRE)),+max_retire=$(MAX_RETIRE),)
+	@test -s $(TRACE)
 
 run-notrace: build gen firmware boot
-	./obj_dir/Vcosim_top +firmware=$(OUT)/firmware.elf +boot=$(OUT)/boot.elf +notrace \
+	./obj_dir/Vcosim_top +firmware=$(OUT)/firmware.elf +boot=$(OUT)/boot.elf +trace=$(TRACE) \
 		$(if $(filter-out 0,$(MAX_RETIRE)),+max_retire=$(MAX_RETIRE),)
-
-run-notrace: build gen firmware boot
+	@test -s $(TRACE)
 
 
 # ==============================================================================
@@ -178,6 +185,7 @@ RTDIR  = $(OUT)/rtt
 # Run ONE seed in an isolated workdir
 regress-one:
 	@d=$(RTDIR)/seed$(SEED); mkdir -p $$d $(COVDIR); \
+	trap 'rm -rf "$$d"' EXIT; \
 	$(PYTHON) gen/rvgen.py --seed $(SEED) --gen-seed $(GEN_SEED) \
 		--n $(PROG_LEN) --class $(CLASS) $(GEN_FLAGS) \
 		--out $$d/prog.c --cov-out - --quiet \
@@ -188,9 +196,8 @@ regress-one:
 		$(if $(filter-out 0,$(MAX_RETIRE)),+max_retire=$(MAX_RETIRE),) \
 		>$$d/log 2>&1; then \
 		echo "seed $(SEED) : PASS"; \
-		rm -rf $$d; \
 	else \
-		echo "seed $(SEED) : FAIL (log: $$d/log, rerun: make run SEED=$(SEED) GEN_SEED=$(GEN_SEED))"; \
+		echo "seed $(SEED) : FAIL (artifacts cleaned, rerun: make run SEED=$(SEED) GEN_SEED=$(GEN_SEED))"; \
 		exit 1; \
 	fi
 
@@ -253,7 +260,7 @@ info:
 # ===========================================================================
 
 wave:
-	fst2vcd $(OUT)/cosim.fst > $(OUT)/cosim.vcd
+	fst2vcd $(TRACE) > $(OUT)/cosim.vcd
 	env -u LD_LIBRARY_PATH -u GTK_PATH -u GIO_EXTRA_MODULES -u LD_PRELOAD \
 		gtkwave $(OUT)/cosim.vcd
 

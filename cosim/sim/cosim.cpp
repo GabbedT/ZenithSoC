@@ -50,6 +50,7 @@ static VerilatedFstC   *tfp = nullptr;
 static uint64_t sim_time = 0;
 
 static bool enable_trace = true;
+static std::string trace_path = "out/cosim.fst";
 
 static constexpr uint64_t HALF_PERIOD_NS = 5000;
 static constexpr uint32_t USER_BASE = 0x80000000u;
@@ -176,7 +177,7 @@ static void report_mismatch(uint64_t retire, const char* what,
     std::cout << std::dec << "\n";
 
     if (enable_trace)
-        std::cout << " waveform : cosim/out/cosim.fst\n";
+        std::cout << " waveform : " << trace_path << "\n";
 
     std::cout << "[COSIM] FAIL\n";
 }
@@ -201,6 +202,7 @@ int main(int argc, char** argv) {
         if      (a.rfind("+firmware=", 0) == 0)     fw_path = a.substr(10);
         else if (a.rfind("+boot=", 0) == 0)         boot_path = a.substr(6);
         else if (a == "+notrace")                   enable_trace = false;
+        else if (a.rfind("+trace=", 0) == 0)        trace_path = a.substr(7);
         else if (a.rfind("+max_retire=", 0) == 0)   max_retire = std::stoull(a.substr(12));
     }
 
@@ -211,7 +213,7 @@ int main(int argc, char** argv) {
         tfp = new VerilatedFstC;
         dut->trace(tfp, 99);
 
-        tfp->open("out/cosim.fst");
+        tfp->open(trace_path.c_str());
     }
 
 
@@ -298,8 +300,11 @@ int main(int argc, char** argv) {
     std::vector<std::string> htif_args;
     htif_args.push_back(fw_path);
 
+    /* Commit logging is needed for Spike's memory access records, but its
+     * per-instruction text trace would otherwise dominate every regression
+     * log.  Keep the structured records and discard only that text stream. */
     sim_t spike(&cfg, false, mems, plugins, false, htif_args, dm_config,
-                nullptr, false, nullptr, false, nullptr, std::nullopt);
+                "/dev/null", false, nullptr, false, nullptr, std::nullopt);
 
     processor_t* p = spike.get_core(0);
     state_t* st = p->get_state();
@@ -391,7 +396,14 @@ int main(int argc, char** argv) {
 
             if (++idle > IDLE_LIMIT) {
                 std::cout << "[COSIM] TIMEOUT: no retire for " << IDLE_LIMIT
-                          << " cycles, possible cache/HTIF deadlock\n";
+                          << " cycles after retire #" << retire
+                          << ", possible cache/HTIF deadlock\n";
+                std::cout << " last PCs : ";
+                for (auto pc : g_pc_history)
+                    std::cout << std::hex << std::setw(8) << std::setfill('0') << pc << " ";
+                std::cout << std::dec << "\n";
+                if (enable_trace)
+                    std::cout << " waveform : " << trace_path << "\n";
                 close_and_exit(3);
             }
         }

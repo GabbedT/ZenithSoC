@@ -44,8 +44,15 @@ proc collect_filelist {filelist} {
 proc configure_timing_runs {} {
     set_property strategy Flow_PerfOptimized_high [get_runs synth_1]
 
-    set_property strategy Performance_ExplorePostRoutePhysOpt [get_runs impl_1]
+    # The failing LDU-to-scoreboard path is routing-dominated (72.256% route
+    # delay) and includes a high-fanout scoreboard net. Vivado's supported
+    # NetDelay strategy increases pessimism for long/high-fanout nets during
+    # placement, while preserving the existing timing-driven implementation
+    # stages and the post-route physical optimization pass.
+    set_property strategy Performance_NetDelay_high [get_runs impl_1]
+    set_property STEPS.PLACE_DESIGN.ARGS.DIRECTIVE ExtraNetDelay_high [get_runs impl_1]
     set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
+    set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
     set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
     set_property STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE NoTimingRelaxation [get_runs impl_1]
 }

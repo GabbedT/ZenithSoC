@@ -12,6 +12,7 @@ module cosim_top (
 
     `define LDU cpu.cpu_load_channel
     `define STU cpu.cpu_store_channel
+    `define LDUNIT `BE.execute_stage.LSU.ldu
     
     `define STRBUF `BE.execute_stage.LSU.stu.str_buffer
 
@@ -124,31 +125,17 @@ module cosim_top (
         input int unsigned mem_width
     );
 
-    /* The load buffer stores only the address */
+    /* Mirror every accepted architectural load, including store-buffer
+     * forwards and faulting loads that never appear on the cache channel. */
     logic [31:0] load_buffer [$];
-
-    /* LDU forward match, used to replicate the pop on invalidation */
-    logic forward_match, forward_match_prev;
-    assign forward_match = `BE.execute_stage.LSU.ldu.forward_match_i;
-
-    always_ff @(posedge clk) begin
-        forward_match_prev <= forward_match;
-    end
 
     always_ff @(posedge clk) begin
         if (!rst_n) begin
             load_buffer.delete();
         end else begin
 
-            /* Fill the load queue using the LDU address at request time */
-            if (`LDU.request) begin
-                load_buffer.push_back(`LDU.address);
-            end
-
-            if (`LDU.invalidate) begin
-                if (!forward_match_prev && (load_buffer.size() != 0)) begin
-                    void'(load_buffer.pop_front());
-                end
+            if (`LDUNIT.accept_load) begin
+                load_buffer.push_back(`LDUNIT.load_address_i);
             end
 
             if (`BE.writeback_o) begin
@@ -181,6 +168,13 @@ module cosim_top (
             if (`BE.exception_o) begin
                 rvfi_commit(32'd1, `BE.trap_iaddress, `BE.exception_vector,
                             32'd0, 32'd0, 32'd0, 32'd0, 32'd0, 32'd0, 32'd2);
+            end
+
+            if (`LDU.invalidate) begin
+                /* Commit is older than the flush.  Let a same-cycle retiring
+                 * load consume the queue head first, then discard all younger
+                 * accepted loads just as the RTL load FIFO does. */
+                load_buffer.delete();
             end
         end
     end
