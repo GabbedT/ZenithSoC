@@ -171,6 +171,11 @@ module zenith_tb_top (
         .sd_data_io( sd_data_io )
     );
 
+    perf_counters perf_unit (
+        .clk_i  ( clk   ),
+        .rst_n_i( rst_n )
+    );
+
 
 // ============================================================================
 //      FIRMWARE PRELOAD (DPI export, called from the harness before reset)
@@ -337,6 +342,17 @@ module zenith_tb_top (
             end
         end
     end
+
+
+// ============================================================================
+//      PERFORMANCE COUNTERS — DPI export
+// ============================================================================
+
+    export "DPI-C" function zenith_perf_dump;
+
+    function void zenith_perf_dump();
+        perf_unit.report();
+    endfunction
 
 
 // ============================================================================

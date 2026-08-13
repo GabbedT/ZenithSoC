@@ -49,3 +49,46 @@ Other targets: `make build`, `make wave` (open the latest FST in GTKWave),
 ```
 
 PC · disassembled instruction · `rd <= value` · memory access (`LD/ST.<b|h|w> @addr [data]`).
+
+## Performance counters
+
+At the end of the run (after `tohost`, or at `MAX_CYCLES`) the simulation prints
+a performance summary that identifies the **#1 bottleneck** of the ApogeoRV
+pipeline and cache system.
+
+```
+======================================================================
+  ZENITHSOC PERFORMANCE SUMMARY
+======================================================================
+  -- Global ------------------------------------------------
+  total_cycles           :        788   IPC=0.183  CPI=5.462
+  ...
+  BOTTLENECK: st_raw_ldu (load-use RAW)
+  (519 cycles, 65.9% of total)
+======================================================================
+```
+
+Everything is counted **testbench-side** in `perf_counters.sv` by tapping DUT
+signals through hierarchical references — no RTL changes are required. The
+module is instantiated in `zenith_tb_top.sv` and its `report()` is exported to
+C++ via the DPI function `zenith_perf_dump()` (called from `sim_main.cpp`).
+
+Reported sections:
+
+| Section | Contents |
+|---------|----------|
+| Global | total cycles, retired/issued instructions, IPC, CPI |
+| Issue slots | issue / empty / stall slot breakdown (% of total cycles) |
+| Stall causes | 19 priority-encoded buckets: backend, ROB full, flush busy, FENCE/CSR serialization, structural (DIV/LDU/STU busy), store blocked, per-unit RAW (ALU/MUL/DIV/LDU/STU), per-unit latency conflicts |
+| Flushes | branch mispredictions + rate, branch/full flushes, FENCE events, exceptions |
+| Caches | I$/D$ accesses, hits, hit rates; flush and refill stall cycles |
+| Front-end | fetch stall, ibuffer full, icache conflict, fetch invalidations, backend bubbles |
+| Memory units | LDU wait/lbuf-full, store-buffer full/wait, STU FSM state occupancy |
+| DDR arbitration | data/fetch priority stalls, controller hold, store-idle, load-empty |
+| Self-checks | invariant assertions (issue+empty+stall == total, retired ≤ issued, …) |
+| BOTTLENECK | single largest contributor among empty slots and all stall buckets |
+
+The bottleneck line distinguishes hazard classes (e.g. `st_raw_ldu` load-use RAW
+vs `st_raw_alu` ALU RAW vs `st_struct_ldu` load-unit-full structural) so you can
+see exactly what limits the core on a given workload. The same `perf_counters.sv`
+is reused by the XSim testbench in `tb/top/` (see `tb/top/README.md`).

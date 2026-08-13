@@ -47,5 +47,6 @@
 ../../hw/ZenithSoC.sv
 
 sd_card_model.sv
+perf_counters.sv
 zenith_tb_top.sv
 zenith_public.vlt

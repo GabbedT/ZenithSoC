@@ -705,6 +705,10 @@ int main(int argc, char** argv) {
 
     int rc = g_sim->run(img.tohost);
 
+    // Dump performance counters at end of simulation
+    svSetScope(g_sim->scope());
+    zenith_perf_dump();
+
     if (!sd_path.empty() && !fw_path.empty())
         g_sim->verify_ddr_image(img);
 

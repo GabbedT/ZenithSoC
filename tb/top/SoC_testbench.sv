@@ -3,6 +3,8 @@
 
 `timescale 1ns/1ps
 
+`include "../verilator/perf_counters.sv"
+
 module soc_testbench;
 
     import soc_parameters::*;
@@ -75,6 +77,11 @@ module soc_testbench;
     ZenithSoC #(
         .DDR_MEMORY ( 1 )
     ) dut (.*);
+
+    perf_counters perf_unit (
+        .clk_i  ( clk_i   ),
+        .rst_n_i( rst_n_i )
+    );
 
     /* Micron MT47H64M16 DDR2 model used by the Nexys A7 MIG configuration. */
     ddr2_model ddr2 (
@@ -204,6 +211,7 @@ module soc_testbench;
         join_any
 
         disable fork;
+        perf_unit.report();
         $fclose(output_file);
         $finish;
     end
