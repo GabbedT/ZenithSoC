@@ -53,6 +53,8 @@ module fetch_controller #(
 //      REQUEST FIFO
 //====================================================================================
 
+    /* THIS LOGIC NEEDS AN AD-HOC FIFO */
+
     /* Requests are queued so the frontend keeps fetching while a refill
      * is in flight. The frontend is bounded by its own instruction buffer,
      * so the FIFO can never overflow. */
@@ -278,6 +280,12 @@ module fetch_controller #(
     assign invalidate_done = state_CRT == IDLE;
 
 
+    logic pre_read; 
+    
+    assign pre_read = (head[OFFSET + 1:2] >= 1'b1) & !pre_read_pending 
+                    & ((retained_valid & (head[31:4] == retained_block)) 
+                    | (pre_read_valid & (head == pre_read_address)));
+
         always_comb begin
             /* Default values */
             state_NXT = state_CRT;
@@ -315,6 +323,16 @@ module fetch_controller #(
                 IDLE: begin
                     stall_fetch_o = 1'b0;
 
+                    /* MUX the instruction to CPU */
+                    if (retained_valid & (head[31:4] == retained_block)) begin
+                        instruction_o = retained_bundle[head[OFFSET + 1:2]];
+                    end else begin
+                        instruction_o = pre_read_bundle[head[OFFSET + 1:2]];
+                    end
+
+                    /* Coming from request buffer */
+                    cache_read_address_o = head;
+
                     /* If a request needs to be serviced */
                     if (!fifo_empty) begin
                         if (retained_valid & (head[31:4] == retained_block)) begin
@@ -322,16 +340,11 @@ module fetch_controller #(
                              * saved block, just multiplex the instruction from the 
                              * block itself */
                             valid_o = !invalidate_i;
-                            instruction_o = retained_bundle[head[OFFSET + 1:2]];
 
                             pop = valid_o;
-                        /* The pending gate blocks a serve in the capture cycle of
-                         * a re-issue: the bundle still holds the previous line
-                         * while the address register already shows the new one */
                         end else if (pre_read_valid & (head == pre_read_address) & !pre_read_pending) begin
                             /* Read from prefetched block */
                             valid_o = !invalidate_i;
-                            instruction_o = pre_read_bundle[head[OFFSET + 1:2]];
 
                             pop = valid_o;
                             pre_read_consume = valid_o;
@@ -343,16 +356,13 @@ module fetch_controller #(
                         end else begin
                             /* Simple cache request */
                             cache_read_o = '1;
-                            cache_read_address_o = head;
 
                             state_NXT = OUTCOME;
                         end
 
                         /* Read the next block ahead of time once the current
                          * one is consumed word by word */
-                        if ((head[OFFSET + 1:2] >= 1'b1) & !pre_read_pending
-                                & ((retained_valid & (head[31:4] == retained_block))
-                                    | (pre_read_valid & (head == pre_read_address)))) begin
+                        if (pre_read) begin
                             pre_read_issue = 1'b1;
                             pre_read_target = (head & 32'hFFFF_FFF0) + 32'd16;
 
