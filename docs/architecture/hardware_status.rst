@@ -49,6 +49,9 @@ hardware history, including:
 * the SD controller's active-high ``sd_reset_o`` output and current clock
   choices;
 * the current cache/DDR integration boundary;
+* the pipelined I-cache fetch path: 16-entry request FIFO, retained-block
+  serving, speculative next-block pre-read, and early-restart refill
+  delivery;
 * the current full-SoC testbench and SD-boot flow.
 
 When changing a register package, memory-map parameter, top-level port, or

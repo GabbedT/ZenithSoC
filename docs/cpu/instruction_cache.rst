@@ -4,19 +4,30 @@ Instruction Cache
 Overview
 --------
 
-The Instruction Cache provides low-latency instruction fetch from DDR memory to the ApogeoRV core. It implements a direct-mapped cache with configurable size and block dimensions, coupled with a fetch controller FSM that manages cache misses, memory refills, and instruction sequencing.
+The Instruction Cache provides low-latency instruction fetch from DDR memory
+to the ApogeoRV core. It implements a direct-mapped cache with configurable
+size and block dimensions, coupled with a fetch controller that manages cache
+misses, memory refills, and instruction delivery.
 
-The cache design prioritizes sequential instruction access patterns with an integrated instruction sequencer that buffers cache blocks, enabling single-cycle fetch throughput on cache hits and sequential access within blocks.
+The fetch path is pipelined: a request FIFO absorbs every fetch, so the
+frontend keeps requesting instructions through cache misses and refills and
+stalls only when the FIFO is full. Sequential code is served from a retained
+copy of the last delivered block or from a speculative pre-read of the next
+block, which makes sequential block transitions cost zero stall cycles. A
+returning refill delivers words to matching queued requests as soon as they
+arrive (early restart) instead of waiting for the whole line to be written
+back.
 
 Features
 ~~~~~~~~
 
 * Direct-mapped cache architecture
-* Configurable cache size (default 4KB - 16KB)
-* Configurable block size (default 16-32 bytes)
-* Single-cycle hit latency
+* Configurable cache size and block size (SoC default: 4KB, 16-byte blocks)
+* 16-entry request FIFO for pipelined request acceptance
+* Retained-block serving: one word per cycle without cache accesses
+* Speculative next-block pre-read: zero-stall sequential block transitions
 * Automatic cache line refill on miss
-* Instruction sequencer for sequential access optimization
+* Early restart: refill words delivered to matching requests before allocation
 * Support for non-sequential jumps and branches
 * Pipeline flush capability via invalidate signal
 * Region switching support (ROM to DDR transitions)
@@ -25,11 +36,17 @@ Features
 Architecture
 ------------
 
-The Instruction Cache consists of three main components:
+The Instruction Cache complex consists of two main components:
 
 * **Instruction Cache Memory**: Tag, valid bit, and data storage
-* **Fetch Controller**: FSM managing cache operations and memory refills
-* **Instruction Sequencer**: Buffers and delivers instructions sequentially
+* **Fetch Controller**: Request FIFO, FSM managing cache operations and
+  memory refills, and the serving paths
+
+The previous instruction sequencer is gone. Its job is split between the
+retained bundle, which serves the remaining words of the current block, and
+the speculative pre-read, which covers the transition to the next block.
+This is what lets the controller accept and queue requests while a refill is
+in flight.
 
 Cache Organization
 ~~~~~~~~~~~~~~~~~~
@@ -51,7 +68,7 @@ Where:
 * **Offset**: Selects word within block (log2(BLOCK_SIZE / 4) bits)
 * **Byte**: Always 00 (word-aligned instructions)
 
-**Example (4KB cache, 16-byte blocks):**
+**Example (SoC configuration: 4KB cache, 16-byte blocks):**
 
 * CACHE_SIZE = 4096 bytes
 * BLOCK_SIZE = 16 bytes
@@ -63,9 +80,9 @@ Address breakdown:
 +----------+----------+---------+------+
 | Tag      | Index    | Offset  | Byte |
 +==========+==========+=========+======+
-| [31:10]  | [9:4]    | [3:2]   | [1:0]|
+| [31:12]  | [11:4]   | [3:2]   | [1:0]|
 +----------+----------+---------+------+
-| 22 bits  | 6 bits   | 2 bits  | 2    |
+| 20 bits  | 8 bits   | 2 bits  | 2    |
 +----------+----------+---------+------+
 
 **Memory Components:**
@@ -101,9 +118,11 @@ Each cache line stores BLOCK_SIZE / 4 words (32-bit each).
 **Write Operation:**
 
 1. Use INDEX to select cache line
-2. Write entire block (all words)
-3. Update tag and valid bit
-4. Single-cycle write operation
+2. Write entire block (all words) in a single cycle
+3. Update tag and valid bit in the same write
+
+Tag and valid are written together with the data, so a partially written
+line can never produce a false hit.
 
 Tag Comparison
 ~~~~~~~~~~~~~~
@@ -122,153 +141,135 @@ The cache performs tag comparison to determine hit/miss:
 
 This introduces 1 cycle of latency from request to hit determination.
 
-Fetch Controller FSM
---------------------
+Fetch Controller
+----------------
 
-The fetch controller implements a 6-state FSM managing cache operations:
+The fetch controller (``hw/memory/cache/icache/fetch_controller.sv``) owns
+the request queue, the cache read/write ports, and the DDR load channel.
 
-States
-~~~~~~
+Request FIFO
+~~~~~~~~~~~~
+
+Requests are queued so the frontend keeps fetching while a refill is in
+flight:
+
+* Depth is 16, deeper than the frontend's 8-entry instruction buffer, so the
+  registered full flag can never race a fetch into a dropped push (a dropped
+  push would desync the frontend address/instruction streams).
+* The FIFO is fall-through: a request arriving in an empty FIFO is served in
+  the same cycle.
+* A push happens on every ``fetch_i``; the pop happens at delivery, not at
+  access start.
+* On ``invalidate_i`` the pointers are cleared and the fetch issued together
+  with the invalidate (the redirect target) is written at index 0, so the
+  redirect stream is never lost.
+* The FIFO can never overflow in practice: the frontend is bounded by its
+  own instruction buffer and stops fetching when the full flag asserts.
+
+Serving Paths
+~~~~~~~~~~~~~
+
+In the IDLE state the head request is served by one of three paths:
+
+1. **Retained bundle** — the last delivered block is kept in a register.
+   If the head belongs to that block, the word is multiplexed out directly:
+   one word per cycle, no cache access, no stall.
+2. **Speculative pre-read** — while the controller serves the current block
+   at offset 1 or later, it issues a read for the next block
+   (``head + 16``). By the time the head reaches the next block the bundle
+   is already registered. The serve is validated by an address match, so a
+   wrong guess (a taken branch) falls back to the normal cache read. The
+   pre-read is dropped on invalidate and when a refill writes a line (the
+   write may replace the line the speculative read returned).
+3. **Cache read** — the normal path: a read is issued and the word is
+   delivered in the OUTCOME state (1 stall cycle per block transition).
+
+With paths 1 and 2, sequential code inside a block and across block
+boundaries is served without stalling the frontend at all.
+
+FSM States
+~~~~~~~~~~
+
+The fetch controller implements a 5-state FSM:
 
 **IDLE**
 
-* Waiting for fetch request from CPU
-* ``stall_fetch_o`` deasserted (CPU can fetch)
-* On ``fetch_i`` assertion:
+* Only state with ``stall_fetch_o`` deasserted
+* On a non-empty FIFO:
 
-  * Issue cache read with ``program_counter_i``
-  * Transition to OUTCOME
-  * Assert ``stall_fetch_o``
+  * Serve the head from the retained bundle or the speculative pre-read,
+    or issue a cache read and transition to OUTCOME
+* While serving at offset 1 or later, issue the speculative pre-read of the
+  next block
 
 **OUTCOME**
 
 * Wait for cache hit/miss determination
 * On cache hit:
 
-  * Output ``cache_instruction_i`` bundle
-  * Assert ``valid_o``
-  * Return to IDLE
-  * Deassert ``stall_fetch_o``
+  * Deliver the requested word, validated against ``read_block`` — the
+    block the read was issued for; an invalidate can replace the head while
+    the read is in flight, and a mismatch re-enters IDLE to serve the new
+    head instead of delivering the old line
+  * Retain the bundle, pop the request, return to IDLE
 
 * On cache miss:
 
-  * Check for conflicts (D-cache using memory bus)
-  * Check for invalidation (pipeline flush)
-  * If clear: Issue first memory load request
-  * Transition to ALLOCATION_REQ
-  * Initialize ``word_counter`` to 1
+  * Latch the head block as ``refill_block``
+  * Fire the first memory load request (word 0), frozen by the D-cache
+    conflict signal and by invalidation
+  * Transition to REFILL_REQ with ``word_counter`` = 1
 
-**ALLOCATION_REQ**
+**REFILL_REQ**
 
-* Issue sequential memory load requests to fetch cache block
-* Requests issued for each word in block
-* Address incremented: ``{tag, index, word_counter, 2'b0}``
-* ``word_counter`` increments each cycle
-* When all requests issued (``word_counter[OFFSET]`` set):
+* Issue the remaining load requests for the block, one per cycle, at
+  incrementing addresses ``{refill_block, word_counter, 2'b0}``
+* Frozen by ``stall_i`` and ``conflict_i``: a D-cache refill has priority
+  on the shared DDR port
+* Once word 0 has been fired, words 1-3 are always issued: a partial batch
+  would corrupt the DDR bridge's two-entry pair buffer
+* When all requests are out, transition to REFILL and reset ``word_counter``
 
-  * Transition to WAIT_BUNDLE
-  * Reset ``word_counter``
+**REFILL**
 
-**WAIT_BUNDLE**
+* Count the four returning ``load_channel.valid`` beats
+* Each beat is shifted into the instruction bundle, newest word at the MSB
+* Early restart: each beat is delivered directly to the queued request that
+  matches it (see below)
+* After the fourth beat, transition to WRITE
 
-* Wait for memory controller to return data
-* On each ``load_channel.valid``:
+**WRITE**
 
-  * Shift data into ``instruction_bundle``
-  * Increment ``word_counter``
-
-* When all words received (``word_counter[OFFSET]`` set):
-
-  * Check for invalidation
-  * If valid: Transition to ALLOCATE
-  * If invalidated: Return to IDLE, discard data
-
-**ALLOCATE**
-
-* Write fetched bundle to cache
-* Assert ``cache_write_o`` with full bundle
-* Update tag and valid bit
-* Output bundle to sequencer
-* Assert ``valid_o``
+* Write the whole bundle to the cache with tag and valid in a single write
+* Retain the bundle for the serving paths
 * Return to IDLE
+* If an invalidate arrived during the refill, the write is skipped and the
+  line stays invalid
 
+The controller also keeps simulation-only performance taps: ``fetch_access_CRT``
+counts delivered requests and ``fetch_hit_CRT`` counts those served without a
+refill (``stall_fetch_o`` is asserted in every non-IDLE state).
 
-Instruction Sequencer
----------------------
+Early Restart
+~~~~~~~~~~~~~
 
-The sequencer optimizes sequential instruction fetch by buffering cache blocks and serving instructions without additional cache accesses.
+While the refill beats stream back, the controller checks the FIFO head on
+every beat. If the head belongs to the block being refilled, the word is
+delivered immediately instead of waiting for the WRITE state:
 
-Operation
-~~~~~~~~~
+* **Direct match** — the head's offset equals the incoming beat: deliver
+  ``load_channel.data`` and pop the request.
+* **Buffered match** — the head's offset is behind the incoming beat (the
+  request was queued late): deliver the word from the instruction bundle.
+  The bundle shifts newest-first (``{data, bundle[3:1]}``), so after *k*
+  beats word *j* sits at slot *j + 4 - k*.
 
-**Buffering:**
+Delivery is gated by invalidation: a redirect mid-refill discards the beats
+and the line is never written.
 
-When a cache bundle arrives:
-
-1. Identify requested word using ``block_index`` (PC offset bits)
-2. Load bundle into shift register
-3. Shift to align first instruction at position 0
-4. Store remaining instructions for sequential access
-
-**Sequential Access:**
-
-On each fetch:
-
-1. Check if next PC is sequential (PC + 4)
-2. If sequential and sequencer not empty:
-
-   * Return instruction from sequencer[0]
-   * Shift sequencer right by one word
-   * Decrement ``sequencer_size``
-   * No cache access required
-
-3. If non-sequential or sequencer empty:
-
-   * Request new bundle from cache/controller
-   * Set ``request_bundle`` flag
-
-**Sequencer Size Tracking:**
-
-``sequencer_size`` tracks available instructions:
-
-* On bundle arrival: ``size = (BLOCK_WORDS - 1) - block_index``
-* On fetch: ``size = size - 1``
-* On new bundle request: ``size = 0``
-
-**Example (4-word block):**
-
-.. code-block:: text
-
-   Bundle arrives: [I0][I1][I2][I3], PC points to I1
-
-   block_index = 1
-   sequencer_size = (4 - 1) - 1 = 2
-   sequencer = [I2][I3][--][--]
-
-   Next fetch (PC+4):
-     output = sequencer[0] = I2
-     sequencer = [I3][--][--][--]
-     sequencer_size = 1
-
-   Next fetch (PC+8):
-     output = sequencer[0] = I3
-     sequencer = [--][--][--][--]
-     sequencer_size = 0
-
-   Next fetch (PC+12):
-     sequencer_size = 0, request new bundle
-
-Non-Sequential Access
-~~~~~~~~~~~~~~~~~~~~~
-
-On branch/jump (non-sequential PC):
-
-* ``request_bundle`` asserted
-* Sequencer flushed (size = 0)
-* New bundle requested from cache
-* Higher latency (cache access required)
-
-This design optimizes for common case (sequential) while supporting control flow changes.
+This cuts the miss penalty by the number of words the frontend is waiting
+for: it continues as soon as the first matching word arrives rather than
+after the whole line is allocated.
 
 Pipeline Integration
 --------------------
@@ -282,7 +283,10 @@ Fetch Interface
 * ``fetch_channel.address[31:0]``: Program counter
 * ``fetch_channel.instruction[31:0]``: Returned instruction
 * ``fetch_channel.valid``: Instruction valid
-* ``fetch_channel.stall``: Stall CPU (cache miss)
+* ``fetch_channel.stall``: Frontend stall — asserted only when the request
+  FIFO is full or an I-cache flush is in progress (``fifo_full |
+  flush_busy_o``). Unlike the previous design, cache reads and refills do
+  not stall the frontend directly.
 * ``fetch_channel.invalidate``: Flush pipeline (branch mispredict)
 
 Memory Interface
@@ -313,8 +317,8 @@ When transitioning from ROM to DDR (bootloader to main program):
 
 .. code-block:: systemverilog
 
-   if (invalidate_i & !region_switch_i) begin
-       invalidate_pending <= 1'b1;
+   if (invalidate_i & (state_CRT != IDLE)) begin
+       invalidate_pending <= !region_switch_i;
    end
 
 Region switch invalidation is not pending, allowing immediate IDLE entry.
@@ -329,7 +333,6 @@ When D-cache requests DDR access during I-cache refill:
 * D-cache given priority (data dependencies more critical)
 * I-cache resumes when conflict clears
 
-
 Pipeline Invalidation
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -338,9 +341,26 @@ On branch misprediction or exception:
 * CPU asserts ``invalidate_i``
 * Fetch controller:
 
-  * Aborts ongoing memory requests
-  * Discards fetched but not yet allocated data
-  * Returns to IDLE
-  * Clears sequencer
+  * Clears the request FIFO, keeping the redirect-target fetch
+  * Drops the retained bundle and the speculative pre-read
+  * Gates early-restart delivery
+  * An in-flight refill finishes issuing its batch (the DDR bridge requires
+    it), but the returning data is discarded and the line is not written
 
 * Prevents invalid instructions from entering pipeline
+
+An invalidate that arrives while the FSM is outside IDLE is latched in
+``invalidate_pending`` so the in-flight state machine can finish cleanly.
+The pending flag defers new refill requests and gates delivery until the
+FSM reaches IDLE; region switches skip the pending latch.
+
+Whole-Cache Flush
+~~~~~~~~~~~~~~~~~
+
+The complex has a flush port (``flush_i``/``flush_busy_o``/``flush_done_o``)
+that invalidates every cache line while the fetch controller is stalled.
+The flush waits for the controller to return to IDLE, then walks the line
+index on the cache write port, clearing valid bits one line per cycle.
+
+At the SoC level this port is currently tied off (``cpu_complex.sv``), so
+FENCE.I does not invalidate the I-cache RAMs.
