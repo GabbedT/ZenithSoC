@@ -325,6 +325,7 @@ module load_controller #(
 
                     if (request_i & lock_i) begin
                         state_NXT = WAIT_LOCK;
+                        load_access_NXT = load_access_CRT + 1'b1;
                     end else if (request_i) begin
                         state_NXT = OUTCOME;
                         cpu_lookup_issue = 1'b1;
@@ -401,13 +402,14 @@ module load_controller #(
                             lock_request_o = !lock_status_i;
                             cache_address_o = queued_load_address;
 
+                            load_access_NXT = load_access_CRT + 1'b1;
+
                             if (lock_status_i) begin
                                 state_NXT = WAIT_LOCK;
                             end else begin
                                 state_NXT = OUTCOME;
                                 cpu_lookup_issue = 1'b1;
                                 cache_read_o = '1;
-                                load_access_NXT = load_access_CRT + 1'b1;
                             end
                         end else if (request_i & lock_i) begin
                             state_NXT = WAIT_LOCK;
