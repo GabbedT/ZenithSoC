@@ -124,3 +124,54 @@ The two bootloader files have different roles:
 Run a full `make bitstream` again after RTL, constraints, FPGA part, boot-memory
 size, or implementation settings change. The regenerated MMI is tied to that
 specific placed bitstream.
+
+
+### 100 MHz timing closure and the floorplan
+
+The flow closes timing at 100 MHz with a coarse floorplan in
+`../../constraint/floorplan.xdc`. It is applied at implementation only
+(`USED_IN_SYNTHESIS false`), so editing the regions does not invalidate the
+synthesis run. Three pblocks are pinned on the 7a100t die:
+
+* `pblock_cpu` — the ApogeoRV complex against its BRAM/DSP columns
+  (`SLICE_X0Y9:SLICE_X55Y110`), with `CONTAIN_ROUTING`.
+* `pblock_mig` — the fabric-based DDR controller to the right
+  (`SLICE_X56Y20:SLICE_X89Y128`), with `CONTAIN_ROUTING`.
+* `pblock_apu` — the audio processing unit at the top
+  (`SLICE_X0Y50:SLICE_X59Y199`), without `CONTAIN_ROUTING`: the dense
+  wave-mixer adder trees left 107 pins unrouted under containment.
+
+`fpga/nexys_a7/pblock/` holds the site lists used to visualize each region in
+the Vivado GUI — open the routed checkpoint and source
+`pblock/pblock_cpu_RangedSites.tcl` (and the `*_AllTiles.tcl` /
+`*_FrameTiles.tcl` variants) to highlight a region.
+
+### When a feature does not meet timing
+
+Synthesis is reused across floorplan iterations, so the loop is a single
+command:
+
+```bash
+make retry-impl        # ~15-18 min, reuses synth_1
+```
+
+The outcome is in `build/vivado/timing_impl.rpt` (Design Timing Summary:
+WNS/TNS, failing endpoints) and `build/vivado/failing_paths_impl.rpt`
+("No timing paths found." when clean). Diagnose before touching anything:
+
+1. **Classify the failures.** In the worst paths, compute the route share
+   (route delay over total delay). The original 500 failures were all
+   route-dominated (44-78%): logic depth was within budget, so the fix was
+   placement, not RTL.
+2. **Route-dominated** → tune the floorplan: enlarge the pblock that owns the
+   source/destination module in `../../constraint/floorplan.xdc`, then `retry-impl`.
+   Regions are oversized ~2-3x on purpose — keep them generous. Note that
+   `resize_pblock -add` takes one corner-to-corner rectangle
+   (`{SLICE_X0Y9:SLICE_X55Y110}`): a space-separated list creates many
+   single-site regions instead.
+3. **Logic-dominated** → an RTL problem: no floorplan can fix excessive logic
+   depth. It needs a pipeline/latency change and must be reviewed as a CPU
+   change — do not hide it under a bigger pblock.
+4. **Respect the margins.** The current closure is +0.002 ns (2 ps) — real,
+   but thin. Leave headroom for process corner variation before shipping a new
+   feature.

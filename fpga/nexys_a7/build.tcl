@@ -41,20 +41,29 @@ proc collect_filelist {filelist} {
     return $result
 }
 
+# Setting a property on a completed run marks it out-of-date even when the
+# value is unchanged, so retry_impl can never pass its own freshness check.
+# Set only when the value differs from what the run already has.
+proc set_run_prop {run prop value} {
+    if {[get_property $prop [get_runs $run]] ne $value} {
+        set_property $prop $value [get_runs $run]
+    }
+}
+
 proc configure_timing_runs {} {
-    set_property strategy Flow_PerfOptimized_high [get_runs synth_1]
+    set_run_prop synth_1 strategy Flow_PerfOptimized_high
 
     # The failing LDU-to-scoreboard path is routing-dominated (72.256% route
     # delay) and includes a high-fanout scoreboard net. Vivado's supported
     # NetDelay strategy increases pessimism for long/high-fanout nets during
     # placement, while preserving the existing timing-driven implementation
     # stages and the post-route physical optimization pass.
-    set_property strategy Performance_NetDelay_high [get_runs impl_1]
-    set_property STEPS.PLACE_DESIGN.ARGS.DIRECTIVE ExtraNetDelay_high [get_runs impl_1]
-    set_property STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
-    set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
-    set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore [get_runs impl_1]
-    set_property STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE NoTimingRelaxation [get_runs impl_1]
+    set_run_prop impl_1 strategy Performance_NetDelay_high
+    set_run_prop impl_1 STEPS.PLACE_DESIGN.ARGS.DIRECTIVE ExtraNetDelay_high
+    set_run_prop impl_1 STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore
+    set_run_prop impl_1 STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true
+    set_run_prop impl_1 STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore
+    set_run_prop impl_1 STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE NoTimingRelaxation
 }
 
 proc write_implementation_reports {build_dir} {
@@ -142,9 +151,29 @@ if {$target eq "retry_synth"} {
 if {$target eq "retry_impl"} {
     open_project [file join $build_dir project ZenithSoC.xpr]
     configure_timing_runs
+
+    # The floorplan XDC is part of project creation; a pre-existing project
+    # must pick it up too. add_files is idempotent per file set; the file is
+    # excluded from synthesis so floorplan edits do not invalidate synth_1.
+    set floorplan_xdc [file join $root_dir constraint floorplan.xdc]
+    if {[file exists $floorplan_xdc]} {
+        add_files -norecurse -fileset constrs_1 $floorplan_xdc
+        set_property USED_IN_SYNTHESIS false [get_files $floorplan_xdc]
+    }
+
     set synth_status [get_property STATUS [get_runs synth_1]]
     if {![string match "*Complete*" $synth_status]} {
-        error "Cannot implement an incomplete synthesis run: $synth_status"
+        # A stale synthesis (e.g. after constraint changes) is re-run here so
+        # retry-impl stays a single-shot command. Run properties are untouched
+        # by reset_run, so the timing directives persist.
+        puts "synth_1 is '$synth_status' - relaunching synthesis"
+        reset_run synth_1
+        launch_runs synth_1 -jobs $jobs
+        wait_on_run synth_1
+        set synth_status [get_property STATUS [get_runs synth_1]]
+        if {![string match "*Complete*" $synth_status]} {
+            error "Synthesis failed: $synth_status"
+        }
     }
 
     reset_run impl_1
@@ -181,6 +210,10 @@ add_files -norecurse -fileset sources_1 $rtl_files
 add_files -norecurse -fileset sources_1 $memory_files
 set_property file_type {Memory Initialization Files} [get_files $memory_files]
 add_files -norecurse -fileset constrs_1 [file join $root_dir constraint pins.xdc]
+add_files -norecurse -fileset constrs_1 [file join $root_dir constraint floorplan.xdc]
+# Floorplan pblocks only affect implementation: excluding the file from
+# synthesis keeps the synth run fresh while the region geometry is iterated.
+set_property USED_IN_SYNTHESIS false [get_files [file join $root_dir constraint floorplan.xdc]]
 
 set header_files {}
 foreach source $rtl_files {
