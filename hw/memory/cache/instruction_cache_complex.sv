@@ -147,7 +147,7 @@ module instruction_cache_complex #(
         .load_channel          ( load_channel )
     );
 
-    assign fetch_channel.stall = fifo_full | flush_busy_o;
+    assign fetch_channel.stall = fifo_full | flush_busy_o | controller_fetch_stall;
 
     assign fetch_channel.valid       = controller_valid & !flush_busy_o;
     assign fetch_channel.instruction = controller_instruction;

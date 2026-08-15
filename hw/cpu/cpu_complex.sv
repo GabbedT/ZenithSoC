@@ -274,39 +274,50 @@ module cpu_complex #(
             ddr_load_channel.invalidate = icache_load_channel.invalidate | dcache_load_channel.invalidate;
         end : request_arbiter
 
-
-    logic valid_negedge;
-
-    edge_detector #(0, 0) valid_negedge_detector (
-        .clk_i   ( clk_i ),
-        .rst_n_i ( rst_n_i ),
-
-        .signal_i ( ddr_load_channel.valid  ),
-        .edge_o   ( valid_negedge           )
-    );
-
-    /* Select the routing of the incoming data and valid signal */
     logic priority_bit, valid_stall;
+    logic [2:0] burst_req_count, burst_resp_count;
+    logic burst_active;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin 
+            if (!rst_n_i) begin
                 priority_bit <= ICACHE;
                 valid_stall <= 1'b0;
-            end else begin 
+                burst_active <= 1'b0;
+                burst_req_count <= '0;
+                burst_resp_count <= '0;
+            end else begin
+                if (burst_active) begin
+                    if (ddr_load_channel.request) begin
+                        burst_req_count <= burst_req_count + 1'b1;
+                    end
+
+                    if (ddr_load_channel.valid) begin
+                        burst_resp_count <= burst_resp_count + 1'b1;
+                    end
+
+                    /* Burst done: request line idle and every requested
+                     * word answered. The owner keeps the port until then. */
+                    if (!ddr_load_channel.request & (burst_resp_count == burst_req_count)) begin
+                        valid_stall <= 1'b0;
+                        burst_active <= 1'b0;
+                    end
+                end
+
                 if (ddr_load_channel.request & !valid_stall) begin
                     /* request_arbiter selects the data-cache address when both
                      * caches request a refill. Latch the same selection so
                      * the returning burst is routed to the data cache. */
                     priority_bit <= dcache_load_channel.request;
-                end
 
-                if (valid_negedge) begin
-                    valid_stall <= 1'b0;
-                end else if (ddr_load_channel.request) begin
                     valid_stall <= 1'b1;
+                    burst_active <= 1'b1;
+
+                    /* This cycle already carries the first requested word */
+                    burst_req_count <= 3'd1;
+                    burst_resp_count <= '0;
                 end
-            end 
-        end 
+            end
+        end
 
     assign stall_data = valid_stall & !priority_bit;
 

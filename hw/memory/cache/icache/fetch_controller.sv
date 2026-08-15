@@ -56,12 +56,19 @@ module fetch_controller #(
     /* THIS LOGIC NEEDS AN AD-HOC FIFO */
 
     /* Requests are queued so the frontend keeps fetching while a refill
-     * is in flight. The frontend is bounded by its own instruction buffer,
-     * so the FIFO can never overflow. */
+     * is in flight */
     logic [REQUEST_FIFO_DEPTH - 1:0][31:0] request_buffer;
     logic [$clog2(REQUEST_FIFO_DEPTH) - 1:0] write_ptr, read_ptr;
     logic fifo_full, fifo_empty, push, pop;
 
+    /* Number of queued requests (mod-16 subtraction of the ring pointers).
+     * The frontend is allowed to run at most FETCH_AHEAD_LIMIT fetches ahead
+     * of the serves: the CPU-side instruction buffer has 8 cells and pairs,
+     * so more run-ahead would overwrite */
+    localparam FETCH_AHEAD_LIMIT = 4'd6;
+
+    logic [3:0] fifo_occupancy;
+    assign fifo_occupancy = write_ptr - read_ptr;
     assign request_fifo_full_o = fifo_full;
 
     /* The fetch issued together with an invalidate is the redirect target:
@@ -321,7 +328,8 @@ module fetch_controller #(
                 /* A request is served either from the retained block, from
                  * the speculative read, or through a cache access */
                 IDLE: begin
-                    stall_fetch_o = 1'b0;
+                    /* Stop accepting fetches once the queue is deep enough */
+                    stall_fetch_o = (fifo_occupancy >= FETCH_AHEAD_LIMIT);
 
                     /* MUX the instruction to CPU */
                     if (retained_valid & (head[31:4] == retained_block)) begin
@@ -379,7 +387,7 @@ module fetch_controller #(
                     if (cache_hit_i & (head[31:4] == read_block)) begin
                         state_NXT = IDLE;
 
-                        valid_o = !invalidate_i & !invalidate_pending;
+                        valid_o = !invalidate_i & !invalidate_pending & !fifo_empty;
                         instruction_o = cache_instruction_i[head[OFFSET + 1:2]];
 
                         /* Write bundle into retain block */
@@ -393,12 +401,12 @@ module fetch_controller #(
                         state_NXT = IDLE;
                     end else begin
                         if (!stall_i & !conflict_i) begin
-                            state_NXT = (invalidate_i | invalidate_pending) ? IDLE : REFILL_REQ;
+                            state_NXT = (invalidate_i | invalidate_pending | fifo_empty) ? IDLE : REFILL_REQ;
                         end
 
                         word_counter_NXT = 'd1;
 
-                        load_channel.request = !stall_i & !(invalidate_i | invalidate_pending) & !conflict_i;
+                        load_channel.request = !stall_i & !(invalidate_i | invalidate_pending) & !conflict_i & !fifo_empty;
                         load_channel.address = {head[31:4], 2'b00, 2'b00};
                     end
                 end
@@ -458,10 +466,11 @@ module fetch_controller #(
 
                             pop = 1'b1;
                         end else if (head[OFFSET + 1:2] < word_counter_CRT[OFFSET - 1:0]) begin
-                            /* Beats fill the bundle newest-first: after k
-                             * beats word j sits at slot j + BLOCK_WIDTH - k */
+                            /* Beats fill the bundle newest-first: with word_counter
+                             * beats already received, word j sits at slot
+                             * j + BLOCK_WIDTH - word_counter */
                             valid_o = 1'b1;
-                            instruction_o = instruction_bundle[head[OFFSET + 1:2] + 2'd4 - word_counter_CRT[OFFSET - 1:0]];
+                            instruction_o = instruction_bundle[head[OFFSET + 1:2] + BLOCK_WIDTH - word_counter_CRT[OFFSET - 1:0]];
 
                             pop = 1'b1;
                         end
