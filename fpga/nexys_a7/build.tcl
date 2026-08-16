@@ -50,20 +50,32 @@ proc set_run_prop {run prop value} {
     }
 }
 
+proc reset_run_prop {run prop} {
+    # A strategy supplies the default for step directives.  Reset explicit
+    # overrides left by an older project before applying the selected strategy.
+    # Without this, retry_impl can silently retain (for example) the old
+    # NetDelay route directive after the strategy has changed.
+    catch {reset_property $prop [get_runs $run]}
+}
+
 proc configure_timing_runs {} {
     set_run_prop synth_1 strategy Flow_PerfOptimized_high
 
-    # The failing LDU-to-scoreboard path is routing-dominated (72.256% route
-    # delay) and includes a high-fanout scoreboard net. Vivado's supported
-    # NetDelay strategy increases pessimism for long/high-fanout nets during
-    # placement, while preserving the existing timing-driven implementation
-    # stages and the post-route physical optimization pass.
-    set_run_prop impl_1 strategy Performance_NetDelay_high
-    set_run_prop impl_1 STEPS.PLACE_DESIGN.ARGS.DIRECTIVE ExtraNetDelay_high
-    set_run_prop impl_1 STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore
+    # Timing is limited by routing-dominated LSU/commit and DDR load-info paths.
+    # The fixed-floorplan sweep recorded these best known results:
+    #   NetDelay_high              WNS=-0.422 ns
+    #   Explore                    WNS=-0.266 ns
+    #   ExplorePostRoutePhysOpt    WNS=-0.227 ns
+    # The latter is the default because its post-route physical optimization
+    # reduced TNS from -36.907 ns to -6.677 ns on the current checkpoint.
+    # Forced driver replication was measured as a regression to -1.018 ns and
+    # is intentionally kept as an opt-in diagnostic only.
+    set_run_prop impl_1 strategy Performance_ExplorePostRoutePhysOpt
+    reset_run_prop impl_1 STEPS.PLACE_DESIGN.ARGS.DIRECTIVE
+    reset_run_prop impl_1 STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE
+    reset_run_prop impl_1 STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE
+    reset_run_prop impl_1 STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE
     set_run_prop impl_1 STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true
-    set_run_prop impl_1 STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore
-    set_run_prop impl_1 STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE NoTimingRelaxation
 }
 
 proc write_implementation_reports {build_dir} {

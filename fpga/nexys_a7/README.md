@@ -54,9 +54,10 @@ Reports and generated files are written below `build/vivado/`.
 
 
 The flow uses `Flow_PerfOptimized_high` for synthesis and
-`Performance_ExplorePostRoutePhysOpt` for implementation. Physical
-optimization runs with `AggressiveExplore` before and after routing, while the
-router uses `NoTimingRelaxation` with TNS cleanup.
+`Performance_ExplorePostRoutePhysOpt` for implementation. The strategy's
+timing-driven `Explore` directives are kept as the default, including the
+post-route physical optimization pass; alternate directives are available
+through the sweep targets below.
 
 The main implementation reports are:
 
@@ -128,7 +129,7 @@ specific placed bitstream.
 
 ### 100 MHz timing closure and the floorplan
 
-The flow closes timing at 100 MHz with a coarse floorplan in
+The flow targets 100 MHz with a coarse floorplan in
 `../../constraint/floorplan.xdc`. It is applied at implementation only
 (`USED_IN_SYNTHESIS false`), so editing the regions does not invalidate the
 synthesis run. Three pblocks are pinned on the 7a100t die:
@@ -172,6 +173,34 @@ WNS/TNS, failing endpoints) and `build/vivado/failing_paths_impl.rpt`
 3. **Logic-dominated** → an RTL problem: no floorplan can fix excessive logic
    depth. It needs a pipeline/latency change and must be reviewed as a CPU
    change — do not hide it under a bigger pblock.
-4. **Respect the margins.** The current closure is +0.002 ns (2 ps) — real,
-   but thin. Leave headroom for process corner variation before shipping a new
-   feature.
+4. **Search implementation settings before changing RTL.** The current best
+   recorded result uses `Performance_ExplorePostRoutePhysOpt` and reports
+   WNS=-0.227 ns, TNS=-6.677 ns, with 77 failing setup endpoints. The worst
+   path is 74.5% routing delay, so this is still primarily a placement/route
+   problem. A strategy comparison can be run with:
+
+   ```bash
+   make sweep-impl SWEEP_CONFIGS="baseline explore_postroute_physopt explore"
+   ```
+
+   Empty per-step directives are reset between candidates; each candidate
+   also writes `timing_sweep_<name>.rpt` and
+   `failing_paths_sweep_<name>.rpt` below `build/vivado/`.
+
+   For a faster experiment after routing, compare post-route physical
+   optimization directives from the same checkpoint:
+
+   ```bash
+   make postroute-sweep POSTROUTE_DIRECTIVES="Explore AggressiveExplore"
+   ```
+
+   Those reports and checkpoints are kept under
+   `build/vivado/timing_search/`; the script never promotes a candidate
+   bitstream automatically. Forced driver replication remains an opt-in
+   diagnostic (`make physopt-repl`) because the measured result regressed to
+   WNS=-1.018 ns.
+
+5. **Do not weaken the 100 MHz constraint.** If implementation search still
+   leaves a negative WNS after the floorplan is verified, an RTL pipeline
+   change needs separate CPU review and cosimulation. Leave margin for process
+   corner variation before shipping a new feature.
