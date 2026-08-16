@@ -163,14 +163,16 @@ boot:
 run: build gen firmware boot
 	@echo "=== [COSIM] Running lockstep (GEN_SEED=$(GEN_SEED) SEED=$(SEED)) ==="
 	./obj_dir/Vcosim_top +firmware=$(OUT)/firmware.elf +boot=$(OUT)/boot.elf \
-		+trace=$(TRACE) \
-		$(if $(filter-out 0,$(MAX_RETIRE)),+max_retire=$(MAX_RETIRE),)
+		+trace=$(TRACE) +trace_insns \
+		$(if $(filter-out 0,$(MAX_RETIRE)),+max_retire=$(MAX_RETIRE),) 2>&1 | tee $(RUN_LOG)
 	@test -s $(TRACE)
+	@echo "=== [COSIM] run log -> $(RUN_LOG) ==="
 
 run-notrace: build gen firmware boot
 	./obj_dir/Vcosim_top +firmware=$(OUT)/firmware.elf +boot=$(OUT)/boot.elf +trace=$(TRACE) \
-		$(if $(filter-out 0,$(MAX_RETIRE)),+max_retire=$(MAX_RETIRE),)
+		$(if $(filter-out 0,$(MAX_RETIRE)),+max_retire=$(MAX_RETIRE),) 2>&1 | tee $(RUN_LOG)
 	@test -s $(TRACE)
+	@echo "=== [COSIM] run log -> $(RUN_LOG) ==="
 
 
 # ==============================================================================

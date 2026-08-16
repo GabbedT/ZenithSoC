@@ -321,12 +321,11 @@ module load_controller #(
                  * on the same cache address there is a lock, wait    *
                  * until the lock is released                         */
                 IDLE: begin
-                    if (request_i) begin
-                        active_address_NXT = address_i;
-                    end
+                    active_address_NXT = address_i;
 
                     if (request_i & lock_i) begin
                         state_NXT = WAIT_LOCK;
+                        load_access_NXT = load_access_CRT + 1'b1;
                     end else if (request_i) begin
                         state_NXT = OUTCOME;
                         cpu_lookup_issue = 1'b1;
@@ -383,6 +382,13 @@ module load_controller #(
                         data_o = cache_data_i;
                         valid_o = !invalidate_i;
 
+                        if (valid_load) begin
+                            /* Take queued request */
+                            active_address_NXT = queued_load_address;
+                        end else if ((request_i & lock_i) | request_i) begin
+                            active_address_NXT = address_i;
+                        end
+
                         /* Promote the oldest pending load before accepting a
                          * same-cycle younger request.  The load unit can
                          * retire the active hit and enqueue another load in
@@ -391,11 +397,12 @@ module load_controller #(
                         if (valid_load) begin
                             /* A request captured while the active load waited
                              * on a store lock must also be promoted here. */
-                            active_address_NXT = queued_load_address;
                             pop_load = 1'b1;
                             push_load = request_i & !invalidate_i;
                             lock_request_o = !lock_status_i;
                             cache_address_o = queued_load_address;
+
+                            load_access_NXT = load_access_CRT + 1'b1;
 
                             if (lock_status_i) begin
                                 state_NXT = WAIT_LOCK;
@@ -403,13 +410,10 @@ module load_controller #(
                                 state_NXT = OUTCOME;
                                 cpu_lookup_issue = 1'b1;
                                 cache_read_o = '1;
-                                load_access_NXT = load_access_CRT + 1'b1;
                             end
                         end else if (request_i & lock_i) begin
-                            active_address_NXT = address_i;
                             state_NXT = WAIT_LOCK;
                         end else if (request_i) begin
-                            active_address_NXT = address_i;
                             state_NXT = OUTCOME;
                             cpu_lookup_issue = 1'b1;
 
@@ -540,23 +544,19 @@ module load_controller #(
                             cache_write_o = invalidate_pending ? '0 : '1;
                         end else if (word_counter_CRT[OFFSET - 1:0] == '1) begin
                             /* Block has been allocated */
+                            active_address_NXT = valid_load ? queued_load_address : address_i;
+                            
                             if ((valid_load | push_load) & !invalidate_pending) begin
                                 /* If the younger request arrives on the last
                                  * refill beat, promote it directly rather than
-                                 * enqueueing it for an IDLE state that would
-                                 * otherwise never consume it. */
-                                active_address_NXT = valid_load ? queued_load_address : address_i;
+                                 * enqueueing it for an IDLE state */
                                 pop_load = valid_load;
+
                                 /* Replace a consumed queued load with a
                                  * younger request accepted on this final
                                  * refill beat. */
                                 push_load = valid_load ? (request_i & !invalidate_i) : 1'b0;
 
-                                /* The cache write port still uses
-                                 * cache_address_o for the final refill beat.
-                                 * Defer the younger read to WAIT_LOCK so the
-                                 * refill data cannot be written into the
-                                 * younger request's bank. */
                                 state_NXT = WAIT_LOCK;
                                 lock_request_o = !lock_status_i;
 
@@ -580,8 +580,7 @@ module load_controller #(
                         end
                     end 
 
-                    cache_address_o = {cache_address.tag, cache_address.index,
-                                       word_counter_CRT[OFFSET - 1:0], 2'b0};
+                    cache_address_o = {cache_address.tag, cache_address.index, word_counter_CRT[OFFSET - 1:0], 2'b0};
 
                     /* Set status to valid and clean */
                     cache_status_o.valid = 1'b1;

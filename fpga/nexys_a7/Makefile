@@ -26,7 +26,7 @@ BOOTLOADER_TMP := $(basename $(BOOTLOADER_BIT))_tmp.bit
 # simulation builds. Override BOOTLOADER_HEX for a different boot program.
 export ZENITH_BOOTLOADER_HEX := $(abspath $(BOOTLOADER_HEX))
 
-.PHONY: project retry-synth retry-impl finish-routed synth impl bitstream update-bootloader sim sim_batch sim_gui wave wave-config
+.PHONY: project retry-synth retry-impl finish-routed synth impl bitstream update-bootloader sim sim_batch sim_gui wave wave-config sweep-impl postroute-sweep physopt-repl
 
 project synth impl bitstream:
 	$(VIVADO) -mode batch -nojournal -nolog -source build.tcl -tclargs $@ $(JOBS)
@@ -36,6 +36,30 @@ retry-synth:
 
 retry-impl:
 	$(VIVADO) -mode batch -nojournal -nolog -source build.tcl -tclargs retry_impl $(JOBS)
+
+# Implementation strategy sweep: tries each configuration on the existing
+# synthesized netlist and prints a WNS/TNS comparison. Pass a subset with
+# SWEEP_CONFIGS (space-separated names, see sweep_impl.tcl).
+sweep-impl:
+	SWEEP_JOBS=$(JOBS) $(VIVADO) -mode batch -nojournal -nolog -source sweep_impl.tcl -tclargs $(BUILD_DIR) $(SWEEP_CONFIGS)
+
+# Compare post-route physical optimization directives from one identical
+# routed checkpoint. This is much shorter than a full strategy sweep and is
+# useful when route already passes most endpoints but post-route phys_opt is
+# the remaining timing lever. Results stay in build/vivado/timing_search/.
+postroute-sweep:
+	$(VIVADO) -mode batch -nojournal -nolog -source postroute_sweep.tcl -tclargs $(BUILD_DIR) $(POSTROUTE_DIRECTIVES)
+
+# Targeted driver replication: re-opens the pre-route physopt checkpoint (or
+# builds it from the synth netlist) and runs a dedicated
+# phys_opt_design -force_replication_on_nets pass (an option that is exclusive
+# of every other physopt option, so it must be its own pass), then route +
+# post-route physopt. By default the net list is derived from the worst failing
+# setup paths of the current design (nets with PIN_COUNT >= 20). Override with
+# FORCE_REPL_NETS (space-separated hierarchical net names, or "@file" to read
+# from a file), or "*" for every net with PIN_COUNT >= 25.
+physopt-repl:
+	$(VIVADO) -mode batch -nojournal -nolog -source physopt_forced_repl.tcl -tclargs $(BUILD_DIR) $(FORCE_REPL_NETS)
 
 finish-routed:
 	$(VIVADO) -mode batch -nojournal -nolog -source build.tcl -tclargs finish_routed $(JOBS)

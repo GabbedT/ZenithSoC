@@ -50,6 +50,7 @@ static VerilatedFstC   *tfp = nullptr;
 static uint64_t sim_time = 0;
 
 static bool enable_trace = true;
+static bool trace_insns  = false;   // +trace_insns: per-instruction text trace
 static std::string trace_path = "out/cosim.fst";
 
 static constexpr uint64_t HALF_PERIOD_NS = 5000;
@@ -183,6 +184,45 @@ static void report_mismatch(uint64_t retire, const char* what,
 }
 
 
+// Per-instruction text trace, enabled with +trace_insns (make run only).
+// Mirrors the full-SoC testbench format (tb/verilator print_event):
+//   0x{pc} : {disasm} x{rd} <= 0x{rd_value} | ST.w @0x{addr} data 0x{data}
+static void print_insn_trace(const RvfiEvent& d, const insn_t& insn,
+                             disassembler_t& dis) {
+    std::cout << std::hex << std::setfill('0');
+    std::cout << "0x" << std::setw(8) << d.pc << " : ";
+
+    if (d.is_exception) {
+        std::cout << "<exception vec=" << std::dec << d.info << ">\n";
+        std::cout << std::setfill(' ');
+        return;
+    }
+
+    std::cout << std::setfill(' ')
+              << std::left << std::setw(28) << dis.disassemble(insn)
+              << std::right;
+
+    if (d.rd != 0) {
+        std::cout << " x" << std::dec << std::setfill('0') << std::setw(2)
+                  << d.rd << " <= 0x" << std::hex << std::setw(8) << d.rd_value;
+    }
+
+    if (d.is_store || d.is_load) {
+        static const char* w[] = {"b", "h", "w"};
+
+        std::cout << " | " << (d.is_store ? "ST" : "LD") << "."
+                  << (d.mem_width <= 2 ? w[d.mem_width] : "?") << " @0x"
+                  << std::hex << std::setfill('0') << std::setw(8) << d.mem_addr;
+
+        if (d.is_store) {
+            std::cout << " data 0x" << std::setw(8) << d.mem_data;
+        }
+    }
+
+    std::cout << std::setfill(' ') << std::dec << "\n";
+}
+
+
 // ============================================================================
 //      MAIN
 // ============================================================================
@@ -202,6 +242,7 @@ int main(int argc, char** argv) {
         if      (a.rfind("+firmware=", 0) == 0)     fw_path = a.substr(10);
         else if (a.rfind("+boot=", 0) == 0)         boot_path = a.substr(6);
         else if (a == "+notrace")                   enable_trace = false;
+        else if (a == "+trace_insns")               trace_insns = true;
         else if (a.rfind("+trace=", 0) == 0)        trace_path = a.substr(7);
         else if (a.rfind("+max_retire=", 0) == 0)   max_retire = std::stoull(a.substr(12));
     }
@@ -492,6 +533,9 @@ int main(int argc, char** argv) {
         try {
             insn = p->get_mmu()->load_insn(st->pc).insn;
         } catch (...) {}
+
+        if (trace_insns)
+            print_insn_trace(d, insn, dis);
 
         try {
             p->step(1);

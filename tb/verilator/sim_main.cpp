@@ -395,7 +395,7 @@ public:
 
         reset();
 
-        while (!finished_ && !g_stop_requested) {
+        while (!finished_ && !g_stop_requested && !Verilated::gotFinish()) {
             tick();
 
             if (tohost_addr_ && tohost_hit_) {
