@@ -124,7 +124,12 @@ module instruction_cache_complex #(
     logic [31:0] controller_instruction;
     logic controller_valid, fifo_full;
 
-    fetch_controller #(BLOCK_WORDS, OFFSET, TAG, INDEX) controller (
+    fetch_controller #(
+        .BLOCK_WIDTH ( BLOCK_WORDS ),
+        .OFFSET      ( OFFSET      ),
+        .INDEX       ( INDEX       ),
+        .TAG         ( TAG         )
+    ) controller (
         .clk_i            ( clk_i ),
         .rst_n_i          ( rst_n_i ),
         .stall_i          ( stall_i | flush_invalidating ),

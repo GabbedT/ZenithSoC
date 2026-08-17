@@ -5,19 +5,22 @@ module fetch_controller #(
     /* Cache block words */
     parameter BLOCK_WIDTH = 8,
 
-    /* Cache block */
-    parameter OFFSET = 2,
-
-    /* Cache tag size */
-    parameter TAG = 16,
+    /* Bits selecting a word inside a cache block */
+    parameter OFFSET = $clog2(BLOCK_WIDTH),
 
     /* Cache index size */
     parameter INDEX = 12,
 
+    /* Cache tag size */
+    parameter TAG = 32 - (2 + OFFSET + INDEX),
+
     /* Pending fetch requests. Deeper than the frontend instruction buffer
-     * (8) so the registered full flag can never race a fetch into a drop:
+     * so the registered full flag can never race a fetch into a drop:
      * a dropped push would desync the frontend address/instruction streams */
-    parameter REQUEST_FIFO_DEPTH = 16
+    parameter REQUEST_FIFO_DEPTH = 16,
+
+    /* Maximum number of requests allowed ahead of the responses */
+    parameter FETCH_AHEAD_LIMIT = 6
 ) (
     input logic clk_i,
     input logic rst_n_i,
@@ -57,17 +60,14 @@ module fetch_controller #(
 
     /* Requests are queued so the frontend keeps fetching while a refill
      * is in flight */
+    localparam REQUEST_FIFO_PTR_WIDTH = $clog2(REQUEST_FIFO_DEPTH);
+
     logic [REQUEST_FIFO_DEPTH - 1:0][31:0] request_buffer;
-    logic [$clog2(REQUEST_FIFO_DEPTH) - 1:0] write_ptr, read_ptr;
+    logic [REQUEST_FIFO_PTR_WIDTH - 1:0] write_ptr, read_ptr;
     logic fifo_full, fifo_empty, push, pop;
 
-    /* Number of queued requests (mod-16 subtraction of the ring pointers).
-     * The frontend is allowed to run at most FETCH_AHEAD_LIMIT fetches ahead
-     * of the serves: the CPU-side instruction buffer has 8 cells and pairs,
-     * so more run-ahead would overwrite */
-    localparam FETCH_AHEAD_LIMIT = 4'd6;
-
-    logic [3:0] fifo_occupancy;
+    /* Number of queued requests, calculated modulo REQUEST_FIFO_DEPTH. */
+    logic [REQUEST_FIFO_PTR_WIDTH - 1:0] fifo_occupancy;
     assign fifo_occupancy = write_ptr - read_ptr;
     assign request_fifo_full_o = fifo_full;
 
@@ -161,7 +161,7 @@ module fetch_controller #(
             if (!rst_n_i) begin
                 read_block <= '0;
             end else if (state_CRT == IDLE) begin
-                read_block <= head[31:4];
+                read_block <= head[31:OFFSET + 2];
             end
         end
 
@@ -170,7 +170,7 @@ module fetch_controller #(
             if (!rst_n_i) begin
                 refill_block <= '0;
             end else if ((state_CRT == OUTCOME) & !cache_hit_i & !stall_i & !conflict_i & !(invalidate_i | invalidate_pending)) begin
-                refill_block <= head[31:4];
+                refill_block <= head[31:OFFSET + 2];
             end
         end
 
@@ -290,7 +290,7 @@ module fetch_controller #(
     logic pre_read; 
     
     assign pre_read = (head[OFFSET + 1:2] >= 1'b1) & !pre_read_pending 
-                    & ((retained_valid & (head[31:4] == retained_block)) 
+                    & ((retained_valid & (head[31:OFFSET + 2] == retained_block))
                     | (pre_read_valid & (head == pre_read_address)));
 
         always_comb begin
@@ -332,7 +332,7 @@ module fetch_controller #(
                     stall_fetch_o = (fifo_occupancy >= FETCH_AHEAD_LIMIT);
 
                     /* MUX the instruction to CPU */
-                    if (retained_valid & (head[31:4] == retained_block)) begin
+                    if (retained_valid & (head[31:OFFSET + 2] == retained_block)) begin
                         instruction_o = retained_bundle[head[OFFSET + 1:2]];
                     end else begin
                         instruction_o = pre_read_bundle[head[OFFSET + 1:2]];
@@ -343,7 +343,7 @@ module fetch_controller #(
 
                     /* If a request needs to be serviced */
                     if (!fifo_empty) begin
-                        if (retained_valid & (head[31:4] == retained_block)) begin
+                        if (retained_valid & (head[31:OFFSET + 2] == retained_block)) begin
                             /* Block address to be serviced is the address of the 
                              * saved block, just multiplex the instruction from the 
                              * block itself */
@@ -359,7 +359,7 @@ module fetch_controller #(
 
                             /* Move prefetched block into retained block */
                             retain = valid_o;
-                            retain_block = head[31:4];
+                            retain_block = head[31:OFFSET + 2];
                             retain_bundle = pre_read_bundle;
                         end else begin
                             /* Simple cache request */
@@ -372,7 +372,10 @@ module fetch_controller #(
                          * one is consumed word by word */
                         if (pre_read) begin
                             pre_read_issue = 1'b1;
-                            pre_read_target = (head & 32'hFFFF_FFF0) + 32'd16;
+                            pre_read_target = {
+                                head[31:OFFSET + 2] + 1'b1,
+                                {(OFFSET + 2){1'b0}}
+                            };
 
                             cache_read_o = '1;
                             cache_read_address_o = pre_read_target;
@@ -384,7 +387,7 @@ module fetch_controller #(
                 /* Cache outcome: the requested word is served on a hit,
                  * otherwise the block refill starts with word zero */
                 OUTCOME: begin
-                    if (cache_hit_i & (head[31:4] == read_block)) begin
+                    if (cache_hit_i & (head[31:OFFSET + 2] == read_block)) begin
                         state_NXT = IDLE;
 
                         valid_o = !invalidate_i & !invalidate_pending & !fifo_empty;
@@ -393,7 +396,7 @@ module fetch_controller #(
                         /* Write bundle into retain block */
                         pop = valid_o;
                         retain = valid_o;
-                        retain_block = head[31:4];
+                        retain_block = head[31:OFFSET + 2];
                         retain_bundle = cache_instruction_i;
                     end else if (cache_hit_i) begin
                         /* The head changed while the read was in flight:
@@ -407,7 +410,10 @@ module fetch_controller #(
                         word_counter_NXT = 'd1;
 
                         load_channel.request = !stall_i & !(invalidate_i | invalidate_pending) & !conflict_i & !fifo_empty;
-                        load_channel.address = {head[31:4], 2'b00, 2'b00};
+                        load_channel.address = {
+                            head[31:OFFSET + 2],
+                            {(OFFSET + 2){1'b0}}
+                        };
                     end
                 end
 
@@ -459,7 +465,8 @@ module fetch_controller #(
 
                     /* Deliver early if the incoming word matches the next
                      * request or was already received in the bundle */
-                    if (!fifo_empty & !(invalidate_i | invalidate_pending) & (head[31:4] == refill_block)) begin
+                    if (!fifo_empty & !(invalidate_i | invalidate_pending)
+                        & (head[31:OFFSET + 2] == refill_block)) begin
                         if ((head[OFFSET + 1:2] == word_counter_CRT[OFFSET - 1:0]) & load_channel.valid) begin
                             valid_o = 1'b1;
                             instruction_o = load_channel.data;
@@ -484,7 +491,10 @@ module fetch_controller #(
 
                     if (!(invalidate_i | invalidate_pending)) begin
                         cache_write_o = '1;
-                        cache_write_address_o = {refill_block, 2'b00, 2'b00};
+                        cache_write_address_o = {
+                            refill_block,
+                            {(OFFSET + 2){1'b0}}
+                        };
                         cache_instruction_o = instruction_bundle;
 
                         retain = 1'b1;
