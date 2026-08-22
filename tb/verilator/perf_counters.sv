@@ -54,7 +54,7 @@ module perf_counters (
     wire scb_issue_instruction  = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.issue_instruction_o;
 
     // Per-unit RAW hazards (vectors — OR-reduce to detect any active)
-    wire alu_raw_active, ldu_raw_active, mul_raw_active, div_raw_active, stu_raw_active;
+    wire alu_raw_active, ldu_raw_active, mul_raw_active, div_raw_active;
     assign alu_raw_active = |dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.alu_raw_hazard;
     assign ldu_raw_active = |dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.ldu_raw_hazard;
     assign mul_raw_active = |dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.mul_raw_hazard;
@@ -62,11 +62,7 @@ module perf_counters (
     wire div_raw_active_internal;
     assign div_raw_active_internal = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.div_raw_hazard;
 
-    wire stu_raw_active_internal;
-    assign stu_raw_active_internal = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.stu_raw_hazard;
-
     assign div_raw_active = div_raw_active_internal;
-    assign stu_raw_active = stu_raw_active_internal;
 
     // Per-unit latency hazards
     wire alu_lat_active, mul_lat_active, div_lat_active;
@@ -286,7 +282,6 @@ module perf_counters (
             cnt_st_raw_mul          <= 64'd0;
             cnt_st_raw_div          <= 64'd0;
             cnt_st_raw_ldu          <= 64'd0;
-            cnt_st_raw_stu          <= 64'd0;
             cnt_st_lat_alu          <= 64'd0;
             cnt_st_lat_mul          <= 64'd0;
             cnt_st_lat_div          <= 64'd0;
@@ -411,9 +406,6 @@ module perf_counters (
                 end
                 else if (div_raw_active) begin
                     cnt_st_raw_div <= cnt_st_raw_div + 64'd1;
-                end
-                else if (stu_raw_active) begin
-                    cnt_st_raw_stu <= cnt_st_raw_stu + 64'd1;
                 end
                 else if (alu_lat_active) begin
                     cnt_st_lat_alu <= cnt_st_lat_alu + 64'd1;
@@ -566,7 +558,6 @@ module perf_counters (
             $display("  st_raw_mul             : %12d  (%5.1f%%)", cnt_st_raw_mul,     100.0 * real'(cnt_st_raw_mul)     / real'(cnt_stall_slots));
             $display("  st_raw_div             : %12d  (%5.1f%%)", cnt_st_raw_div,     100.0 * real'(cnt_st_raw_div)     / real'(cnt_stall_slots));
             $display("  st_raw_ldu             : %12d  (%5.1f%%)", cnt_st_raw_ldu,     100.0 * real'(cnt_st_raw_ldu)     / real'(cnt_stall_slots));
-            $display("  st_raw_stu             : %12d  (%5.1f%%)", cnt_st_raw_stu,     100.0 * real'(cnt_st_raw_stu)     / real'(cnt_stall_slots));
             $display("  st_lat_alu             : %12d  (%5.1f%%)", cnt_st_lat_alu,     100.0 * real'(cnt_st_lat_alu)     / real'(cnt_stall_slots));
             $display("  st_lat_mul             : %12d  (%5.1f%%)", cnt_st_lat_mul,     100.0 * real'(cnt_st_lat_mul)     / real'(cnt_stall_slots));
             $display("  st_lat_div             : %12d  (%5.1f%%)", cnt_st_lat_div,     100.0 * real'(cnt_st_lat_div)     / real'(cnt_stall_slots));
