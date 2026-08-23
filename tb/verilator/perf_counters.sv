@@ -45,6 +45,14 @@ module perf_counters (
     // -- Scheduler -----------------------------------------------------------
     wire sch_rob_full_i   = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.rob_full_i;
     wire sch_flush_busy_i = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.flush_busy_i;
+    wire sch_queue_nonempty = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.queue_nonempty;
+    wire [4:0] sch_final_issue = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.final_issue;
+
+    // A real OoO issue is a selected candidate younger than the oldest
+    // buffered entry.  Queue entries occupy indices 0..3 and the incoming
+    // decode instruction is index 4.  final_issue is already gated by the
+    // scheduler's accept conditions, so this counts accepted issues only.
+    wire sch_ooo_issue = sch_queue_nonempty && |sch_final_issue[4:1];
 
     // -- Scoreboard ----------------------------------------------------------
     wire scb_raw_hazard         = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.raw_hazard;
@@ -136,6 +144,7 @@ module perf_counters (
     reg [63:0] cnt_branch_flushes;
     reg [63:0] cnt_full_flushes;
     reg [63:0] cnt_fence_events;
+    reg [63:0] cnt_ooo_issues;         // younger issue bypassed an older queue entry
 
     // --- B.2 Issue-slot breakdown -------------------------------------------
     reg [63:0] cnt_issue_slots;        // instruction issued this cycle
@@ -146,7 +155,6 @@ module perf_counters (
     reg [63:0] cnt_st_backend;
     reg [63:0] cnt_st_flush_busy;
     reg [63:0] cnt_st_rob_full;
-    reg [63:0] cnt_st_fence;           // FENCE waiting for pipeline drain
     reg [63:0] cnt_st_csr_wait;
     reg [63:0] cnt_st_fence_wb;        // FENCE waiting for cache flush
     reg [63:0] cnt_st_struct_div;
@@ -263,6 +271,7 @@ module perf_counters (
             cnt_branch_flushes      <= 64'd0;
             cnt_full_flushes        <= 64'd0;
             cnt_fence_events        <= 64'd0;
+            cnt_ooo_issues          <= 64'd0;
 
             cnt_issue_slots         <= 64'd0;
             cnt_empty_slots         <= 64'd0;
@@ -271,7 +280,6 @@ module perf_counters (
             cnt_st_backend          <= 64'd0;
             cnt_st_flush_busy       <= 64'd0;
             cnt_st_rob_full         <= 64'd0;
-            cnt_st_fence            <= 64'd0;
             cnt_st_csr_wait         <= 64'd0;
             cnt_st_fence_wb         <= 64'd0;
             cnt_st_struct_div       <= 64'd0;
@@ -343,6 +351,9 @@ module perf_counters (
 
             if (edge_cache_flush)
                 cnt_fence_events <= cnt_fence_events + 64'd1;
+
+            if (sch_ooo_issue)
+                cnt_ooo_issues <= cnt_ooo_issues + 64'd1;
 
             // ----- Issue-slot breakdown --------------------------------------
             // These 3 buckets are mutually exclusive and sum to total_cycles.
@@ -417,15 +428,16 @@ module perf_counters (
                     cnt_st_lat_div <= cnt_st_lat_div + 64'd1;
                 end
                 else begin
-                    // Serialization (fence pending, CSR pending, or other)
-                    // Try to distinguish fence vs CSR by checking fence
-                    // flush pending state.
+                    // Serialization (CSR pending, fence pending, or other).
+                    // Do not infer a FENCE stall from pipeline_empty_i: that
+                    // signal describes the backend, not the instruction that
+                    // is currently stalled at decode.
                     if (cc_cache_flush_request || icache_flush_busy || dcache_flush_busy)
                         cnt_st_fence_wb <= cnt_st_fence_wb + 64'd1;
-                    else if (dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.pipeline_empty_i == 1'b0)
-                        cnt_st_fence <= cnt_st_fence + 64'd1;
-                    else
+                    else if (dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.issued_csr_instruction)
                         cnt_st_csr_wait <= cnt_st_csr_wait + 64'd1;
+                    else
+                        cnt_st_other <= cnt_st_other + 64'd1;
                 end
             end
 
@@ -533,6 +545,7 @@ module perf_counters (
         $display("  total_cycles           : %12d", cnt_total_cycles);
         $display("  retired_instructions   : %12d   IPC=%.3f  CPI=%.3f", cnt_retired, ipc, cpi);
         $display("  issued_instructions    : %12d", cnt_issued);
+        $display("  ooo_issues             : %12d", cnt_ooo_issues);
         $display("  branches_executed      : %12d", cnt_branches_executed);
         $display("");
         $display("  -- Issue Slots (%% of total cycles) ---------------------------------");
@@ -549,7 +562,6 @@ module perf_counters (
             $display("  st_rob_full            : %12d  (%5.1f%%)", cnt_st_rob_full,    100.0 * real'(cnt_st_rob_full)    / real'(cnt_stall_slots));
             $display("  st_csr_wait            : %12d  (%5.1f%%)", cnt_st_csr_wait,    100.0 * real'(cnt_st_csr_wait)    / real'(cnt_stall_slots));
             $display("  st_fence_wb            : %12d  (%5.1f%%)", cnt_st_fence_wb,    100.0 * real'(cnt_st_fence_wb)    / real'(cnt_stall_slots));
-            $display("  st_fence               : %12d  (%5.1f%%)", cnt_st_fence,       100.0 * real'(cnt_st_fence)       / real'(cnt_stall_slots));
             $display("  st_struct_div          : %12d  (%5.1f%%)", cnt_st_struct_div,  100.0 * real'(cnt_st_struct_div)  / real'(cnt_stall_slots));
             $display("  st_struct_ldu          : %12d  (%5.1f%%)", cnt_st_struct_ldu,  100.0 * real'(cnt_st_struct_ldu)  / real'(cnt_stall_slots));
             $display("  st_struct_stu          : %12d  (%5.1f%%)", cnt_st_struct_stu,  100.0 * real'(cnt_st_struct_stu)  / real'(cnt_stall_slots));
@@ -674,9 +686,6 @@ module perf_counters (
             bottleneck_val = cnt_st_fence_wb; bottleneck_name = "st_fence_wb (FENCE wait flush)"; end
         if (cnt_st_csr_wait > bottleneck_val) begin
             bottleneck_val = cnt_st_csr_wait; bottleneck_name = "st_csr_wait (CSR serialization)"; end
-        if (cnt_st_fence > bottleneck_val) begin
-            bottleneck_val = cnt_st_fence; bottleneck_name = "st_fence (FENCE wait drain)"; end
-
         bottleneck_pct = (cnt_total_cycles > 0) ? 100.0 * real'(bottleneck_val) / real'(cnt_total_cycles) : 0.0;
 
         $display("  ====================================================================");
