@@ -52,6 +52,9 @@ module perf_counters (
     wire sch_fence_drain   = sch_fence_pending &&
                               ((!dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.pipeline_empty) ||
                                (!dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.pipeline_empty_i));
+    wire sch_issued_csr    = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.issued_csr_instruction;
+    wire sch_csr_pending   = sch_issued_csr ||
+                              dut.ApogeoRV.system_cpu.apogeo_frontend.dc_stage_exu_valid.CSR;
 
     // -- Scoreboard ----------------------------------------------------------
     wire scb_raw_hazard         = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.raw_hazard;
@@ -430,15 +433,15 @@ module perf_counters (
                     cnt_st_lat_div <= cnt_st_lat_div + 64'd1;
                 end
                 else begin
-                    // Serialization (fence pending, CSR pending, or other)
-                    // Try to distinguish fence vs CSR by checking fence
-                    // flush pending state.
+                    // Serialization (fence pending, CSR pending, or other).
                     if (cc_cache_flush_request || icache_flush_busy || dcache_flush_busy)
                         cnt_st_fence_wb <= cnt_st_fence_wb + 64'd1;
                     else if (sch_fence_drain)
                         cnt_st_fence <= cnt_st_fence + 64'd1;
-                    else
+                    else if (sch_csr_pending)
                         cnt_st_csr_wait <= cnt_st_csr_wait + 64'd1;
+                    else
+                        cnt_st_other <= cnt_st_other + 64'd1;
                 end
             end
 
