@@ -122,7 +122,7 @@ module instruction_cache_complex #(
 //====================================================================================
 
     logic [31:0] controller_instruction;
-    logic controller_valid, fifo_full;
+    logic controller_valid;
 
     fetch_controller #(
         .BLOCK_WIDTH ( BLOCK_WORDS ),
@@ -140,7 +140,6 @@ module instruction_cache_complex #(
         .program_counter_i     ( fetch_channel.address          ),
         .instruction_o         ( controller_instruction         ),
         .valid_o               ( controller_valid               ),
-        .request_fifo_full_o   ( fifo_full                      ),
         .stall_fetch_o         ( controller_fetch_stall         ),
         .cache_write_address_o ( controller_cache_write_address ),
         .cache_write_o         ( controller_cache_write         ),
@@ -152,7 +151,7 @@ module instruction_cache_complex #(
         .load_channel          ( load_channel                   )
     );
 
-    assign fetch_channel.stall = fifo_full | flush_busy_o | controller_fetch_stall;
+    assign fetch_channel.stall = flush_busy_o | controller_fetch_stall;
 
     assign fetch_channel.valid       = controller_valid & !flush_busy_o;
     assign fetch_channel.instruction = controller_instruction;
