@@ -171,6 +171,7 @@ module perf_counters (
     reg [63:0] cnt_st_rob_full;
     reg [63:0] cnt_st_csr_wait;
     reg [63:0] cnt_st_fence_wb;        // FENCE waiting for cache flush
+    reg [63:0] cnt_st_fence;
     reg [63:0] cnt_st_struct_div;
     reg [63:0] cnt_st_struct_ldu;
     reg [63:0] cnt_st_struct_stu;
@@ -297,6 +298,7 @@ module perf_counters (
             cnt_st_rob_full         <= 64'd0;
             cnt_st_csr_wait         <= 64'd0;
             cnt_st_fence_wb         <= 64'd0;
+            cnt_st_fence            <= 64'd0;
             cnt_st_struct_div       <= 64'd0;
             cnt_st_struct_ldu       <= 64'd0;
             cnt_st_struct_stu       <= 64'd0;
