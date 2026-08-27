@@ -92,3 +92,86 @@ The bottleneck line distinguishes hazard classes (e.g. `st_raw_ldu` load-use RAW
 vs `st_raw_alu` ALU RAW vs `st_struct_ldu` load-unit-full structural) so you can
 see exactly what limits the core on a given workload. The same `perf_counters.sv`
 is reused by the XSim testbench in `tb/top/` (see `tb/top/README.md`).
+
+## Embench-IoT
+
+The full-SoC Verilator testbench can run the 19 Embench-IoT benchmarks with the
+same direct ELF-loading flow used by the other firmware tests. From the
+repository root, run:
+
+```bash
+cd tb/verilator/script
+./run_embench.sh 0 0
+```
+
+The first argument disables waveform generation and the second disables the
+instruction trace. The script stores the complete logs in
+`tb/verilator/logs/embench/` and reports the cycle count measured between
+`start_trigger()` and `stop_trigger()`.
+
+### Current Results
+
+The following results are taken from the current logs. All benchmarks completed
+successfully (`PASS`). The reported value is the number of SoC clock cycles at
+which `EMBENCH_CYCLES` was printed; it is not host execution time.
+
+| Benchmark | Cycles | Result |
+| :-- | --: | :--: |
+| `aha-mont64` | 5,492,019 | PASS |
+| `crc32` | 4,182,180 | PASS |
+| `depthconv` | 2,840,515 | PASS |
+| `edn` | 3,771,791 | PASS |
+| `huffbench` | 2,913,567 | PASS |
+| `matmult-int` | 2,861,235 | PASS |
+| `md5sum` | 2,590,511 | PASS |
+| `nettle-aes` | 4,141,649 | PASS |
+| `nettle-sha256` | 4,924,451 | PASS |
+| `nsichneu` | 5,604,382 | PASS |
+| `picojpeg` | 3,954,375 | PASS |
+| `qrduino` | 3,573,520 | PASS |
+| `sglib-combined` | 3,605,251 | PASS |
+| `slre` | 3,250,644 | PASS |
+| `statemate` | 5,152,525 | PASS |
+| `tarfind` | 1,910,220 | PASS |
+| `ud` | 2,613,106 | PASS |
+| `wikisort` | 970,164 | PASS |
+| `xgboost` | 5,338,860 | PASS |
+
+Using `CPU_MHZ=100`, `GLOBAL_SCALE_FACTOR=1`, and the Embench reference values
+in `sw/benchmark/Embench-IoT/embench-iot/baseline-data/speed.json`, the relative
+score for each benchmark is computed as:
+
+```text
+relative score = reference time / (EMBENCH_CYCLES / (CPU_MHZ * 1000))
+Embench score = geometric mean of the 19 relative scores = 118.67
+Embench score/MHz = 1.19
+```
+
+## CoreMark
+
+CoreMark can be run on the same full-SoC Verilator testbench. To build and run
+the 3,000-iteration simulation:
+
+```bash
+cd tb/verilator/script
+./run_coremark.sh 3000 0 0
+```
+
+### Risultato corrente
+
+The result below is taken from `tb/verilator/logs/run.log`. The run completed
+the standard 10-second measurement interval and validated correctly. CoreMark
+prints `Total time (secs): 10` and `Iterations/Sec: 300` using integer seconds;
+the precise score below is calculated from the cycle counter instead.
+
+| Metric | Result |
+| :-- | --: |
+| Iterations | 3,000 |
+| Clock | 100 MHz |
+| Total cycles (`CYCLES`) | 1,012,098,368 |
+| Retired instructions (`INSTRET`) | 831,249,814 |
+| CPI | 1.217 |
+| Measured time | 10.120983680 s |
+| Iterations/sec | 296.413875850 |
+| CoreMark/MHz | **2.96** |
+| Result | **PASS** |
