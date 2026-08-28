@@ -147,7 +147,7 @@ foreach name $names {
     }
     puts "\n=== [clock format [clock seconds] -format %T] running config '$name' ==="
     set rc [catch {
-        reset_run $run
+        reset_runs $run
         apply_config $run $cfg
         launch_runs $run -jobs $jobs
         wait_on_run $run
