@@ -45,6 +45,16 @@ module perf_counters (
     // -- Scheduler -----------------------------------------------------------
     wire sch_rob_full_i   = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.rob_full_i;
     wire sch_flush_busy_i = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.flush_busy_i;
+    // A fence stall is only meaningful when the decoded instruction is
+    // actually a FENCE and either the scheduler queue or the backend is not
+    // drained.  pipeline_empty_i alone is not enough to identify it.
+    wire sch_fence_pending = dut.ApogeoRV.system_cpu.apogeo_frontend.dc_stage_fence;
+    wire sch_fence_drain   = sch_fence_pending &&
+                              ((!dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.pipeline_empty) ||
+                               (!dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.pipeline_empty_i));
+    wire sch_issued_csr    = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.issued_csr_instruction;
+    wire sch_csr_pending   = sch_issued_csr ||
+                              dut.ApogeoRV.system_cpu.apogeo_frontend.dc_stage_exu_valid.CSR;
 
     // -- Scoreboard ----------------------------------------------------------
     wire scb_raw_hazard         = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.raw_hazard;
@@ -102,8 +112,11 @@ module perf_counters (
     // -- I-cache complex -----------------------------------------------------
     wire icache_flush_busy       = dut.ApogeoRV.icache.flush_busy_o;
     wire icache_ctrl_stall_fetch = dut.ApogeoRV.icache.controller.stall_fetch_o;
-    wire [31:0] icache_fetch_access = dut.ApogeoRV.icache.controller.fetch_access_CRT;
-    wire [31:0] icache_fetch_hit    = dut.ApogeoRV.icache.controller.fetch_hit_CRT;
+    // Fetch performance is measured here, so the RTL controller does not
+    // need simulation-only state.  valid_o is one delivered instruction;
+    // refill_instruction_valid identifies the critical-word restart path.
+    wire icache_fetch_valid  = dut.ApogeoRV.icache.controller.valid_o & !icache_flush_busy;
+    wire icache_fetch_refill = dut.ApogeoRV.icache.controller.refill_instruction_valid;
 
     // -- D-cache complex -----------------------------------------------------
     wire dcache_flush_busy = dut.ApogeoRV.dcache.flush_busy_o;
@@ -173,7 +186,8 @@ module perf_counters (
     // --- B.5 I-cache --------------------------------------------------------
     reg [63:0] cnt_icache_flush_busy;
     // Note: icache refill stalls counted in fe_fetch_stall
-    // Note: icache accesses/hits read from RTL counters at report time
+    reg [31:0] icache_fetch_access;
+    reg [31:0] icache_fetch_hit;
 
     // --- B.6 D-cache --------------------------------------------------------
     reg [63:0] cnt_dcache_flush_cycles;
@@ -294,6 +308,8 @@ module perf_counters (
             cnt_be_bubbles          <= 64'd0;
 
             cnt_icache_flush_busy   <= 64'd0;
+            icache_fetch_access     <= 32'd0;
+            icache_fetch_hit        <= 32'd0;
 
             cnt_dcache_flush_cycles <= 64'd0;
             cnt_dcache_flush_events <= 64'd0;
@@ -417,15 +433,15 @@ module perf_counters (
                     cnt_st_lat_div <= cnt_st_lat_div + 64'd1;
                 end
                 else begin
-                    // Serialization (fence pending, CSR pending, or other)
-                    // Try to distinguish fence vs CSR by checking fence
-                    // flush pending state.
+                    // Serialization (fence pending, CSR pending, or other).
                     if (cc_cache_flush_request || icache_flush_busy || dcache_flush_busy)
                         cnt_st_fence_wb <= cnt_st_fence_wb + 64'd1;
-                    else if (dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.pipeline_empty_i == 1'b0)
+                    else if (sch_fence_drain)
                         cnt_st_fence <= cnt_st_fence + 64'd1;
-                    else
+                    else if (sch_csr_pending)
                         cnt_st_csr_wait <= cnt_st_csr_wait + 64'd1;
+                    else
+                        cnt_st_other <= cnt_st_other + 64'd1;
                 end
             end
 
@@ -448,6 +464,12 @@ module perf_counters (
             // ----- I-cache counters ------------------------------------------
             if (icache_flush_busy)
                 cnt_icache_flush_busy <= cnt_icache_flush_busy + 64'd1;
+
+            if (icache_fetch_valid) begin
+                icache_fetch_access <= icache_fetch_access + 32'd1;
+                if (!icache_fetch_refill)
+                    icache_fetch_hit <= icache_fetch_hit + 32'd1;
+            end
 
             // ----- D-cache counters ------------------------------------------
             if (dcache_flush_busy)

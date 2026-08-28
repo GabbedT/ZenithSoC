@@ -60,22 +60,19 @@ proc reset_run_prop {run prop} {
 
 proc configure_timing_runs {} {
     set_run_prop synth_1 strategy Flow_PerfOptimized_high
+    set_run_prop synth_1 STEPS.SYNTH_DESIGN.ARGS.DIRECTIVE AlternateRoutability
+    set_run_prop synth_1 STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY rebuilt
 
-    # Timing is limited by routing-dominated LSU/commit and DDR load-info paths.
-    # The fixed-floorplan sweep recorded these best known results:
-    #   NetDelay_high              WNS=-0.422 ns
-    #   Explore                    WNS=-0.266 ns
-    #   ExplorePostRoutePhysOpt    WNS=-0.227 ns
-    # The latter is the default because its post-route physical optimization
-    # reduced TNS from -36.907 ns to -6.677 ns on the current checkpoint.
-    # Forced driver replication was measured as a regression to -1.018 ns and
-    # is intentionally kept as an opt-in diagnostic only.
-    set_run_prop impl_1 strategy Performance_ExplorePostRoutePhysOpt
-    reset_run_prop impl_1 STEPS.PLACE_DESIGN.ARGS.DIRECTIVE
-    reset_run_prop impl_1 STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE
-    reset_run_prop impl_1 STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE
-    reset_run_prop impl_1 STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE
+    # The dominant failures are routing-dominated paths from the LDU address
+    # buffer into dcache BRAM control pins.  Use the net-delay strategy and
+    # explicit timing directives so stale project properties cannot select a
+    # less suitable placement or route mode.
+    set_run_prop impl_1 strategy Performance_NetDelay_high
+    set_run_prop impl_1 STEPS.PLACE_DESIGN.ARGS.DIRECTIVE ExtraNetDelay_high
+    set_run_prop impl_1 STEPS.PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore
+    set_run_prop impl_1 STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE NoTimingRelaxation
     set_run_prop impl_1 STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true
+    set_run_prop impl_1 STEPS.POST_ROUTE_PHYS_OPT_DESIGN.ARGS.DIRECTIVE AggressiveExplore
 }
 
 proc write_implementation_reports {build_dir} {
@@ -147,7 +144,7 @@ if {$target eq "retry_synth"} {
     set_property verilog_define $project_defines [get_filesets sources_1]
     set_property top $top [get_filesets sources_1]
 
-    reset_run synth_1
+    reset_runs synth_1
     launch_runs synth_1 -jobs $jobs
     wait_on_run synth_1
     set synth_status [get_property STATUS [get_runs synth_1]]
@@ -164,22 +161,13 @@ if {$target eq "retry_impl"} {
     open_project [file join $build_dir project ZenithSoC.xpr]
     configure_timing_runs
 
-    # The floorplan XDC is part of project creation; a pre-existing project
-    # must pick it up too. add_files is idempotent per file set; the file is
-    # excluded from synthesis so floorplan edits do not invalidate synth_1.
-    set floorplan_xdc [file join $root_dir constraint floorplan.xdc]
-    if {[file exists $floorplan_xdc]} {
-        add_files -norecurse -fileset constrs_1 $floorplan_xdc
-        set_property USED_IN_SYNTHESIS false [get_files $floorplan_xdc]
-    }
-
     set synth_status [get_property STATUS [get_runs synth_1]]
     if {![string match "*Complete*" $synth_status]} {
         # A stale synthesis (e.g. after constraint changes) is re-run here so
         # retry-impl stays a single-shot command. Run properties are untouched
-        # by reset_run, so the timing directives persist.
+        # by reset_runs, so the timing directives persist.
         puts "synth_1 is '$synth_status' - relaunching synthesis"
-        reset_run synth_1
+        reset_runs synth_1
         launch_runs synth_1 -jobs $jobs
         wait_on_run synth_1
         set synth_status [get_property STATUS [get_runs synth_1]]
@@ -188,7 +176,7 @@ if {$target eq "retry_impl"} {
         }
     }
 
-    reset_run impl_1
+    reset_runs impl_1
     launch_runs impl_1 -to_step write_bitstream -jobs $jobs
     wait_on_run impl_1
     set impl_status [get_property STATUS [get_runs impl_1]]
@@ -222,10 +210,6 @@ add_files -norecurse -fileset sources_1 $rtl_files
 add_files -norecurse -fileset sources_1 $memory_files
 set_property file_type {Memory Initialization Files} [get_files $memory_files]
 add_files -norecurse -fileset constrs_1 [file join $root_dir constraint pins.xdc]
-add_files -norecurse -fileset constrs_1 [file join $root_dir constraint floorplan.xdc]
-# Floorplan pblocks only affect implementation: excluding the file from
-# synthesis keeps the synth run fresh while the region geometry is iterated.
-set_property USED_IN_SYNTHESIS false [get_files [file join $root_dir constraint floorplan.xdc]]
 
 set header_files {}
 foreach source $rtl_files {
