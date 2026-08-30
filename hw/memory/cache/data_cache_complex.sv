@@ -143,12 +143,12 @@ module data_cache_complex #(
     status_packet_t lctrl_status_packet;
     logic [31:0] lctrl_store_data, lctrl_cache_address, lctrl_lock_address, lctrl_load_data;
     logic [INDEX - 1:0] lctrl_lock_index;
-    logic lctrl_valid_data, lctrl_stall, ld_lock, ld_lock_request;
+    logic lctrl_valid_data, lctrl_busy, lctrl_stall, ld_lock, ld_lock_request;
     data_enable_t lctrl_cache_store, lctrl_cache_read;
 
     store_interface lctrl_store_channel(); assign lctrl_store_channel.done = ddr_store_channel.done;
 
-    load_controller #(OFFSET, TAG, INDEX) load_cache_controller (
+    load_controller #(BLOCK_WORDS, OFFSET, TAG, INDEX) load_cache_controller (
         .clk_i   ( clk_i                  ),
         .rst_n_i ( rst_n_i                ), 
         .stall_i ( stall_i | flush_busy_o ),
@@ -158,6 +158,7 @@ module data_cache_complex #(
         .lock_request_o ( ld_lock_request    ),
         .lock_address_o ( lctrl_lock_address ),
         .lock_index_o   ( lctrl_lock_index   ),
+        .busy_o         ( lctrl_busy         ),
 
         .invalidate_i ( ldu_channel.invalidate                 ),
         .request_i    ( ldu_channel.request & !io_load_request ),
@@ -487,29 +488,24 @@ module data_cache_complex #(
                 ld_lock_address <= '0;
                 st_lock_address <= '0;
             end else begin
-                /* A response normally releases the load lock. A back-to-back
-                 * hit, or promotion of the queued load after a refill, hands
-                 * ownership directly to the next address without an unlocked
-                 * cycle. Requests queued behind a miss must not overwrite the
-                 * active miss address. */
+                /* Keep the load lock for the complete controller transaction.
+                 * The miss response can be delivered before the refill has
+                 * finished, so releasing on ldu_channel.valid would allow a
+                 * same-index store to overwrite the line mid-refill. */
                 if (ldu_channel.invalidate) begin
                     ld_lock_acquired <= 1'b0;
-                end else if (ldu_channel.valid) begin
-                    if (ld_lock_request) begin
-                        ld_lock_acquired <= 1'b1;
-                        ld_lock_address <= lctrl_lock_address;
-                    end else if (ldu_channel.request & !io_load_request & !ld_lock) begin
-                        ld_lock_acquired <= 1'b1;
-                        ld_lock_address <= ldu_channel.address;
-                    end else begin
-                        ld_lock_acquired <= 1'b0;
-                    end
                 end else if (ld_lock_request) begin
                     ld_lock_acquired <= 1'b1;
                     ld_lock_address <= lctrl_lock_address;
-                end else if (!ld_lock_acquired & ldu_channel.request & !io_load_request & !ld_lock) begin
+                end else if (lctrl_busy & !ld_lock & !lctrl_stall) begin
+                    ld_lock_acquired <= 1'b1;
+                    ld_lock_address <= lctrl_lock_address;
+                end else if (!lctrl_busy &&
+                             ldu_channel.request & !io_load_request & !ld_lock) begin
                     ld_lock_acquired <= 1'b1;
                     ld_lock_address <= ldu_channel.address;
+                end else if (!lctrl_busy) begin
+                    ld_lock_acquired <= 1'b0;
                 end
 
                 if (stu_channel.done) begin

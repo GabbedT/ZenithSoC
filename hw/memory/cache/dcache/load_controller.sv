@@ -24,6 +24,7 @@ module load_controller #(
     output logic lock_request_o,
     output logic [31:0] lock_address_o,
     output logic [INDEX - 1:0] lock_index_o,
+    output logic busy_o,
 
     /* Load unit interface */
     input logic invalidate_i,
@@ -72,6 +73,8 @@ module load_controller #(
      * discovered to be a miss. Preserve it until refill completion. */
     logic replay_valid;
     logic [31:0] replay_address;
+    logic replay_valid_2;
+    logic [31:0] replay_address_2;
 
     logic s0_request, s0_cache_issue;
     logic [31:0] s0_address;
@@ -80,16 +83,22 @@ module load_controller #(
     /* Cache outcome stage nets */
     logic [31:0] s1_address;
     logic s1_request;
+    logic replay_push, replay_pop;
 
 
     /* Invalidate kills a queued request, if invalidation happends, take the
      * newest request */
     assign s0_request = invalidate_i ? request_i : (replay_valid | request_i);
     assign s0_address = (replay_valid & !invalidate_i) ? replay_address : address_i;
+    assign replay_push = request_i & !invalidate_i &
+                         ((state_CRT != IDLE) | s1_miss | lock_i |
+                          lock_status_i | replay_valid);
+    assign replay_pop = replay_valid & s0_cache_issue;
 
     /* When S1 returns an hit, S0 can pass its data to S1. When S1 returns a miss the pipeline and the
      * CPU load unit must not issue more request */
-    assign s0_cache_issue = (state_CRT == IDLE) & s0_request & !s1_miss & (invalidate_i | s1_request) & !lock_status_i; // TODO: MIGHT BE BROKEN
+    assign s0_cache_issue = (state_CRT == IDLE) & s0_request &
+                            !s1_miss & !lock_status_i;
 
 
     data_enable_t cache_read; logic [31:0] cache_read_address;
@@ -119,16 +128,36 @@ module load_controller #(
             if (!rst_n_i) begin
                 replay_valid <= 1'b0;
                 replay_address <= '0;
+                replay_valid_2 <= 1'b0;
+                replay_address_2 <= '0;
             end else if (invalidate_i) begin
                 replay_valid <= 1'b0;
-            end else if ((s1_miss & request_i) | (lock_i & request_i)) begin
-                /* Save to not lose after miss is serviced or when a lock is obtained by
-                 * store controller  */
-                replay_valid <= 1'b1;
-                replay_address <= address_i;
-            end else if (replay_valid & s0_cache_issue & !lock_status_i) begin
-                /* Clear this the cycle after the miss is serviced */
-                replay_valid <= 1'b0;
+                replay_valid_2 <= 1'b0;
+            end else if (replay_pop) begin
+                if (replay_valid_2) begin
+                    replay_valid <= 1'b1;
+                    replay_address <= replay_address_2;
+                    replay_valid_2 <= replay_push;
+                    if (replay_push) begin
+                        replay_address_2 <= address_i;
+                    end
+                end else if (replay_push) begin
+                    replay_valid <= 1'b1;
+                    replay_address <= address_i;
+                    replay_valid_2 <= 1'b0;
+                end else begin
+                    replay_valid <= 1'b0;
+                    replay_valid_2 <= 1'b0;
+                end
+            end else if (replay_push) begin
+                /* Save requests arriving while a miss or lock is serviced. */
+                if (!replay_valid) begin
+                    replay_valid <= 1'b1;
+                    replay_address <= address_i;
+                end else if (!replay_valid_2) begin
+                    replay_valid_2 <= 1'b1;
+                    replay_address_2 <= address_i;
+                end
             end
         end
 
@@ -155,13 +184,15 @@ module load_controller #(
     assign lock_request_o = wait_lock & !lock_status_i;
 
         always_comb begin
-            if (s1_miss) begin
+            if (s1_miss | (state_CRT != IDLE)) begin
                 lock_address_o = s1_address;
-                lock_index_o = s1_address[OFFSET + INDEX + 1:OFFSET + 2];
+            end else if (s0_cache_issue) begin
+                lock_address_o = s0_address;
             end else begin
-                lock_address_o = address_i;
-                lock_index_o = address_i[OFFSET + INDEX + 1:OFFSET + 2];
+                lock_address_o = s1_request ? s1_address : s0_address;
             end
+
+            lock_index_o = lock_address_o[OFFSET + INDEX + 1:OFFSET + 2];
         end
 
 
@@ -256,9 +287,12 @@ module load_controller #(
             cache_read_o = cache_read;
             cache_address_o = cache_read_address;
             cache_data_o = '0;
+            cache_status_o = '0;
 
             load_channel.request = 1'b0;
             load_channel.address = '0;
+            store_channel.request = 1'b0;
+            store_channel.address = '0;
 
             case (state_CRT)
                 /* Pipeline hits continue without entering the refill FSM. */
@@ -299,7 +333,17 @@ module load_controller #(
                  * entire block is transferred, the controller requests 
                  * a load from the new address */
                 WRITE_BACK: begin
-                    if (!request_counter_CRT[OFFSET] & request_counter_CRT[OFFSET - 1:0] != '0) begin
+                    if (request_counter_CRT == '0) begin
+                        /* A dirty miss may enter WRITE_BACK while the data
+                         * port is stalled.  Start the victim read only when
+                         * the port becomes available. */
+                        cache_read_o.data = !stall_i;
+                        cache_address_o = {cache_tag_i, cache_address.index, {OFFSET{1'b0}}, 2'b00};
+
+                        if (!stall_i) begin
+                            request_counter_NXT = 'd1;
+                        end
+                    end else if (!request_counter_CRT[OFFSET] & request_counter_CRT[OFFSET - 1:0] != '0) begin
                         /* Read only data sequentially */
                         cache_read_o.data = !stall_i;
                         cache_address_o = {cache_tag_i, cache_address.index, request_counter_CRT[OFFSET - 1:0], 2'b0}; 
@@ -314,7 +358,7 @@ module load_controller #(
                     end else if (request_counter_CRT[OFFSET] & request_counter_CRT[OFFSET - 1:0] == '0) begin
                         /* Send store request for the last data. Don't read
                          * any more words after writing back all the block */
-                        store_channel.request = !invalidate_i & !invalidate_pending & !stall_i;
+                        store_channel.request = !stall_i;
 
                         if (!stall_i) begin
                             state_NXT = (invalidate_i | invalidate_pending) ? IDLE : REFILL_REQ;
@@ -323,8 +367,11 @@ module load_controller #(
                         load_channel.request = !(invalidate_i | invalidate_pending) & !stall_i;
                         load_channel.address = {cache_address.tag, cache_address.index, request_counter_NXT[OFFSET - 1:1], 3'b0};
                         
-                        /* Reset word counter */ 
-                        request_counter_NXT = 'd1;
+                        /* Reset the word counter only after the final victim
+                         * word has actually been accepted. */
+                        if (!stall_i) begin
+                            request_counter_NXT = 'd1;
+                        end
                     end
 
                     store_channel.address = {cache_tag_i, cache_address.index, request_counter_CRT[OFFSET - 1:0] - 1'b1, 2'b0}; 
@@ -365,11 +412,11 @@ module load_controller #(
                         response_counter_NXT = response_counter_CRT + 1'b1; 
 
                         cache_data_o = load_channel.data; 
-                        cache_write_o.data = !invalidate_pending;
+                        cache_write_o.data = !invalidate_i & !invalidate_pending;
 
                         if (response_counter_CRT[OFFSET - 1:0] == '0) begin
                             /* The first time allocate metadata */
-                            cache_write_o = invalidate_pending ? '0 : '1;
+                            cache_write_o = (invalidate_i | invalidate_pending) ? '0 : '1;
                         end else if (response_counter_CRT[OFFSET - 1:0] == '1) begin
                             /* Block has been allocated */
                             state_NXT = IDLE; 
@@ -420,7 +467,7 @@ module load_controller #(
     end
 
     assign valid_o = !invalidate_i & (cache_response_valid | refill_data_valid);
-
+    assign busy_o = (state_CRT != IDLE) | s1_request | replay_valid | replay_valid_2 | s0_cache_issue;
 
 //====================================================================================
 //      PROTOCOL ASSERTIONS
@@ -432,6 +479,77 @@ module load_controller #(
             assert ((1 << OFFSET) == BLOCK_WIDTH);
             assert ((TAG + INDEX + OFFSET + 2) == 32);
         end
+
+        /* Every cache response has exactly one saved S1 request, and every
+         * read command captures the address on the same edge. */
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            s1_request |-> $past(cache_read_o.valid));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            cache_read_o.valid |=>
+            s1_request & (s1_address == $past(cache_read_address)));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            valid_o |-> !invalidate_i);
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            $onehot0({cache_response_valid, refill_data_valid}));
+
+        /* Allocation and eviction writes are only allowed while consuming a
+         * response, and an invalidated refill must never make cache state
+         * visible. */
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            cache_write_o != '0 |->
+            ((state_CRT == REFILL) & load_channel.valid &
+             !invalidate_i & !invalidate_pending));
+
+        /* A refill request walks every word exactly once. */
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            (state_CRT == REFILL_REQ) & !stall_i &
+            !request_counter_CRT[OFFSET] |-> load_channel.request);
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            (state_CRT == REFILL_REQ) & !stall_i &
+            !request_counter_CRT[OFFSET] |->
+            (load_channel.address ==
+             {cache_address.tag, cache_address.index,
+              request_counter_CRT[OFFSET - 1:0], 2'b00}));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            (state_CRT == WRITE_BACK) & !stall_i & store_channel.request |->
+            (store_channel.address ==
+             {cache_tag_i, cache_address.index,
+              request_counter_CRT[OFFSET - 1:0] - 1'b1, 2'b00}));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            (state_CRT == REFILL) & load_channel.valid &
+            !response_counter_CRT[OFFSET] |=>
+            (response_counter_CRT == $past(response_counter_CRT) + 1'b1));
+
+        /* Eviction and refill bursts must not advance while the shared cache
+         * port is stalled. */
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            load_channel.request |-> !stall_i);
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            store_channel.request |-> !stall_i);
+
+        /* The miss identity cannot change after allocation has started. */
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            ((state_CRT == REFILL_REQ) | (state_CRT == REFILL) |
+             (state_CRT == WRITE_BACK)) &
+            (($past(state_CRT) == REFILL_REQ) |
+             ($past(state_CRT) == REFILL) |
+             ($past(state_CRT) == WRITE_BACK)) |->
+            $stable(miss_address));
+
+        /* The second replay entry is meaningful only when the first exists;
+         * a full queue can advance only by consuming its head. */
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            replay_valid_2 |-> replay_valid);
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            (replay_push & replay_valid & replay_valid_2) |-> replay_pop);
 
 
     `endif
