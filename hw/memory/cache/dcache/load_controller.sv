@@ -186,10 +186,11 @@ module load_controller #(
         always_comb begin
             if (s1_miss | (state_CRT != IDLE)) begin
                 lock_address_o = s1_address;
-            end else if (s0_cache_issue) begin
+            end else if (s0_request) begin
+                /* Keep lock selection independent from s0_cache_issue. */
                 lock_address_o = s0_address;
             end else begin
-                lock_address_o = s1_request ? s1_address : s0_address;
+                lock_address_o = s1_address;
             end
 
             lock_index_o = lock_address_o[OFFSET + INDEX + 1:OFFSET + 2];
@@ -231,6 +232,23 @@ module load_controller #(
     logic [OFFSET:0] request_counter_CRT, request_counter_NXT;
     logic [OFFSET:0] response_counter_CRT, response_counter_NXT;
     logic miss_delivered_CRT, miss_delivered_NXT;
+
+//====================================================================================
+//      LOAD PERFORMANCE (SIMULATION ONLY)
+//====================================================================================
+
+    logic [31:0] load_access_CRT, load_access_NXT;
+    logic [31:0] load_hit_CRT, load_hit_NXT;
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                load_access_CRT <= '0;
+                load_hit_CRT <= '0;
+            end else begin
+                load_access_CRT <= load_access_NXT;
+                load_hit_CRT <= load_hit_NXT;
+            end
+        end
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin
@@ -279,6 +297,16 @@ module load_controller #(
             request_counter_NXT = request_counter_CRT;
             response_counter_NXT = response_counter_CRT;
             miss_delivered_NXT = miss_delivered_CRT;
+            load_access_NXT = load_access_CRT;
+            load_hit_NXT = load_hit_CRT;
+
+            if (s0_cache_issue) begin
+                load_access_NXT = load_access_CRT + 1'b1;
+            end
+
+            if (s1_hit) begin
+                load_hit_NXT = load_hit_CRT + 1'b1;
+            end
 
             refill_data_valid = 1'b0;
             refill_complete = 1'b0;
