@@ -12,15 +12,7 @@ module fetch_controller #(
     parameter INDEX = 12,
 
     /* Cache tag size */
-    parameter TAG = 32 - (2 + OFFSET + INDEX),
-
-    /* Pending fetch requests. Deeper than the frontend instruction buffer
-     * so the registered full flag can never race a fetch into a drop:
-     * a dropped push would desync the frontend address/instruction streams */
-    parameter REQUEST_FIFO_DEPTH = 16,
-
-    /* Maximum number of requests allowed ahead of the responses */
-    parameter FETCH_AHEAD_LIMIT = 6
+    parameter TAG = 32 - (2 + OFFSET + INDEX)
 ) (
     input logic clk_i,
     input logic rst_n_i,
@@ -347,10 +339,7 @@ module fetch_controller #(
 
                     if (!invalidate_i & !invalidate_pending) begin
                         cache_write_o = '1;
-                        cache_write_address_o = {
-                            miss_address[31:OFFSET + 2],
-                            {(OFFSET + 2){1'b0}}
-                        };
+                        cache_write_address_o = {miss_address[31:OFFSET + 2], {(OFFSET + 2){1'b0}}};
                     end
                 end
 
