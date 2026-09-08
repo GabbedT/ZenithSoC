@@ -1168,6 +1168,8 @@ module ZenithSoC #(
     localparam int DDR_SIZE_BYTES  = 128 * 1024 * 1024;
     localparam int DDR_WORDS       = DDR_SIZE_BYTES / 8;
     localparam int BEATS_PER_BURST = 2;
+    localparam int MAX_CACHE_BEATS = ((DBLOCK_SIZE_BYTE > IBLOCK_SIZE_BYTE) ? 
+                                       DBLOCK_SIZE_BYTE : IBLOCK_SIZE_BYTE) / 8;
     localparam int LAT_MIN         = 2;
     localparam int LAT_MAX         = 16;
 
@@ -1183,8 +1185,8 @@ module ZenithSoC #(
 
     ddr_burst_state_t ddr_state;
 
-    logic [63:0] ddr_burst_buf [0:BEATS_PER_BURST-1];
-    logic        ddr_beat_current;
+    logic [63:0] ddr_burst_buf [0:MAX_CACHE_BEATS-1];
+    int unsigned ddr_beat_current, ddr_beat_count;
     logic [$clog2(LAT_MAX + 1) - 1:0] ddr_lat_cnt;
 
 
@@ -1199,10 +1201,24 @@ module ZenithSoC #(
         if (!reset_n) begin
             ddr_state <= DDR_IDLE;
             ddr_beat_current <= '0;
+            ddr_beat_count <= 0;
             ddr_lat_cnt <= '0;
-            ddr_burst_buf[0] <= '0;
-            ddr_burst_buf[1] <= '0;
+            for (int i = 0; i < MAX_CACHE_BEATS; i++)
+                ddr_burst_buf[i] <= '0;
         end else begin
+
+            /* The physical MIG queues every read command. A cache line can
+             * span several two-beat DDR commands, all issued before done.
+             * Collect them before introducing model latency, then provide
+             * the contiguous response expected by the cache bridge. */
+            if (ddr_read) begin
+                if (ddr_state != DDR_IDLE ||
+                    ddr_beat_count + BEATS_PER_BURST > MAX_CACHE_BEATS)
+                    $fatal(1, "Behavioral DDR read queue overflow");
+                for (int i = 0; i < BEATS_PER_BURST; i++)
+                    ddr_burst_buf[ddr_beat_count + i] <= ddr_memory[ddr_word_address + i];
+                ddr_beat_count <= ddr_beat_count + BEATS_PER_BURST;
+            end
 
             /* Commit a write-data beat on every push */
             if (push_trx) begin
@@ -1215,9 +1231,7 @@ module ZenithSoC #(
 
             case (ddr_state)
                 DDR_IDLE: begin
-                    if (ddr_read) begin
-                        ddr_burst_buf[0] <= ddr_memory[ddr_word_address];
-                        ddr_burst_buf[1] <= ddr_memory[ddr_word_address + 1'b1];
+                    if (ddr_done) begin
                         ddr_beat_current <= '0;
                         ddr_lat_cnt <= $urandom_range(LAT_MIN, LAT_MAX);
                         ddr_state <= DDR_LAT;
@@ -1241,8 +1255,9 @@ module ZenithSoC #(
 
                 DDR_BURST: begin
                     if (pull_trx) begin
-                        if (ddr_beat_current == BEATS_PER_BURST - 1) begin
+                        if (ddr_beat_current == ddr_beat_count - 1) begin
                             ddr_beat_current <= '0;
+                            ddr_beat_count <= 0;
                             ddr_state <= DDR_IDLE;
                         end else begin
                             ddr_beat_current <= ddr_beat_current + 1'b1;

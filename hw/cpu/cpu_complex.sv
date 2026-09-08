@@ -275,7 +275,14 @@ module cpu_complex #(
         end : request_arbiter
 
     logic priority_bit, valid_stall;
-    logic [2:0] burst_req_count, burst_resp_count;
+
+    localparam MAX_REFILL_WORDS = ((DBLOCK_SIZE_BYTE > IBLOCK_SIZE_BYTE) ?
+                                    DBLOCK_SIZE_BYTE : IBLOCK_SIZE_BYTE) / 4;
+    localparam BURST_COUNT_WIDTH = $clog2(MAX_REFILL_WORDS + 1);
+    
+    /* Include the complete burst count. Wrapping an eight-word request to
+     * zero would release ownership before its first response arrives. */
+    logic [BURST_COUNT_WIDTH - 1:0] burst_req_count, burst_resp_count;
     logic burst_active;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
@@ -313,7 +320,7 @@ module cpu_complex #(
                     burst_active <= 1'b1;
 
                     /* This cycle already carries the first requested word */
-                    burst_req_count <= 3'd1;
+                    burst_req_count <= 1;
                     burst_resp_count <= '0;
                 end
             end
