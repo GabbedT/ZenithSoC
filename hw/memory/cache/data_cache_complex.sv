@@ -73,7 +73,7 @@ module data_cache_complex #(
 
 
     assign io_load_channel.address = ldu_channel.address;
-    assign io_load_channel.request = ldu_channel.request & io_load_request;
+    assign io_load_channel.request = ldu_channel.request & io_load_request & !ldu_channel.invalidate;
     assign io_load_channel.invalidate = ldu_channel.invalidate;
 
     assign io_store_channel.address = stu_channel.address;
@@ -87,6 +87,8 @@ module data_cache_complex #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 io_store <= 1'b0;
+                io_load <= 1'b0;
+            end else if (ldu_channel.invalidate) begin
                 io_load <= 1'b0;
             end else begin 
                 if (stu_channel.request) begin
@@ -574,6 +576,9 @@ module data_cache_complex #(
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
             !(ld_lock_acquired & st_lock_acquired &
               (ld_lock_address.index == st_lock_address.index)));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            ldu_channel.invalidate |-> !io_load_channel.request);
     `endif
 
 

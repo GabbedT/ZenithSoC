@@ -78,7 +78,7 @@ module load_controller #(
 
     logic s0_request, s0_cache_issue;
     logic [31:0] s0_address;
-    logic s1_hit, s1_miss;
+    logic s1_hit, s1_lookup_miss, s1_miss;
 
     /* Cache outcome stage nets */
     logic [31:0] s1_address;
@@ -86,19 +86,18 @@ module load_controller #(
     logic replay_push, replay_pop;
 
 
-    /* Invalidate kills a queued request, if invalidation happends, take the
-     * newest request */
-    assign s0_request = invalidate_i ? request_i : (replay_valid | request_i);
-    assign s0_address = (replay_valid & !invalidate_i) ? replay_address : address_i;
-    assign replay_push = request_i & !invalidate_i &
+    /* A cacheable lookup may finish during invalidation. Invalidate only
+     * kills its local valid state and must not control the cache read port. */
+    assign s0_request = replay_valid | request_i;
+    assign s0_address = replay_valid ? replay_address : address_i;
+    assign replay_push = request_i &
                          ((state_CRT != IDLE) | s1_miss | lock_i |
                           lock_status_i | replay_valid);
     assign replay_pop = replay_valid & s0_cache_issue;
 
     /* When S1 returns an hit, S0 can pass its data to S1. When S1 returns a miss the pipeline and the
      * CPU load unit must not issue more request */
-    assign s0_cache_issue = (state_CRT == IDLE) & s0_request &
-                            !s1_miss & !lock_status_i;
+    assign s0_cache_issue = (state_CRT == IDLE) & s0_request & !s1_lookup_miss & !lock_status_i;
 
 
     data_enable_t cache_read; logic [31:0] cache_read_address;
@@ -110,9 +109,11 @@ module load_controller #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin
                 s1_request <= 1'b0;
+            end else if (invalidate_i) begin
+                s1_request <= 1'b0;
             end else if (s0_cache_issue) begin
                 s1_request <= 1'b1;
-            end else if (invalidate_i | ((state_CRT == IDLE) & s1_request)) begin
+            end else if ((state_CRT == IDLE) & s1_request) begin
                 /* Consume each S1 response exactly once. */
                 s1_request <= 1'b0;
             end
@@ -184,7 +185,7 @@ module load_controller #(
     assign lock_request_o = wait_lock & !lock_status_i;
 
         always_comb begin
-            if (s1_miss | (state_CRT != IDLE)) begin
+            if (s1_lookup_miss | (state_CRT != IDLE)) begin
                 lock_address_o = s1_address;
             end else if (s0_request) begin
                 /* Keep lock selection independent from s0_cache_issue. */
@@ -204,9 +205,10 @@ module load_controller #(
     logic cache_response_valid;
 
     assign s1_hit = (state_CRT == IDLE) & s1_request & cache_hit_i;
-    assign s1_miss = (state_CRT == IDLE) & s1_request & !cache_hit_i & !invalidate_i;
+    assign s1_lookup_miss = (state_CRT == IDLE) & s1_request & !cache_hit_i;
+    assign s1_miss = s1_lookup_miss;
 
-    assign cache_response_valid = s1_hit & !invalidate_i;
+    assign cache_response_valid = s1_hit;
 
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : state_register
@@ -268,15 +270,13 @@ module load_controller #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 invalidate_pending <= 1'b0;
-            end else begin 
-                if (invalidate_i & (state_CRT != IDLE)) begin
-                    invalidate_pending <= 1'b1;
-                end
-
-                if (state_CRT == IDLE) begin
-                    invalidate_pending <= 1'b0;
-                end
-            end 
+            end else if (invalidate_i & ((state_CRT != IDLE) | s1_miss)) begin
+                /* Locally register the request before it can affect miss,
+                 * refill or cache-memory control. */
+                invalidate_pending <= 1'b1;
+            end else if (state_CRT == IDLE) begin
+                invalidate_pending <= 1'b0;
+            end
         end 
 
 
@@ -338,9 +338,7 @@ module load_controller #(
                                 cache_read_o.data = !stall_i;
 
                                 /* Start from block base */
-                                if (!invalidate_i) begin
-                                    cache_address_o = {s1_address[31:OFFSET + 2], {OFFSET{1'b0}}, 2'b00};
-                                end
+                                cache_address_o = {s1_address[31:OFFSET + 2], {OFFSET{1'b0}}, 2'b00};
 
                                 /* Increment word counter */
                                 request_counter_NXT = 'd1;
@@ -389,10 +387,10 @@ module load_controller #(
                         store_channel.request = !stall_i;
 
                         if (!stall_i) begin
-                            state_NXT = (invalidate_i | invalidate_pending) ? IDLE : REFILL_REQ;
+                            state_NXT = invalidate_pending ? IDLE : REFILL_REQ;
                         end
                         
-                        load_channel.request = !(invalidate_i | invalidate_pending) & !stall_i;
+                        load_channel.request = !invalidate_pending & !stall_i;
                         load_channel.address = {cache_address.tag, cache_address.index, request_counter_NXT[OFFSET - 1:1], 3'b0};
                         
                         /* Reset the word counter only after the final victim
@@ -423,7 +421,7 @@ module load_controller #(
 
                     /* No request has reached DDR yet, so this miss can be
                      * abandoned immediately. Started bursts must be drained. */
-                    if (invalidate_i & (request_counter_CRT == '0)) begin
+                    if (invalidate_pending & (request_counter_CRT == '0)) begin
                         state_NXT = IDLE;
 
                         load_channel.request = 1'b0;
@@ -440,11 +438,11 @@ module load_controller #(
                         response_counter_NXT = response_counter_CRT + 1'b1; 
 
                         cache_data_o = load_channel.data; 
-                        cache_write_o.data = !invalidate_i & !invalidate_pending;
+                        cache_write_o.data = !invalidate_pending;
 
                         if (response_counter_CRT[OFFSET - 1:0] == '0) begin
                             /* The first time allocate metadata */
-                            cache_write_o = (invalidate_i | invalidate_pending) ? '0 : '1;
+                            cache_write_o = invalidate_pending ? '0 : '1;
                         end else if (response_counter_CRT[OFFSET - 1:0] == '1) begin
                             /* Block has been allocated */
                             state_NXT = IDLE; 
@@ -457,8 +455,8 @@ module load_controller #(
 
                         if (!miss_delivered_CRT & (miss_address[OFFSET + 1:2] == response_counter_CRT[OFFSET - 1:0])) begin
                             /* Forward the instruction once it's the requested one */
-                            refill_data_valid = !invalidate_i & !invalidate_pending;
-                            miss_delivered_NXT = !invalidate_i & !invalidate_pending;
+                            refill_data_valid = !invalidate_pending;
+                            miss_delivered_NXT = !invalidate_pending;
                         end
                     end
 
@@ -494,7 +492,7 @@ module load_controller #(
         end
     end
 
-    assign valid_o = !invalidate_i & (cache_response_valid | refill_data_valid);
+    assign valid_o = cache_response_valid | refill_data_valid;
     assign busy_o = (state_CRT != IDLE) | s1_request | replay_valid | replay_valid_2 | s0_cache_issue;
 
 //====================================================================================
@@ -515,10 +513,24 @@ module load_controller #(
 
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
             cache_read_o.valid |=>
-            s1_request & (s1_address == $past(cache_read_address)));
+            s1_address == $past(cache_read_address));
 
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
-            valid_o |-> !invalidate_i);
+            cache_read_o.valid & !invalidate_i |=> s1_request);
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            invalidate_i & s0_cache_issue |=> !s1_request);
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            invalidate_i & ((state_CRT != IDLE) | s1_miss) |=>
+            invalidate_pending);
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            invalidate_pending |->
+            (!valid_o & (cache_write_o == '0)));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            replay_valid |-> (s0_address == replay_address));
 
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
             $onehot0({cache_response_valid, refill_data_valid}));
@@ -529,7 +541,7 @@ module load_controller #(
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
             cache_write_o != '0 |->
             ((state_CRT == REFILL) & load_channel.valid &
-             !invalidate_i & !invalidate_pending));
+             !invalidate_pending));
 
         /* A refill request walks every word exactly once. */
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
