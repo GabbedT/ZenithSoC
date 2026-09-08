@@ -41,15 +41,35 @@ if {![file exists $routed_dcp]} {
 
 set output_dir [file join $build_dir timing_search]
 file mkdir $output_dir
+set summary_file [file join $output_dir postroute_summary.tsv]
+set summary_handle [open $summary_file w]
+puts $summary_handle "directive\tWNS(ns)\tTNS(ns)\tfailing\tstatus"
+flush $summary_handle
 
-proc metric_from_current_design {} {
-    set paths [get_timing_paths -setup -nworst 1 -max_paths 1]
-    if {[llength $paths] == 0} {
-        return {clean 0}
+proc metric_from_timing_report {report_file} {
+    set handle [open $report_file r]
+    set found_header false
+    set metrics {}
+    while {[gets $handle line] >= 0} {
+        if {!$found_header} {
+            if {[regexp {WNS\(ns\).*TNS\(ns\).*TNS Failing Endpoints} $line]} {
+                set found_header true
+            }
+            continue
+        }
+
+        if {[regexp {^[[:space:]]*(-?[0-9]+[.][0-9]+)[[:space:]]+(-?[0-9]+[.][0-9]+)[[:space:]]+([0-9]+)[[:space:]]+} \
+                $line -> wns tns failing]} {
+            set metrics [list $wns $tns $failing]
+            break
+        }
     }
-    set wns [format %.3f [get_property SLACK [lindex $paths 0]]]
-    set failing [llength [get_timing_paths -setup -slack_lesser_than 0.0]]
-    return [list $wns $failing]
+    close $handle
+
+    if {[llength $metrics] != 3} {
+        error "could not parse timing summary from $report_file"
+    }
+    return $metrics
 }
 
 set results {}
@@ -59,24 +79,31 @@ foreach directive $requested {
         catch {close_design}
         open_checkpoint $routed_dcp
 
-        set before [metric_from_current_design]
-        puts "  routed baseline: WNS=[lindex $before 0] failing=[lindex $before 1]"
+        set baseline_report [file join $output_dir postroute_${directive}_routed_timing_summary.rpt]
+        report_timing_summary -file $baseline_report
+        set before [metric_from_timing_report $baseline_report]
+        puts "  routed baseline: WNS=[lindex $before 0] TNS=[lindex $before 1] failing=[lindex $before 2]"
 
         phys_opt_design -directive $directive
 
-        set after [metric_from_current_design]
         set report_base [file join $output_dir postroute_${directive}]
         report_timing_summary -file ${report_base}_timing_summary.rpt
         report_timing -delay_type max -max_paths 100 -nworst 20 -slack_lesser_than 0 \
             -file ${report_base}_failing_paths.rpt
         write_checkpoint -force ${report_base}.dcp
+        set after [metric_from_timing_report ${report_base}_timing_summary.rpt]
 
-        lappend results [list $directive [lindex $after 0] [lindex $after 1] PASS]
-        puts "  result: WNS=[lindex $after 0] failing=[lindex $after 1]"
+        lappend results [list $directive [lindex $after 0] [lindex $after 1] \
+            [lindex $after 2] PASS]
+        puts $summary_handle "$directive\t[lindex $after 0]\t[lindex $after 1]\t[lindex $after 2]\tPASS"
+        flush $summary_handle
+        puts "  result: WNS=[lindex $after 0] TNS=[lindex $after 1] failing=[lindex $after 2]"
         close_design
     } err]
     if {$rc != 0} {
-        lappend results [list $directive FAILED - $err]
+        lappend results [list $directive FAILED - - $err]
+        puts $summary_handle "$directive\tFAILED\t-\t-\t$err"
+        flush $summary_handle
         puts "  FAILED: $err"
         catch {close_design}
     }
@@ -85,12 +112,14 @@ foreach directive $requested {
 puts "\n===================================================================="
 puts "POST-ROUTE PHYS_OPT SUMMARY (WNS in ns, negative = violating)"
 puts "--------------------------------------------------------------------"
-puts [format "%-24s %10s %10s %s" directive WNS(ns) failing status]
+puts [format "%-24s %10s %12s %10s %s" directive WNS(ns) TNS(ns) failing status]
 foreach result $results {
-    puts [format "%-24s %10s %10s %s" [lindex $result 0] [lindex $result 1] \
-        [lindex $result 2] [lindex $result 3]]
+    puts [format "%-24s %10s %12s %10s %s" [lindex $result 0] [lindex $result 1] \
+        [lindex $result 2] [lindex $result 3] [lindex $result 4]]
 }
+close $summary_handle
 puts "Reports/checkpoints: $output_dir"
+puts "Summary: $summary_file"
 puts "===================================================================="
 catch {close_design}
 exit 0

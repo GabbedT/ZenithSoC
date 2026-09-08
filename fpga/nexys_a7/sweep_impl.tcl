@@ -12,9 +12,9 @@
 # directive left by the previous candidate otherwise silently contaminates
 # the next result.
 #
-# The floorplan XDC is part of the project's constrs_1 fileset and applies to
-# every configuration, so this sweep measures placement/routing-strategy
-# quality on a fixed floorplan.
+# No placement constraints are added here.  Every candidate uses the same
+# synthesized netlist and the project's existing non-floorplanning constraints,
+# so differences come only from implementation strategy/directive choices.
 #
 # Usage:
 #   vivado -mode batch -source sweep_impl.tcl -tclargs <build_dir> [cfgA cfgB ...]
@@ -105,6 +105,34 @@ proc apply_config {run cfg} {
     puts "  [clock format [clock seconds] -format %T] strategy=$strategy place=$place phys=$phys route=$route post=$post/$postdir"
 }
 
+proc timing_metrics {report_file} {
+    # Parse Vivado's authoritative design-summary row.  This avoids relying on
+    # collection iteration commands that differ between Vivado Tcl versions.
+    set handle [open $report_file r]
+    set found_header false
+    set metrics {}
+    while {[gets $handle line] >= 0} {
+        if {!$found_header} {
+            if {[regexp {WNS\(ns\).*TNS\(ns\).*TNS Failing Endpoints} $line]} {
+                set found_header true
+            }
+            continue
+        }
+
+        if {[regexp {^[[:space:]]*(-?[0-9]+[.][0-9]+)[[:space:]]+(-?[0-9]+[.][0-9]+)[[:space:]]+([0-9]+)[[:space:]]+} \
+                $line -> wns tns failing]} {
+            set metrics [list $wns $tns $failing]
+            break
+        }
+    }
+    close $handle
+
+    if {[llength $metrics] != 3} {
+        error "could not parse timing summary from $report_file"
+    }
+    return $metrics
+}
+
 # --- main -------------------------------------------------------------------
 open_project $proj_dir
 set_property source_mgmt_mode None [current_project]
@@ -132,8 +160,15 @@ if {[llength $requested] > 0} {
     foreach {n c} $CONFIGS { set names [lappend names $n] }
 }
 
+set output_dir [file join $build_dir timing_search impl_sweep]
+file mkdir $output_dir
+set summary_file [file join $output_dir summary.tsv]
+set summary_handle [open $summary_file w]
+puts $summary_handle "config\tWNS(ns)\tTNS(ns)\tfailing\tstatus"
+flush $summary_handle
+
 set results {}
-puts "Sweep output directory: $build_dir"
+puts "Sweep output directory: $output_dir"
 
 foreach name $names {
     # locate the config dict
@@ -156,39 +191,49 @@ foreach name $names {
             error "implementation did not complete: $status"
         }
         open_run $run
-        set paths [get_timing_paths -setup -nworst 1 -max_paths 1 -slack_lesser_than 0.0]
-        set wns ""
-        if {[llength $paths] > 0} {
-            set wns [format %.3f [get_property SLACK [lindex $paths 0]]]
-        } else {
-            set wns "clean"
-        }
-        set nfail [llength [get_timing_paths -setup -slack_lesser_than 0.0]]
-        report_timing_summary -file [file join $build_dir timing_sweep_${name}.rpt]
+        set report_base [file join $output_dir $name]
+        report_timing_summary -file ${report_base}_timing_summary.rpt
         report_timing -delay_type max -max_paths 50 -nworst 10 -slack_lesser_than 0 \
-            -file [file join $build_dir failing_paths_sweep_${name}.rpt]
-        lappend results [list $name $wns $nfail $status]
-        puts "  config '$name': WNS=$wns  failing_endpoints=$nfail"
+            -file ${report_base}_failing_paths.rpt
+        report_utilization -file ${report_base}_utilization.rpt
+        write_checkpoint -force ${report_base}.dcp
+
+        # Save artifacts before calculating the compact summary.  A reporting
+        # helper failure must never discard a completed implementation.
+        set metrics [timing_metrics ${report_base}_timing_summary.rpt]
+        set wns [lindex $metrics 0]
+        set tns [lindex $metrics 1]
+        set nfail [lindex $metrics 2]
+
+        lappend results [list $name $wns $tns $nfail $status]
+        puts $summary_handle "$name\t$wns\t$tns\t$nfail\t$status"
+        flush $summary_handle
+        puts "  config '$name': WNS=$wns  TNS=$tns  failing_endpoints=$nfail"
         close_design
     } err opts]
     if {$rc != 0} {
-        lappend results [list $name "FAILED" - $err]
+        lappend results [list $name FAILED - - $err]
+        puts $summary_handle "$name\tFAILED\t-\t-\t$err"
+        flush $summary_handle
         puts "  config '$name' failed: $err"
         catch {close_design}
     }
 }
 
 puts "\n===================================================================="
-puts "SWEEP SUMMARY (WNS in ns, negative = violating)"
+puts "SWEEP SUMMARY (slack in ns, negative = violating)"
 puts "--------------------------------------------------------------------"
-puts [format "%-28s %10s %10s" "config" "WNS(ns)" "failing"]
+puts [format "%-28s %10s %12s %10s" "config" "WNS(ns)" "TNS(ns)" "failing"]
 foreach r $results {
-    puts [format "%-28s %10s %10s" [lindex $r 0] [lindex $r 1] [lindex $r 2]]
+    puts [format "%-28s %10s %12s %10s" [lindex $r 0] [lindex $r 1] \
+        [lindex $r 2] [lindex $r 3]]
 }
+close $summary_handle
+puts "Reports, checkpoints and summary: $output_dir"
 puts "===================================================================="
 
-# Do not leave impl_1 on an arbitrary last candidate.  The caller can select
-# the best result explicitly with retry-impl; this close keeps the project
-# usable for a later run without pretending that the last candidate won.
+# impl_1 contains the last candidate, while every candidate artifact remains
+# under timing_search.  A later retry-impl reapplies build.tcl's default
+# configuration; no sweep result is promoted implicitly.
 catch {close_design}
 exit 0
