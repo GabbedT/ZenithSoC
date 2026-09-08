@@ -74,14 +74,16 @@ module cosim_ddr #(
     logic [63:0] ddr_memory [0:DDR_WORDS-1];
 
     localparam int BEATS_PER_BURST = 2;
+    localparam int MAX_CACHE_BEATS =
+        ((DATA_MAX_BURST > INSTRUCTION_MAX_BURST) ? DATA_MAX_BURST : INSTRUCTION_MAX_BURST) / 2;
 
     /* FSM states */
     typedef enum logic [1:0] { IDLE, LAT, WAIT, BURST } burst_state_t;
     burst_state_t state;
 
     /* Buffer that contains each beat */
-    logic [63:0] burst_buf [0:BEATS_PER_BURST-1];
-    logic beat_current;
+    logic [63:0] burst_buf [0:MAX_CACHE_BEATS-1];
+    int unsigned beat_current, beat_count;
 
     /* Latency counter */
     logic [$clog2(LAT_MAX + 1) - 1:0] lat_cnt;
@@ -98,10 +100,20 @@ module cosim_ddr #(
         if (!rst_n_i) begin
             state         <= IDLE;
             beat_current  <= '0;
+            beat_count    <= 0;
             lat_cnt       <= '0;
-            burst_buf[0]  <= '0;
-            burst_buf[1]  <= '0;
+            for (int i = 0; i < MAX_CACHE_BEATS; i++)
+                burst_buf[i] <= '0;
         end else begin
+            // A cache line can contain several two-beat DDR read commands.
+            // Queue all commands before returning the contiguous response.
+            if (ddr_read) begin
+                if (state != IDLE || beat_count + BEATS_PER_BURST > MAX_CACHE_BEATS)
+                    $fatal(1, "Co-simulation DDR read queue overflow");
+                for (int i = 0; i < BEATS_PER_BURST; i++)
+                    burst_buf[beat_count + i] <= ddr_memory[word_address + i];
+                beat_count <= beat_count + BEATS_PER_BURST;
+            end
             if (push_trx) begin
                 for (int i = 0; i < 8; i++) begin
                     if (ddr_mask[i]) begin
@@ -112,9 +124,7 @@ module cosim_ddr #(
             end
 
             case (state)
-                IDLE: if (ddr_read) begin
-                    burst_buf[0] <= ddr_memory[word_address];
-                    burst_buf[1] <= ddr_memory[word_address + 1'b1];
+                IDLE: if (ddr_done) begin
                     beat_current <= '0;
 
                     /* Load a random latency */
@@ -142,8 +152,9 @@ module cosim_ddr #(
                 BURST: begin
                     /* Keep pulling until nothing left */
                     if (pull_trx) begin
-                        if (beat_current == BEATS_PER_BURST - 1) begin
+                        if (beat_current == beat_count - 1) begin
                             beat_current <= '0;
+                            beat_count <= 0;
                             state    <= IDLE;
                         end else begin
                             beat_current <= beat_current + 1'b1;

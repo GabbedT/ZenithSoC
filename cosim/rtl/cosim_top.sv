@@ -1,6 +1,10 @@
 `ifndef COSIM_TOP_SV
     `define COSIM_TOP_SV
 
+`ifdef COSIM_SOC_CONFIG
+    `include "utils/pkg/soc_parameters.sv"
+`endif
+
 module cosim_top (
     input logic clk,
     input logic rst_n
@@ -42,7 +46,21 @@ module cosim_top (
 //      CPU COMPLEX (CPU + cache)
 //=============================================================================
 
-    cpu_complex cpu (
+    cpu_complex
+    `ifdef COSIM_SOC_CONFIG
+    #(
+        .PREDICTOR_SIZE(soc_parameters::PREDICTOR_SIZE),
+        .BTB_SIZE(soc_parameters::BTB_SIZE),
+        .STORE_BUFFER_SIZE(soc_parameters::STORE_BUFFER_SIZE),
+        .INSTRUCTION_BUFFER_SIZE(soc_parameters::INSTRUCTION_BUFFER_SIZE),
+        .ROB_DEPTH(soc_parameters::ROB_DEPTH),
+        .DCACHE_SIZE(soc_parameters::DCACHE_SIZE),
+        .DBLOCK_SIZE_BYTE(soc_parameters::DBLOCK_SIZE_BYTE),
+        .ICACHE_SIZE(soc_parameters::ICACHE_SIZE),
+        .IBLOCK_SIZE_BYTE(soc_parameters::IBLOCK_SIZE_BYTE)
+    )
+    `endif
+    cpu (
         .clk_i              ( clk ),
         .rst_n_i            ( rst_n ),
         .halt_i             ( 1'b0 ),
@@ -84,10 +102,14 @@ module cosim_top (
         .fetch_channel  ( rom_ch )
     );
 
-    /* DBLOCK_SIZE_BYTE = IBLOCK_SIZE_BYTE = 16 -> 4-word burst */
     cosim_ddr #(
+        `ifdef COSIM_SOC_CONFIG
+        .DATA_MAX_BURST         ( soc_parameters::DBLOCK_SIZE_BYTE / 4 ),
+        .INSTRUCTION_MAX_BURST  ( soc_parameters::IBLOCK_SIZE_BYTE / 4 )
+        `else
         .DATA_MAX_BURST         ( 4 ),
         .INSTRUCTION_MAX_BURST  ( 4 )
+        `endif
     ) ddr (
         .clk_i          ( clk ),
         .rst_n_i        ( rst_n ),
@@ -196,13 +218,22 @@ module cosim_top (
 
     export "DPI-C" function dut_dcache_word;
 
+    `ifdef COSIM_SOC_CONFIG
+        localparam int DCACHE_INDEX_END = $clog2(soc_parameters::DCACHE_SIZE);
+        localparam int DCACHE_OFFSET_END = $clog2(soc_parameters::DBLOCK_SIZE_BYTE);
+    `else
+        localparam int DCACHE_INDEX_END = 12;
+        localparam int DCACHE_OFFSET_END = 4;
+    `endif
+
     function int unsigned dut_dcache_word(
         input int unsigned addr,
         output int unsigned hit
     );
-        automatic logic [7:0]  index = addr[11:4];
-        automatic logic [19:0] tag   = addr[31:12];
-        automatic logic [1:0]  bank  = addr[3:2];
+        automatic logic [DCACHE_INDEX_END-DCACHE_OFFSET_END-1:0] index =
+            addr[DCACHE_INDEX_END-1:DCACHE_OFFSET_END];
+        automatic logic [31-DCACHE_INDEX_END:0] tag = addr[31:DCACHE_INDEX_END];
+        automatic logic [DCACHE_OFFSET_END-3:0] bank = addr[DCACHE_OFFSET_END-1:2];
 
         if (`DCACHE.valid_memory.valid_memory[index] &&
             (`DCACHE.tag_memory.memory[index] == tag)) begin
@@ -210,10 +241,16 @@ module cosim_top (
             hit = 32'd1;
 
             case (bank)
-                2'd0: return `DCACHE.data_memory.genblk1[0].cache_block_bank.bank_memory[index];
-                2'd1: return `DCACHE.data_memory.genblk1[1].cache_block_bank.bank_memory[index];
-                2'd2: return `DCACHE.data_memory.genblk1[2].cache_block_bank.bank_memory[index];
-                2'd3: return `DCACHE.data_memory.genblk1[3].cache_block_bank.bank_memory[index];
+                0: return `DCACHE.data_memory.genblk1[0].cache_block_bank.bank_memory[index];
+                1: return `DCACHE.data_memory.genblk1[1].cache_block_bank.bank_memory[index];
+                2: return `DCACHE.data_memory.genblk1[2].cache_block_bank.bank_memory[index];
+                3: return `DCACHE.data_memory.genblk1[3].cache_block_bank.bank_memory[index];
+                `ifdef COSIM_SOC_CONFIG
+                4: return `DCACHE.data_memory.genblk1[4].cache_block_bank.bank_memory[index];
+                5: return `DCACHE.data_memory.genblk1[5].cache_block_bank.bank_memory[index];
+                6: return `DCACHE.data_memory.genblk1[6].cache_block_bank.bank_memory[index];
+                7: return `DCACHE.data_memory.genblk1[7].cache_block_bank.bank_memory[index];
+                `endif
             endcase
         end
 
