@@ -289,7 +289,9 @@ module zenith_tb_top (
     logic forward_match;
     logic forward_match_prev;
 
-    assign forward_match = `BE.execute_stage.LSU.ldu.forward_match_i;
+    assign forward_match = `BE.execute_stage.LSU.ldu.queue_request ?
+                           `BE.execute_stage.LSU.ldu.forward_queued_match_i :
+                           `BE.execute_stage.LSU.ldu.forward_direct_match_i;
 
     always_ff @(posedge clk) begin
         forward_match_prev <= forward_match;

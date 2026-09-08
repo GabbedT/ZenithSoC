@@ -107,7 +107,9 @@ module perf_counters (
     // -- Store unit / store buffer -------------------------------------------
     wire stu_state_crt       = dut.ApogeoRV.system_cpu.apogeo_backend.execute_stage.LSU.stu.state_CRT;
     wire strbuf_full         = dut.ApogeoRV.system_cpu.apogeo_backend.execute_stage.LSU.stu.buffer_channel.full;
-    wire strbuf_wait         = dut.ApogeoRV.system_cpu.apogeo_backend.execute_stage.LSU.stu.str_buffer.wait_o;
+    wire strbuf_wait         = dut.ApogeoRV.system_cpu.apogeo_backend.execute_stage.LSU.ldu.queue_request ?
+                               dut.ApogeoRV.system_cpu.apogeo_backend.execute_stage.LSU.stu.str_buffer.forward_queued_wait_o :
+                               dut.ApogeoRV.system_cpu.apogeo_backend.execute_stage.LSU.stu.str_buffer.forward_direct_wait_o;
 
     // -- I-cache complex -----------------------------------------------------
     wire icache_flush_busy       = dut.ApogeoRV.icache.flush_busy_o;
