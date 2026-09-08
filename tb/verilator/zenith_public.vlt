@@ -9,5 +9,8 @@ public_flat_rd -module "back_end" -var "trap_laddress"
 public_flat_rd -module "back_end" -var "reg_destination_o"
 public_flat_rd -module "back_end" -var "writeback_result_o"
 
-// Load/Store Unit forward match, used to replicate the load-address queue pop.
-public_flat_rd -module "load_unit" -var "forward_match_i"
+// Load/Store Unit dependency selection, used to replicate the load-address
+// queue pop for both direct and queued loads.
+public_flat_rd -module "load_unit" -var "queue_request"
+public_flat_rd -module "load_unit" -var "forward_direct_match_i"
+public_flat_rd -module "load_unit" -var "forward_queued_match_i"
