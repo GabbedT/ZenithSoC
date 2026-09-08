@@ -182,7 +182,10 @@ module load_controller #(
         end
 
     
-    assign lock_request_o = wait_lock & !lock_status_i;
+    /* A queued lookup can replay without a fresh request on the LDU channel.
+     * Reserve its index at the replay edge, before a same-cycle store can
+     * acquire it. This includes the refill-to-replay lock handoff. */
+    assign lock_request_o = (wait_lock & !lock_status_i) | replay_pop;
 
         always_comb begin
             if (s1_lookup_miss | (state_CRT != IDLE)) begin
