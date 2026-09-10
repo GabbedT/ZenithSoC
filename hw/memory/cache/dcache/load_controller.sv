@@ -487,8 +487,8 @@ module load_controller #(
 //====================================================================================
 
     always_comb begin
-        if (refill_data_valid) begin
-            /* Instruction from miss logic has maximum priority */
+        if (state_CRT == REFILL) begin
+            /* Select refill data independently of the response handshake. */
             data_o = load_channel.data;
         end else begin
             data_o = cache_data_i;
@@ -503,6 +503,10 @@ module load_controller #(
 //====================================================================================
 
     `ifdef SV_ASSERTION
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            valid_o |->
+                (data_o == (refill_data_valid ? load_channel.data : cache_data_i)));
+
         initial begin
             assert (BLOCK_WIDTH >= 2);
             assert ((1 << OFFSET) == BLOCK_WIDTH);
