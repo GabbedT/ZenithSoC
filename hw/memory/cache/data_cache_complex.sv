@@ -107,7 +107,8 @@ module data_cache_complex #(
 //====================================================================================
 
     /* R/W Port nets, the two controllers contend the same port on the write side */
-    data_word_t [1:0] cache_address; 
+    data_word_t [1:0] cache_address;
+    data_word_t cache_tag_address;
     data_enable_t cache_store; 
     data_word_t cache_store_data; logic [3:0] cache_byte_write;
     status_packet_t cache_store_status;
@@ -127,9 +128,10 @@ module data_cache_complex #(
         .write_data_i         ( cache_store_data   ),
         .status_i             ( cache_store_status ),
 
-        .read_address_i ( cache_address[1] ),
-        .read_data_o    ( cache_load_data  ),
-        .read_tag_o     ( cache_load_tag   ),
+        .read_address_i     ( cache_address[1]   ),
+        .read_tag_address_i ( cache_tag_address  ),
+        .read_data_o        ( cache_load_data    ),
+        .read_tag_o         ( cache_load_tag     ),
 
         .read_i  ( cache_load  ),
         .valid_o ( cache_valid ),
@@ -143,7 +145,8 @@ module data_cache_complex #(
 //====================================================================================
 
     status_packet_t lctrl_status_packet;
-    logic [31:0] lctrl_store_data, lctrl_cache_address, lctrl_lock_address, lctrl_load_data;
+    logic [31:0] lctrl_store_data, lctrl_cache_address, lctrl_cache_lookup_address;
+    logic [31:0] lctrl_lock_address, lctrl_load_data;
     logic [INDEX - 1:0] lctrl_lock_index;
     logic lctrl_valid_data, lctrl_busy, lctrl_stall, ld_lock, ld_lock_request;
     data_enable_t lctrl_cache_store, lctrl_cache_read;
@@ -176,6 +179,7 @@ module data_cache_complex #(
         .cache_dirty_i   ( cache_dirty[1]      ),
         .cache_status_o  ( lctrl_status_packet ),
         .cache_address_o ( lctrl_cache_address ),
+        .cache_lookup_address_o ( lctrl_cache_lookup_address ),
         .cache_data_i    ( cache_load_data     ),
         .cache_data_o    ( lctrl_store_data    ),
         .cache_read_o    ( lctrl_cache_read    ),
@@ -183,6 +187,7 @@ module data_cache_complex #(
     ); 
 
     assign cache_address[1] = flush_busy_o ? flush_cache_address : lctrl_cache_address;
+    assign cache_tag_address = flush_busy_o ? flush_cache_address : lctrl_cache_lookup_address;
     assign cache_load[1] = flush_busy_o ? flush_cache_read : lctrl_cache_read;
 
 

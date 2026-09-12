@@ -52,6 +52,9 @@ module load_controller #(
     /* Cache address shared between ports */
     output logic [31:0] cache_address_o,
 
+    /* Keep the tag lookup off the late miss/victim data-address mux. */
+    output logic [31:0] cache_lookup_address_o,
+
     /* Data to cache */
     input logic [31:0] cache_data_i,
     output logic [31:0] cache_data_o,
@@ -104,6 +107,7 @@ module load_controller #(
 
     assign cache_read_address = s0_address;
     assign cache_read = s0_cache_issue ? '1 : '0;
+    assign cache_lookup_address_o = cache_read_address;
 
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
@@ -517,6 +521,11 @@ module load_controller #(
          * read command captures the address on the same edge. */
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
             s1_request |-> $past(cache_read_o.valid));
+
+        /* Splitting the physical address path must not alter any real tag
+         * lookup: whenever the tag port reads, both addresses are identical. */
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            cache_read_o.tag |-> (cache_lookup_address_o == cache_address_o));
 
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
             cache_read_o.valid |=>
