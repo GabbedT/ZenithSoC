@@ -230,28 +230,19 @@ module cosim_top (
         input int unsigned addr,
         output int unsigned hit
     );
-        automatic logic [DCACHE_INDEX_END-DCACHE_OFFSET_END-1:0] index =
-            addr[DCACHE_INDEX_END-1:DCACHE_OFFSET_END];
+        automatic logic [DCACHE_INDEX_END-DCACHE_OFFSET_END-1:0] index = addr[DCACHE_INDEX_END-1:DCACHE_OFFSET_END];
         automatic logic [31-DCACHE_INDEX_END:0] tag = addr[31:DCACHE_INDEX_END];
-        automatic logic [DCACHE_OFFSET_END-3:0] bank = addr[DCACHE_OFFSET_END-1:2];
+        automatic logic [DCACHE_INDEX_END-3:0] word_index = addr[DCACHE_INDEX_END-1:2];
 
         if (`DCACHE.valid_memory.valid_memory[index] &&
             (`DCACHE.tag_memory.memory[index] == tag)) begin
 
             hit = 32'd1;
 
-            case (bank)
-                0: return `DCACHE.data_memory.genblk1[0].cache_block_bank.bank_memory[index];
-                1: return `DCACHE.data_memory.genblk1[1].cache_block_bank.bank_memory[index];
-                2: return `DCACHE.data_memory.genblk1[2].cache_block_bank.bank_memory[index];
-                3: return `DCACHE.data_memory.genblk1[3].cache_block_bank.bank_memory[index];
-                `ifdef COSIM_SOC_CONFIG
-                4: return `DCACHE.data_memory.genblk1[4].cache_block_bank.bank_memory[index];
-                5: return `DCACHE.data_memory.genblk1[5].cache_block_bank.bank_memory[index];
-                6: return `DCACHE.data_memory.genblk1[6].cache_block_bank.bank_memory[index];
-                7: return `DCACHE.data_memory.genblk1[7].cache_block_bank.bank_memory[index];
-                `endif
-            endcase
+            return {`DCACHE.data_memory.byte_lane[3].bank_memory[word_index],
+                    `DCACHE.data_memory.byte_lane[2].bank_memory[word_index],
+                    `DCACHE.data_memory.byte_lane[1].bank_memory[word_index],
+                    `DCACHE.data_memory.byte_lane[0].bank_memory[word_index]};
         end
 
         hit = 32'd0;
