@@ -140,6 +140,29 @@ module cpu_complex #(
     load_interface dcache_load_channel();
     store_interface dcache_store_channel();
 
+    load_interface cached_io_load_channel();
+
+    assign io_load_channel.address = cached_io_load_channel.address;
+    assign io_load_channel.request = cached_io_load_channel.request;
+    assign io_load_channel.invalidate = cached_io_load_channel.invalidate;
+
+        /* Keep AXI response routing outside the CPU wakeup path. */
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : io_response_register
+            if (!rst_n_i) begin
+                cached_io_load_channel.valid <= 1'b0;
+            end else if (cached_io_load_channel.invalidate) begin
+                cached_io_load_channel.valid <= 1'b0;
+            end else begin
+                cached_io_load_channel.valid <= io_load_channel.valid;
+            end
+        end : io_response_register
+
+        always_ff @(posedge clk_i) begin
+            if (io_load_channel.valid) begin
+                cached_io_load_channel.data <= io_load_channel.data;
+            end
+        end
+
     logic stall_data;
     
     data_cache_complex #(DCACHE_SIZE, DBLOCK_SIZE_BYTE) dcache (
@@ -149,8 +172,8 @@ module cpu_complex #(
 
         .flush_i       ( cache_flush_request ),
         .flush_ready_i ( str_ready_i         ),
-        .flush_busy_o ( dcache_flush_busy   ),
-        .flush_done_o ( dcache_flush_done   ),
+        .flush_busy_o  ( dcache_flush_busy   ),
+        .flush_done_o  ( dcache_flush_done   ),
 
         .single_trx_o ( single_strx_o ),
 
@@ -167,7 +190,7 @@ module cpu_complex #(
         .ddr_store_channel ( dcache_store_channel ),
 
         /* I/O Memory load interface */
-        .io_load_channel ( io_load_channel ),
+        .io_load_channel ( cached_io_load_channel ),
 
         /* I/O  Memory store interface */
         .io_store_channel ( io_store_channel )
@@ -275,7 +298,14 @@ module cpu_complex #(
         end : request_arbiter
 
     logic priority_bit, valid_stall;
-    logic [2:0] burst_req_count, burst_resp_count;
+
+
+    localparam MAX_REFILL_WORDS = ((DBLOCK_SIZE_BYTE > IBLOCK_SIZE_BYTE) ? DBLOCK_SIZE_BYTE : IBLOCK_SIZE_BYTE) / 4;
+    localparam BURST_COUNT_WIDTH = $clog2(MAX_REFILL_WORDS + 1);
+    
+    /* Include the complete burst count. Wrapping an eight-word request to
+     * zero would release ownership before its first response arrives. */
+    logic [BURST_COUNT_WIDTH - 1:0] burst_req_count, burst_resp_count;
     logic burst_active;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
@@ -313,7 +343,7 @@ module cpu_complex #(
                     burst_active <= 1'b1;
 
                     /* This cycle already carries the first requested word */
-                    burst_req_count <= 3'd1;
+                    burst_req_count <= 1;
                     burst_resp_count <= '0;
                 end
             end
@@ -324,20 +354,44 @@ module cpu_complex #(
     assign stall_fetch = valid_stall & priority_bit;
 
 
-        always_comb begin : response_arbiter
-            dcache_load_channel.valid = 1'b0;
-            icache_load_channel.valid = 1'b0;
-            dcache_load_channel.data = '0;
-            icache_load_channel.data = '0;
-
-            if (priority_bit == ICACHE) begin
-                icache_load_channel.valid = ddr_load_channel.valid;
-                icache_load_channel.data = ddr_load_channel.data;
-            end else if (priority_bit == DCACHE) begin
-                dcache_load_channel.valid = ddr_load_channel.valid;
-                dcache_load_channel.data = ddr_load_channel.data;
+        /* Drain every refill beat, including invalidated transactions. */
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin : response_arbiter
+            if (!rst_n_i) begin
+                dcache_load_channel.valid <= 1'b0;
+                icache_load_channel.valid <= 1'b0;
+            end else begin
+                dcache_load_channel.valid <= ddr_load_channel.valid & (priority_bit == DCACHE);
+                icache_load_channel.valid <= ddr_load_channel.valid & (priority_bit == ICACHE);
             end
         end : response_arbiter
+
+        always_ff @(posedge clk_i) begin
+            if (ddr_load_channel.valid) begin
+                dcache_load_channel.data <= ddr_load_channel.data;
+                icache_load_channel.data <= ddr_load_channel.data;
+            end
+        end
+
+
+//====================================================================================
+//      ASSERTIONS
+//====================================================================================
+
+    `ifdef SV_ASSERTION
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            {dcache_load_channel.valid, icache_load_channel.valid} ==
+            $past({ddr_load_channel.valid & (priority_bit == DCACHE),
+                   ddr_load_channel.valid & (priority_bit == ICACHE)}));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            (dcache_load_channel.valid | icache_load_channel.valid) |->
+            (dcache_load_channel.data == $past(ddr_load_channel.data)) &
+            (icache_load_channel.data == $past(ddr_load_channel.data)));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            cached_io_load_channel.valid ==
+            $past(io_load_channel.valid & !cached_io_load_channel.invalidate));
+    `endif
 
 endmodule : cpu_complex
 

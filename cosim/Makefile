@@ -84,6 +84,13 @@ ifeq ($(strip $(ASSERTIONS)),1)
     VFLAGS += --assert -DSV_ASSERTION
 endif
 
+# Match the FPGA CPU/cache parameters when requested; retain the legacy test
+# configuration by default. build always re-verilates when switching modes.
+SOC_CONFIG ?= 0
+ifeq ($(strip $(SOC_CONFIG)),1)
+    VFLAGS += -DCOSIM_SOC_CONFIG
+endif
+
 
 # Structural (line + toggle) coverage is opt-in: --coverage slows the model and
 # is incompatible with the fast default flow, so gather it with a dedicated

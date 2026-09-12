@@ -192,6 +192,18 @@ module cache_ddr_interface #(
 
 
     logic [$clog2(MAX_BURST / 2):0] ldr_count; logic ldr_ready, ldr_ackn;
+    logic ldr_instruction;
+
+        /* The owner signal is meaningful only while a request is present.
+         * Keep it until the completed burst count is examined: instruction
+         * and data caches need not have the same line size. */
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                ldr_instruction <= 1'b0;
+            end else if (load_channel.request) begin
+                ldr_instruction <= instr_req_i;
+            end
+        end
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
@@ -208,7 +220,7 @@ module cache_ddr_interface #(
                     ldr_ready <= 1'b0;
                 end else begin
                     /* FIFO is ready to be read */
-                    if (instr_req_i) begin
+                    if (ldr_instruction) begin
                         if (ldr_count == (INSTRUCTION_MAX_BURST / 2)) begin 
                             ldr_ready <= 1'b1;
                         end

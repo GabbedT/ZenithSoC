@@ -73,7 +73,7 @@ module data_cache_complex #(
 
 
     assign io_load_channel.address = ldu_channel.address;
-    assign io_load_channel.request = ldu_channel.request & io_load_request;
+    assign io_load_channel.request = ldu_channel.request & io_load_request & !ldu_channel.invalidate;
     assign io_load_channel.invalidate = ldu_channel.invalidate;
 
     assign io_store_channel.address = stu_channel.address;
@@ -87,6 +87,8 @@ module data_cache_complex #(
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin 
                 io_store <= 1'b0;
+                io_load <= 1'b0;
+            end else if (ldu_channel.invalidate) begin
                 io_load <= 1'b0;
             end else begin 
                 if (stu_channel.request) begin
@@ -105,7 +107,8 @@ module data_cache_complex #(
 //====================================================================================
 
     /* R/W Port nets, the two controllers contend the same port on the write side */
-    data_word_t [1:0] cache_address; 
+    data_word_t [1:0] cache_address;
+    data_word_t cache_tag_address;
     data_enable_t cache_store; 
     data_word_t cache_store_data; logic [3:0] cache_byte_write;
     status_packet_t cache_store_status;
@@ -125,9 +128,10 @@ module data_cache_complex #(
         .write_data_i         ( cache_store_data   ),
         .status_i             ( cache_store_status ),
 
-        .read_address_i ( cache_address[1] ),
-        .read_data_o    ( cache_load_data  ),
-        .read_tag_o     ( cache_load_tag   ),
+        .read_address_i     ( cache_address[1]   ),
+        .read_tag_address_i ( cache_tag_address  ),
+        .read_data_o        ( cache_load_data    ),
+        .read_tag_o         ( cache_load_tag     ),
 
         .read_i  ( cache_load  ),
         .valid_o ( cache_valid ),
@@ -141,14 +145,15 @@ module data_cache_complex #(
 //====================================================================================
 
     status_packet_t lctrl_status_packet;
-    logic [31:0] lctrl_store_data, lctrl_cache_address, lctrl_lock_address, lctrl_load_data;
+    logic [31:0] lctrl_store_data, lctrl_cache_address, lctrl_cache_lookup_address;
+    logic [31:0] lctrl_lock_address, lctrl_load_data;
     logic [INDEX - 1:0] lctrl_lock_index;
-    logic lctrl_valid_data, lctrl_stall, ld_lock, ld_lock_request;
+    logic lctrl_valid_data, lctrl_busy, lctrl_stall, ld_lock, ld_lock_request;
     data_enable_t lctrl_cache_store, lctrl_cache_read;
 
     store_interface lctrl_store_channel(); assign lctrl_store_channel.done = ddr_store_channel.done;
 
-    load_controller #(OFFSET, TAG, INDEX) load_cache_controller (
+    load_controller #(BLOCK_WORDS, OFFSET, TAG, INDEX) load_cache_controller (
         .clk_i   ( clk_i                  ),
         .rst_n_i ( rst_n_i                ), 
         .stall_i ( stall_i | flush_busy_o ),
@@ -158,6 +163,7 @@ module data_cache_complex #(
         .lock_request_o ( ld_lock_request    ),
         .lock_address_o ( lctrl_lock_address ),
         .lock_index_o   ( lctrl_lock_index   ),
+        .busy_o         ( lctrl_busy         ),
 
         .invalidate_i ( ldu_channel.invalidate                 ),
         .request_i    ( ldu_channel.request & !io_load_request ),
@@ -173,6 +179,7 @@ module data_cache_complex #(
         .cache_dirty_i   ( cache_dirty[1]      ),
         .cache_status_o  ( lctrl_status_packet ),
         .cache_address_o ( lctrl_cache_address ),
+        .cache_lookup_address_o ( lctrl_cache_lookup_address ),
         .cache_data_i    ( cache_load_data     ),
         .cache_data_o    ( lctrl_store_data    ),
         .cache_read_o    ( lctrl_cache_read    ),
@@ -180,6 +187,7 @@ module data_cache_complex #(
     ); 
 
     assign cache_address[1] = flush_busy_o ? flush_cache_address : lctrl_cache_address;
+    assign cache_tag_address = flush_busy_o ? flush_cache_address : lctrl_cache_lookup_address;
     assign cache_load[1] = flush_busy_o ? flush_cache_read : lctrl_cache_read;
 
 
@@ -487,29 +495,24 @@ module data_cache_complex #(
                 ld_lock_address <= '0;
                 st_lock_address <= '0;
             end else begin
-                /* A response normally releases the load lock. A back-to-back
-                 * hit, or promotion of the queued load after a refill, hands
-                 * ownership directly to the next address without an unlocked
-                 * cycle. Requests queued behind a miss must not overwrite the
-                 * active miss address. */
+                /* Keep the load lock for the complete controller transaction.
+                 * The miss response can be delivered before the refill has
+                 * finished, so releasing on ldu_channel.valid would allow a
+                 * same-index store to overwrite the line mid-refill. */
                 if (ldu_channel.invalidate) begin
                     ld_lock_acquired <= 1'b0;
-                end else if (ldu_channel.valid) begin
-                    if (ld_lock_request) begin
-                        ld_lock_acquired <= 1'b1;
-                        ld_lock_address <= lctrl_lock_address;
-                    end else if (ldu_channel.request & !io_load_request & !ld_lock) begin
-                        ld_lock_acquired <= 1'b1;
-                        ld_lock_address <= ldu_channel.address;
-                    end else begin
-                        ld_lock_acquired <= 1'b0;
-                    end
                 end else if (ld_lock_request) begin
                     ld_lock_acquired <= 1'b1;
                     ld_lock_address <= lctrl_lock_address;
-                end else if (!ld_lock_acquired & ldu_channel.request & !io_load_request & !ld_lock) begin
+                end else if (lctrl_busy & !ld_lock & !lctrl_stall) begin
+                    ld_lock_acquired <= 1'b1;
+                    ld_lock_address <= lctrl_lock_address;
+                end else if (!lctrl_busy &&
+                             ldu_channel.request & !io_load_request & !ld_lock) begin
                     ld_lock_acquired <= 1'b1;
                     ld_lock_address <= ldu_channel.address;
+                end else if (!lctrl_busy) begin
+                    ld_lock_acquired <= 1'b0;
                 end
 
                 if (stu_channel.done) begin
@@ -578,6 +581,9 @@ module data_cache_complex #(
         assert property (@(posedge clk_i) disable iff (!rst_n_i)
             !(ld_lock_acquired & st_lock_acquired &
               (ld_lock_address.index == st_lock_address.index)));
+
+        assert property (@(posedge clk_i) disable iff (!rst_n_i)
+            ldu_channel.invalidate |-> !io_load_channel.request);
     `endif
 
 

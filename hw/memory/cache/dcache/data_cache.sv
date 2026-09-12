@@ -22,6 +22,7 @@ module data_cache #(
 
     /* Read ports */    
     input logic [31:0] read_address_i,
+    input logic [31:0] read_tag_address_i,
     output logic [31:0] read_data_o,
     output logic [TAG_SIZE - 1:0] read_tag_o,
 
@@ -65,8 +66,12 @@ module data_cache #(
 //====================================================================================
 
     cache_address_t read_address;
+    cache_address_t read_tag_address;
 
     assign read_address = read_address_i[31:2];
+    /* The tag port follows only real lookups, not the late data-bank address
+     * used for dirty eviction and refill traffic. */
+    assign read_tag_address = read_tag_address_i[31:2];
 
 
 //====================================================================================
@@ -111,7 +116,13 @@ module data_cache #(
     assign valid_o[0] = status[0].valid; assign valid_o[1] = status[1].valid;
 
 
-    valid_memory #(INDEX) valid_memory (
+    /* The valid array is narrow and its result fans out through the miss/replay
+     * control.  Distributed RAM avoids the block-RAM output delay without
+     * changing the synchronous lookup latency. */
+    valid_memory #(
+        .ADDR_WIDTH ( INDEX         ),
+        .RAM_STYLE  ( "distributed" )
+    ) valid_memory (
         .clk_i ( clk_i ),
 
         .read_write_address_i ( write_address.index ),
@@ -138,7 +149,7 @@ module data_cache #(
         .write_i              ( write_i.tag         ),
 
         .read_i         ( {read_i[1].tag, read_i[0].tag} ), 
-        .read_address_i ( read_address.index             ),
+        .read_address_i ( read_tag_address.index         ),
         .read_tag_o     ( read_tag                       )
     );
 
@@ -160,7 +171,7 @@ module data_cache #(
             end
 
             if (read_i[1].tag) begin
-                compare_tag[1] <= read_address.tag;
+                compare_tag[1] <= read_tag_address.tag;
             end
         end
 

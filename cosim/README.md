@@ -14,7 +14,7 @@
 Source the environment before building. It assumes Spike is installed under `$HOME/riscv-isa-sim`; override `SPIKE_SRC`, `SPIKE_BUILD`, `SPIKE_INC`, or `SPIKE_LIB` after sourcing when needed.
 
 ```bash
-source cosim/setenv.sh
+source setenv.sh
 cd cosim
 make info
 ```
@@ -30,11 +30,19 @@ make firmware boot                 # Build user firmware and boot ROM
 make run-notrace SEED=7            # Full run without waveform tracing
 make run SEED=7 MAX_RETIRE=5000    # Full run with tracing and a retire limit
 make regress N=100 JOBS=4          # Run seeds 0..99 in parallel
+make regress SOC_CONFIG=1 N=64 JOBS=4 # Use the FPGA CPU/cache parameters
 make genseed                       # Start a completely new test campaign
 make coverage-report               # Summarize generator opcode coverage
 make wave                          # Convert/open the latest FST waveform
 make clean                         # Remove generated build and test output
 ```
+
+`SOC_CONFIG=1` reads the CPU and cache sizes from
+[`soc_parameters.sv`](../hw/utils/pkg/soc_parameters.sv), including unequal
+instruction/data refill lengths. The default retains the legacy 4 KiB caches,
+16-byte lines, four-entry store buffer, and 32-entry ROB. Both modes check
+retirement against Spike with RTL assertions enabled. Rebuild when switching
+modes; `regress` and do this automatically.
 
 `SEED` is deterministic within the current generator campaign. This makes a
 failure from `make regress` reproducible with `make run SEED=<failing_seed>`.

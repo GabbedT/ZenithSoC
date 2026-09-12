@@ -3,7 +3,10 @@
 
 module valid_memory #(
     /* Cache address */
-    parameter ADDR_WIDTH = 8
+    parameter ADDR_WIDTH = 8,
+
+    /* Allow each cache to select the implementation independently. */
+    parameter RAM_STYLE = "auto"
 ) (
     input logic clk_i,
 
@@ -20,7 +23,7 @@ module valid_memory #(
 
     localparam CACHE_DEPTH = 2 ** ADDR_WIDTH;
 
-    logic valid_memory [CACHE_DEPTH - 1:0];
+    (* ram_style = RAM_STYLE *) logic valid_memory [CACHE_DEPTH - 1:0];
 
     /* Invalidate all the bits at startup */
     initial begin
@@ -45,4 +48,4 @@ module valid_memory #(
 
 endmodule : valid_memory
 
-`endif 
+`endif
