@@ -63,11 +63,11 @@ module perf_counters (
     wire scb_block_store        = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.block_store_operation;
     wire scb_issue_instruction  = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.issue_instruction_o;
 
-    // Per-unit RAW hazards (vectors — OR-reduce to detect any active)
-    wire alu_raw_active, ldu_raw_active, mul_raw_active, div_raw_active;
-    assign alu_raw_active = |dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.alu_raw_hazard;
+    // ALU results bypass immediately; MUL/BMU share the short calendar.
+    wire alu_raw_active, ldu_raw_active, short_raw_active, div_raw_active;
+    assign alu_raw_active = 1'b0;
     assign ldu_raw_active = |dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.ldu_raw_hazard;
-    assign mul_raw_active = |dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.mul_raw_hazard;
+    assign short_raw_active = |dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.short_raw_hazard;
 
     wire div_raw_active_internal;
     assign div_raw_active_internal = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.div_raw_hazard;
@@ -75,9 +75,9 @@ module perf_counters (
     assign div_raw_active = div_raw_active_internal;
 
     // Per-unit latency hazards
-    wire alu_lat_active, mul_lat_active, div_lat_active;
-    assign alu_lat_active = |dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.alu_latency_hazard;
-    assign mul_lat_active = |dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.mul_latency_hazard;
+    wire alu_lat_active, short_lat_active, div_lat_active;
+    assign alu_lat_active = 1'b0;
+    assign short_lat_active = |dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.short_latency_hazard;
 
     wire div_lat_active_internal;
     assign div_lat_active_internal = dut.ApogeoRV.system_cpu.apogeo_frontend.scheduler_unit.scoreboard_unit.div_latency_hazard;
@@ -169,12 +169,12 @@ module perf_counters (
     reg [63:0] cnt_st_struct_stu;
     reg [63:0] cnt_st_store_blocked;
     reg [63:0] cnt_st_raw_alu;
-    reg [63:0] cnt_st_raw_mul;
+    reg [63:0] cnt_st_raw_short;
     reg [63:0] cnt_st_raw_div;
     reg [63:0] cnt_st_raw_ldu;
     reg [63:0] cnt_st_raw_stu;
     reg [63:0] cnt_st_lat_alu;
-    reg [63:0] cnt_st_lat_mul;
+    reg [63:0] cnt_st_lat_short;
     reg [63:0] cnt_st_lat_div;
     reg [63:0] cnt_st_other;            // fallback sanity bucket
 
@@ -295,11 +295,11 @@ module perf_counters (
             cnt_st_struct_stu       <= 64'd0;
             cnt_st_store_blocked    <= 64'd0;
             cnt_st_raw_alu          <= 64'd0;
-            cnt_st_raw_mul          <= 64'd0;
+            cnt_st_raw_short          <= 64'd0;
             cnt_st_raw_div          <= 64'd0;
             cnt_st_raw_ldu          <= 64'd0;
             cnt_st_lat_alu          <= 64'd0;
-            cnt_st_lat_mul          <= 64'd0;
+            cnt_st_lat_short          <= 64'd0;
             cnt_st_lat_div          <= 64'd0;
             cnt_st_other            <= 64'd0;
 
@@ -419,8 +419,8 @@ module perf_counters (
                 else if (ldu_raw_active) begin
                     cnt_st_raw_ldu <= cnt_st_raw_ldu + 64'd1;
                 end
-                else if (mul_raw_active) begin
-                    cnt_st_raw_mul <= cnt_st_raw_mul + 64'd1;
+                else if (short_raw_active) begin
+                    cnt_st_raw_short <= cnt_st_raw_short + 64'd1;
                 end
                 else if (div_raw_active) begin
                     cnt_st_raw_div <= cnt_st_raw_div + 64'd1;
@@ -428,8 +428,8 @@ module perf_counters (
                 else if (alu_lat_active) begin
                     cnt_st_lat_alu <= cnt_st_lat_alu + 64'd1;
                 end
-                else if (mul_lat_active) begin
-                    cnt_st_lat_mul <= cnt_st_lat_mul + 64'd1;
+                else if (short_lat_active) begin
+                    cnt_st_lat_short <= cnt_st_lat_short + 64'd1;
                 end
                 else if (div_lat_active) begin
                     cnt_st_lat_div <= cnt_st_lat_div + 64'd1;
@@ -579,11 +579,11 @@ module perf_counters (
             $display("  st_struct_stu          : %12d  (%5.1f%%)", cnt_st_struct_stu,  100.0 * real'(cnt_st_struct_stu)  / real'(cnt_stall_slots));
             $display("  st_store_blocked       : %12d  (%5.1f%%)", cnt_st_store_blocked, 100.0 * real'(cnt_st_store_blocked) / real'(cnt_stall_slots));
             $display("  st_raw_alu             : %12d  (%5.1f%%)", cnt_st_raw_alu,     100.0 * real'(cnt_st_raw_alu)     / real'(cnt_stall_slots));
-            $display("  st_raw_mul             : %12d  (%5.1f%%)", cnt_st_raw_mul,     100.0 * real'(cnt_st_raw_mul)     / real'(cnt_stall_slots));
+            $display("  st_raw_short             : %12d  (%5.1f%%)", cnt_st_raw_short,     100.0 * real'(cnt_st_raw_short)     / real'(cnt_stall_slots));
             $display("  st_raw_div             : %12d  (%5.1f%%)", cnt_st_raw_div,     100.0 * real'(cnt_st_raw_div)     / real'(cnt_stall_slots));
             $display("  st_raw_ldu             : %12d  (%5.1f%%)", cnt_st_raw_ldu,     100.0 * real'(cnt_st_raw_ldu)     / real'(cnt_stall_slots));
             $display("  st_lat_alu             : %12d  (%5.1f%%)", cnt_st_lat_alu,     100.0 * real'(cnt_st_lat_alu)     / real'(cnt_stall_slots));
-            $display("  st_lat_mul             : %12d  (%5.1f%%)", cnt_st_lat_mul,     100.0 * real'(cnt_st_lat_mul)     / real'(cnt_stall_slots));
+            $display("  st_lat_short             : %12d  (%5.1f%%)", cnt_st_lat_short,     100.0 * real'(cnt_st_lat_short)     / real'(cnt_stall_slots));
             $display("  st_lat_div             : %12d  (%5.1f%%)", cnt_st_lat_div,     100.0 * real'(cnt_st_lat_div)     / real'(cnt_stall_slots));
             $display("  st_other               : %12d  (%5.1f%%)", cnt_st_other,       100.0 * real'(cnt_st_other)       / real'(cnt_stall_slots));
             $display("");
@@ -680,16 +680,16 @@ module perf_counters (
             bottleneck_val = cnt_st_struct_ldu; bottleneck_name = "st_struct_ldu (load unit full)"; end
         if (cnt_st_store_blocked > bottleneck_val) begin
             bottleneck_val = cnt_st_store_blocked; bottleneck_name = "st_store_blocked (store waits loads)"; end
-        if (cnt_st_raw_mul > bottleneck_val) begin
-            bottleneck_val = cnt_st_raw_mul; bottleneck_name = "st_raw_mul (MUL RAW)"; end
+        if (cnt_st_raw_short > bottleneck_val) begin
+            bottleneck_val = cnt_st_raw_short; bottleneck_name = "st_raw_short (MUL/BMU RAW)"; end
         if (cnt_st_raw_div > bottleneck_val) begin
             bottleneck_val = cnt_st_raw_div; bottleneck_name = "st_raw_div (DIV RAW)"; end
         if (cnt_st_lat_alu > bottleneck_val) begin
             bottleneck_val = cnt_st_lat_alu; bottleneck_name = "st_lat_alu (ALU result conflict)"; end
         if (cnt_st_lat_div > bottleneck_val) begin
             bottleneck_val = cnt_st_lat_div; bottleneck_name = "st_lat_div (DIV result conflict)"; end
-        if (cnt_st_lat_mul > bottleneck_val) begin
-            bottleneck_val = cnt_st_lat_mul; bottleneck_name = "st_lat_mul (MUL result conflict)"; end
+        if (cnt_st_lat_short > bottleneck_val) begin
+            bottleneck_val = cnt_st_lat_short; bottleneck_name = "st_lat_short (MUL/BMU result conflict)"; end
         if (cnt_st_struct_div > bottleneck_val) begin
             bottleneck_val = cnt_st_struct_div; bottleneck_name = "st_struct_div (DIV unit busy)"; end
         if (cnt_st_struct_stu > bottleneck_val) begin
