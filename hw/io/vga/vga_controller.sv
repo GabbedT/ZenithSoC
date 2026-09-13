@@ -9,7 +9,7 @@ module vga_controller (
     input logic next_pixel_i,
     output logic video_on_o,
     output logic frame_done_o,
-    output logic [8:0] vsync_counter_o,
+    output logic [9:0] vsync_counter_o,
 
     /* Sprite interface */
     input logic [9:0] sprite_x_i,
@@ -58,8 +58,8 @@ module vga_controller (
 //      COUNTERS
 //====================================================================================
 
-    logic [$clog2(H_SCAN_PIXEL_2) - 1:0] hsync;
-    logic [$clog2(V_SCAN_PIXEL_2) - 1:0] vsync;
+    logic [$clog2(H_SCAN_PIXEL) - 1:0] hsync;
+    logic [$clog2(V_SCAN_PIXEL) - 1:0] vsync;
 
     assign vsync_counter_o = vsync;
 
@@ -96,12 +96,12 @@ module vga_controller (
 //====================================================================================
     
     logic x_match, y_match, sprite_on;
-    pixel_t sprite_pixel, final_pixel;
+    pixel_t sprite_pixel;
 
 
     /* Sprite is 8x8 so the HSYNC and VSYNC counter must fall between the two boundaries */
-    assign x_match = (hsync >= sprite_x_i) & (hsync <= (sprite_x_i + 8));
-    assign y_match = (vsync >= sprite_y_i) & (vsync <= (sprite_y_i + 8));
+    assign x_match = (hsync >= sprite_x_i) & (hsync < (sprite_x_i + 8));
+    assign y_match = (vsync >= sprite_y_i) & (vsync < (sprite_y_i + 8));
 
     /* Matched sprite pixel position will require a read to the sprite table to advance pointer */
     assign read_sprite_o = x_match & y_match & next_pixel_i;
@@ -144,6 +144,42 @@ module vga_controller (
             end
         end
 
+
+//====================================================================================
+//      ASSERTIONS
+//====================================================================================
+
+`ifndef SYNTHESIS
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        hsync < H_SCAN_PIXEL)
+        else $error("VGA horizontal counter exceeded its range");
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        vsync < V_SCAN_PIXEL)
+        else $error("VGA vertical counter exceeded its range");
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        video_on_o |-> ((hsync < H_DISPLAY_SIZE) &&
+                        (vsync < V_DISPLAY_SIZE)))
+        else $error("VGA video_on asserted outside the display area");
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        read_pixel_o |-> (video_on_o || frame_done_o ||
+                          (hsync == H_SCAN_PIXEL - 1)))
+        else $error("VGA line-buffer read issued at an invalid position");
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        read_sprite_o |-> (x_match && y_match && next_pixel_i))
+        else $error("VGA sprite read issued outside the sprite area");
+
+`endif
+
 endmodule : vga_controller
 
-`endif 
+`endif
