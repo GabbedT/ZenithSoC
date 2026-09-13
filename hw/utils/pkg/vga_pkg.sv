@@ -18,7 +18,7 @@ package vga_pkg;
     } pixel_t;
 
     
-    typedef enum logic { _640x480_, _800x600_ } resolution_t;
+    typedef enum logic [1:0] { _320x240_, _640x480_ } resolution_t;
 
 
     typedef struct packed {
@@ -26,7 +26,7 @@ package vga_pkg;
         logic [8:0] vsync_counter;
 
         /* Interrupt generation enable */
-        logic [2:0] enable_interrupt;
+        logic [3:0] enable_interrupt;
 
         /* Enable VGA output */
         logic enable_video;
@@ -34,30 +34,26 @@ package vga_pkg;
         /* Setup VGA resolution */
         resolution_t resolution;
 
-        /* No data in line buffer */
-        logic buffer_empty;
-
         /* VSYNC and HSYNC are in display area */
         logic video_on;
 
         /* The whole frame has been displayed */
         logic frame_done;   
-
-        /* Enable auto increment while writing
-         * to line buffer */
-        logic auto_increment;
-    } status_register_t;
+    } control_status_register_t;
 
 
     typedef struct packed {
-        /* No data in line buffer */
-        logic buffer_empty;
-
         /* VSYNC and HSYNC are in display area */
         logic video_on;
 
+        /* Line buffer must not be empty during video on */
+        logic buffer_empty;
+
         /* The whole frame has been displayed */
         logic frame_done;   
+
+        /* DDR master error */
+        logic ddr_error;
     } event_register_t;
 
 
@@ -73,7 +69,7 @@ package vga_pkg;
     } sprite_register_t;
 
 
-    typedef enum logic [2:0] { VGA_STATUS, VGA_INCREMENT, VGA_BUFFER_SIZE, VGA_EVENT, VGA_SPRITE } registers_t;
+    typedef enum logic [2:0] { VGA_CTLR_STATUS, VGA_FRM_BUF_BASE, VGA_FRM_BUF_SIZE, VGA_EVENT, VGA_SPRITE } registers_t;
 
 endpackage : vga_pkg
 
