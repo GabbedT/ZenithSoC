@@ -23,7 +23,7 @@ package vga_pkg;
 
     typedef struct packed {
         /* Value of VSYNC */
-        logic [8:0] vsync_counter;
+        logic [9:0] vsync_counter;
 
         /* Interrupt generation enable */
         logic [3:0] enable_interrupt;
@@ -38,22 +38,22 @@ package vga_pkg;
         logic video_on;
 
         /* The whole frame has been displayed */
-        logic frame_done;   
+        logic frame_done;
     } control_status_register_t;
 
 
     typedef struct packed {
+        /* DDR master error */
+        logic ddr_error;
+
+        /* The whole frame has been displayed */
+        logic frame_done;
+
         /* VSYNC and HSYNC are in display area */
         logic video_on;
 
         /* Line buffer must not be empty during video on */
         logic buffer_empty;
-
-        /* The whole frame has been displayed */
-        logic frame_done;   
-
-        /* DDR master error */
-        logic ddr_error;
     } event_register_t;
 
 
@@ -69,10 +69,19 @@ package vga_pkg;
     } sprite_register_t;
 
 
+    /* Sprite table addresses */
+    localparam logic [6:0] VGA_REGISTER_SPACE = 7'd5;
+    localparam logic [6:0] VGA_CTABLE_BASE = 7'd5;
+    localparam logic [6:0] VGA_CTABLE_SIZE = 7'd16;
+    localparam logic [6:0] VGA_PTABLE_BASE = VGA_CTABLE_BASE + VGA_CTABLE_SIZE;
+    localparam logic [6:0] VGA_PTABLE_SIZE = 7'd64;
+    localparam logic [6:0] VGA_DEVICE_SPACE = VGA_PTABLE_BASE + VGA_PTABLE_SIZE;
+
+
     typedef enum logic [2:0] { VGA_CTLR_STATUS, VGA_FRM_BUF_BASE, VGA_FRM_BUF_SIZE, VGA_EVENT, VGA_SPRITE } registers_t;
 
 endpackage : vga_pkg
 
 import vga_pkg::*;
 
-`endif 
+`endif
