@@ -8,30 +8,30 @@ package soc_parameters;
 //====================================================================================
 
     /* Predictor table size */ 
-    localparam PREDICTOR_SIZE = 512;
+    localparam PREDICTOR_SIZE = 1024;
 
     /* Branch target buffer cache size */
-    localparam BTB_SIZE = 512;
+    localparam BTB_SIZE = 1024;
 
     /* Store buffer entries number */
-    localparam STORE_BUFFER_SIZE = 4;
+    localparam STORE_BUFFER_SIZE = 2;
 
     /* Maximum number of instruction held by the buffer */
     localparam INSTRUCTION_BUFFER_SIZE = 8;
 
     /* Reorder Buffer entries */
-    localparam ROB_DEPTH = 32;
+    localparam ROB_DEPTH = 16;
 
 //====================================================================================
 //      CACHE PARAMETERS
 //====================================================================================
 
     /* Data cache parameters */
-    localparam DCACHE_SIZE = 2**12;
-    localparam DBLOCK_SIZE_BYTE = 16;
+    localparam DCACHE_SIZE = 2**13;
+    localparam DBLOCK_SIZE_BYTE = 32;
 
     /* Instruction cache parameters */
-    localparam ICACHE_SIZE = 2**12;
+    localparam ICACHE_SIZE = 2**14;
     localparam IBLOCK_SIZE_BYTE = 16;
 
 
@@ -225,6 +225,27 @@ package soc_parameters;
     /* Trace unit MMIO address */
     localparam TRACE_UNIT_BASE_ADDRESS = SD_BASE_ADDRESS + 2**13;
     localparam TRACE_UNIT_END_ADDRESS = TRACE_UNIT_BASE_ADDRESS + ((TRACE_UNIT_DEVICE_SPACE - 1) * 4 * TRACE_UNIT_DEVICE_NUMBER);
+
+
+//====================================================================================
+//      PSEUDO RANDOM NUMBER GENERATOR
+//====================================================================================
+
+    /* Line buffer size */
+    localparam VGA_LINE_BUFFER_SIZE = 2**9;
+
+    /* Pixel size in bits */
+    localparam VGA_PIXEL = 12;
+
+    /* Number of VGA units (max 1) */
+    localparam VGA_DEVICE_NUMBER = 1;
+
+    /* Memory mapped registers and sprite tables */
+    localparam VGA_DEVICE_SPACE = 85;
+
+    /* PNRG MMIO address */
+    localparam VGA_BASE_ADDRESS = TRACE_UNIT_BASE_ADDRESS + 2**13;
+    localparam VGA_END_ADDRESS = VGA_BASE_ADDRESS + ((VGA_DEVICE_SPACE - 1) * 4);
 
 
 //====================================================================================
