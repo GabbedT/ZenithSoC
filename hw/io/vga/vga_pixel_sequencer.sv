@@ -17,7 +17,6 @@ module vga_pixel_sequencer #(
     input logic [18:0] size_i,
 
     /* Line buffer status */
-    input logic refill_i,
     input logic full_i,
 
     /* Line buffer write */
@@ -37,12 +36,9 @@ module vga_pixel_sequencer #(
 //====================================================================================
 
     logic [18:0] frame_buffer_offset; logic buffer_full;
-    logic [18:0] frame_buffer_word_count;
-
-    assign frame_buffer_word_count = size_i >> 4;
 
         always_ff @(posedge clk_i) begin
-            if (!rst_n_i | !display_i) begin
+            if (!rst_n_i || !display_i) begin
                 frame_buffer_offset <= '0;
             end else if (ddr_read_o) begin
                 if (frame_buffer_offset == ((size_i >> 4) - 1'b1)) begin
@@ -53,7 +49,8 @@ module vga_pixel_sequencer #(
             end
         end
 
-    assign ddr_read_o = ddr_ready_i & display_i & !buffer_full;
+    assign ddr_read_o = ddr_ready_i & display_i & !buffer_full &
+                        (size_i >= 19'd16);
 
     assign ddr_address_o = base_address_i + (frame_buffer_offset << 4);
 
@@ -162,7 +159,7 @@ module vga_pixel_sequencer #(
 
 `ifndef SYNTHESIS
 
-    localparam logic [RESERVOIR_COUNT_WIDTH - 1:0] RESERVOIR_CAPACITY = RESERVOIR_WIDTH;
+    localparam logic [RESERVOIR_COUNT_WIDTH - 1:0] RESERVOIR_CAPACITY = 9'd256;
 
     /* Parameter and protocol assumptions. */
     initial begin
@@ -225,8 +222,8 @@ module vga_pixel_sequencer #(
      * beyond its final 128-bit word. */
     assert property (@(posedge clk_i)
         disable iff (!rst_n_i || !display_i)
-        (ddr_read_o && frame_buffer_word_count != 0) |->
-        (frame_buffer_offset < frame_buffer_word_count))
+        (ddr_read_o && size_i != 0) |->
+        (frame_buffer_offset < (size_i >> 4)))
         else $error("VGA framebuffer offset is outside the requested range");
 
 `endif
