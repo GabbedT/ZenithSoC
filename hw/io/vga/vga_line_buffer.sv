@@ -6,11 +6,8 @@ module vga_line_buffer #(
     parameter DEPTH = 512,
 
     /* Width of a pixel */
-    parameter WIDTH = 12,
+    parameter WIDTH = 12
 
-    /* Refill threshold to account for
-     * DDR latency */
-    parameter THRESHOLD = 16
 ) (
     input logic clk_i,
     input logic rst_n_i,
@@ -26,7 +23,6 @@ module vga_line_buffer #(
     output pixel_t pixel_o,
 
     /* Status */
-    output logic refill_o,
     output logic full_o,
     output logic empty_o
 );
@@ -39,15 +35,16 @@ module vga_line_buffer #(
     logic [WIDTH - 1:0] buffer [DEPTH - 1:0];
 
     localparam PTR_SIZE = (DEPTH > 1) ? $clog2(DEPTH) : 1;
+    localparam logic [PTR_SIZE - 1:0] LAST_POINTER = PTR_SIZE'(DEPTH - 1);
+
     localparam SIZE_WIDTH = $clog2(DEPTH + 1);
     localparam LOW_RESOLUTION_SIZE = 320;
-    localparam LOW_RESOLUTION_COUNT_SIZE = $clog2(LOW_RESOLUTION_SIZE);
 
     /* Buffer pointers */
-    logic [$clog2(DEPTH) - 1:0] write_ptr, read_ptr, line_start_ptr;
+    logic [PTR_SIZE - 1:0] write_ptr, read_ptr, line_start_ptr;
 
     /* Buffer size */
-    logic [$clog2(DEPTH + 1) - 1:0] size;
+    logic [SIZE_WIDTH - 1:0] size;
 
 
 //====================================================================================
@@ -73,8 +70,10 @@ module vga_line_buffer #(
             end
         end
 
-        always_ff @(posedge clk_i) begin
-            if (read_enable) begin
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                pixel_o <= '0;
+            end else if (read_enable) begin
                 pixel_o <= buffer[read_ptr];
             end
         end
@@ -85,7 +84,7 @@ module vga_line_buffer #(
 //====================================================================================
 
     /* Next pointer */
-    logic [$clog2(DEPTH) - 1:0] inc_write_ptr, inc_read_ptr;
+    logic [PTR_SIZE - 1:0] inc_write_ptr, inc_read_ptr;
 
     /* 320x240 logic */
     logic [$clog2(LOW_RESOLUTION_SIZE) - 1:0] low_resolution_read_count;
@@ -93,8 +92,8 @@ module vga_line_buffer #(
 
 
     /* Wrap around or increment */
-    assign inc_write_ptr = (write_ptr == (DEPTH - 1)) ? '0 : write_ptr + 1'b1;
-    assign inc_read_ptr = (read_ptr == (DEPTH - 1)) ? '0 : read_ptr + 1'b1;
+    assign inc_write_ptr = (write_ptr == LAST_POINTER) ? '0 : write_ptr + 1'b1;
+    assign inc_read_ptr = (read_ptr == LAST_POINTER) ? '0 : read_ptr + 1'b1;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin
@@ -162,7 +161,44 @@ module vga_line_buffer #(
 
     assign full_o = size == DEPTH;
     assign empty_o = size == '0;
-    assign refill_o = size <= THRESHOLD;
+
+
+//====================================================================================
+//      ASSERTIONS
+//====================================================================================
+
+`ifndef SYNTHESIS
+
+    initial begin
+        assert (DEPTH > 1)
+            else $error("VGA line buffer depth must be greater than one");
+
+        assert (DEPTH >= LOW_RESOLUTION_SIZE)
+            else $error("VGA line buffer cannot contain a 320-pixel line");
+
+    end
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        size <= DEPTH)
+        else $error("VGA line buffer count exceeded its capacity");
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        write_enable |-> (!full_o || pop_enable))
+        else $error("VGA line buffer write was issued while full");
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        read_enable |-> !empty_o)
+        else $error("VGA line buffer read was issued while empty");
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        pop_enable |-> read_enable)
+        else $error("VGA line buffer pop was issued without a read");
+
+`endif
 
 endmodule 
 
