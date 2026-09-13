@@ -149,7 +149,7 @@ module uart_registers #(
         .rst_n_i ( rst_n_i ),
 
         .write_i ( ((write_enable[1] & write_i) | trace_write_i) & !tx_full ),
-        .read_i  ( tx_cts_i & !tx_empty                 ),
+        .read_i  ( tx_cts_i & !tx_empty                                     ),
 
         .empty_o ( tx_empty ),
         .full_o  ( tx_full  ),
