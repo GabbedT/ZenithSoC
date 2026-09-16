@@ -58,11 +58,11 @@ package vga_pkg;
 
 
     typedef struct packed {
-        /* Sprite top left X-position */
-        logic [9:0] x_position;
-
         /* Sprite top left Y-position */
         logic [9:0] y_position;
+
+        /* Sprite top left X-position */
+        logic [9:0] x_position;
 
         /* Sprite is visible */
         logic enable;
