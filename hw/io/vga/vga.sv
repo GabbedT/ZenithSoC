@@ -99,7 +99,7 @@ module vga #(
     pixel_t sequencer_pixel;
 
     vga_pixel_sequencer #(
-        .PIXEL_WIDTH       ( 12         ),
+        .PIXEL_WIDTH       ( 16          ),
         .PIXEL_BUFFER_SIZE ( BUFFER_SIZE )
     ) pixel_sequencer (
         .clk_i       ( clk_i       ),
@@ -169,12 +169,12 @@ module vga #(
             end else if (!controller_enable) begin
                 divider <= '0;
             end else begin 
-                divider <= (divider == 1) ? '0 : (divider + 1'b1);
+                divider <= (divider == 3) ? '0 : (divider + 1'b1);
             end 
         end 
 
     /* 640x480 is 25MHz */
-    assign pixel_pulse = divider == 1;
+    assign pixel_pulse = divider == 3;
 
 
 //====================================================================================
