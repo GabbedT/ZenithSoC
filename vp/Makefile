@@ -18,6 +18,7 @@ FW_LINK      = common/sw/link.ld
 
 TRACE_START ?= 0
 TRACE_END   ?= 18446744073709551615
+SIM_ARGS    ?=
 
 # Driver paths
 FW_INC_DIRS = common/sw \
@@ -109,8 +110,9 @@ run: all
 	@echo "=== Running VP: BLOCK=$(BLOCK) IO_BASE=$(IO_BASE) ==="
 	@mkdir -p out
 	./obj_dir/Vtb_top +firmware=out/firmware.elf \
-		+io_base=$(IO_BASE) +io_size=$(IO_SIZE) \
-		+trace_start=$(TRACE_START) +trace_end=$(TRACE_END) \
+	    +io_base=$(IO_BASE) +io_size=$(IO_SIZE) \
+	    $(SIM_ARGS) \
+	    +trace_start=$(TRACE_START) +trace_end=$(TRACE_END) \
 		> out/stdout.txt 2>&1
 	@echo "=== Simulation done ==="
 
@@ -118,13 +120,13 @@ run: all
 run-timeout: all
 	@echo "=== Running VP with timeout $(TIMEOUT): BLOCK=$(BLOCK) IO_BASE=$(IO_BASE) ==="
 	-timeout -s TERM $(TIMEOUT) ./obj_dir/Vtb_top +firmware=out/firmware.elf \
-	    +io_base=$(IO_BASE) +io_size=$(IO_SIZE)
+	    +io_base=$(IO_BASE) +io_size=$(IO_SIZE) $(SIM_ARGS)
 
 # --- Run without waveform (faster) ---
 run-notrace: all
 	@echo "=== Running VP (no trace): BLOCK=$(BLOCK) ==="
 	./obj_dir/Vtb_top +firmware=out/firmware.elf \
-	    +io_base=$(IO_BASE) +io_size=$(IO_SIZE) +notrace
+	    +io_base=$(IO_BASE) +io_size=$(IO_SIZE) $(SIM_ARGS) +notrace
 	@echo "=== Simulation done ==="
 
 # --- Open waveform ---
