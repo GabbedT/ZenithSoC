@@ -31,3 +31,6 @@
 
 /* Trace Unit base address */
 #define TRACE_UNIT_BASE (SD_BASE + DEVICE_INTERLEAVE)
+
+/* VGA base address */
+#define VGA_BASE (TRACE_UNIT_BASE + DEVICE_INTERLEAVE)
