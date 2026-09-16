@@ -36,11 +36,16 @@ module vga_pixel_sequencer #(
 //====================================================================================
 
     logic [18:0] frame_buffer_offset; logic buffer_full;
+    logic [3:0] response_count;
+    logic [3:0] outstanding_count;
+    logic [4:0] credit_count;
+    logic response_fifo_empty;
+    logic request_accepted;
 
         always_ff @(posedge clk_i) begin
-            if (!rst_n_i || !display_i) begin
+            if (!rst_n_i | !display_i) begin
                 frame_buffer_offset <= '0;
-            end else if (ddr_read_o) begin
+            end else if (request_accepted) begin
                 if (frame_buffer_offset == ((size_i >> 4) - 1'b1)) begin
                     frame_buffer_offset <= '0;
                 end else begin
@@ -49,8 +54,15 @@ module vga_pixel_sequencer #(
             end
         end
 
-    assign ddr_read_o = ddr_ready_i & display_i & !buffer_full &
-                        (size_i >= 19'd16);
+    /* Basically it's the size of the FIFO when the in-flight requests are serviced
+     * it avoid the FIFO overflow */
+    assign credit_count = response_count + outstanding_count;
+
+    assign response_fifo_empty = response_count == 0;
+    assign request_accepted = ddr_read_o && ddr_ready_i;
+
+    /* Read until the credit count match a full buffer */
+    assign ddr_read_o = display_i && ((credit_count < 8) || read_bundle);
 
     assign ddr_address_o = base_address_i + (frame_buffer_offset << 4);
 
@@ -60,11 +72,12 @@ module vga_pixel_sequencer #(
 //====================================================================================
 
     logic read_bundle, buffer_empty; logic [127:0] pixel_bundle;
+    logic bundle_valid;
 
     synchronous_buffer #(
         .BUFFER_DEPTH           ( 8   ), 
         .DATA_WIDTH             ( 128 ), 
-        .FIRST_WORD_FALL_TROUGH ( 1   ) 
+        .FIRST_WORD_FALL_TROUGH ( 0   )
     ) ddr_data_buffer (
         .clk_i   ( clk_i               ),
         .rst_n_i ( rst_n_i & display_i ),
@@ -78,6 +91,27 @@ module vga_pixel_sequencer #(
         .write_data_i ( ddr_data_i   ),
         .read_data_o  ( pixel_bundle )
     );
+
+
+    /* Response FIFO occupancy and outstanding request credits */
+    always_ff @(posedge clk_i) begin
+        if (!rst_n_i | !display_i) begin
+            response_count <= '0;
+            outstanding_count <= '0;
+        end else begin
+            case ({ddr_valid_i, read_bundle})
+                2'b10: response_count <= response_count + 1'b1;
+
+                2'b01: response_count <= response_count - 1'b1;
+            endcase
+
+            case ({request_accepted, ddr_valid_i})
+                2'b10: outstanding_count <= outstanding_count + 1'b1;
+
+                2'b01: outstanding_count <= outstanding_count - 1'b1;
+            endcase
+        end
+    end
 
 
 //====================================================================================
@@ -97,11 +131,13 @@ module vga_pixel_sequencer #(
 
     assign extract_pixel = display_i & (reservoir_size >= PIXEL_WIDTH) & !full_i;
 
-    assign load_reservoir = display_i & !buffer_empty & (reservoir_size <= RESERVOIR_LOAD_LIMIT);
+    assign load_reservoir = display_i & bundle_valid &
+                            (reservoir_size <= RESERVOIR_LOAD_LIMIT);
 
-    /* The FIFO uses first-word fall-through, so pixel_bundle is valid before
-     * this read pulse advances the FIFO pointer. */
-    assign read_bundle = load_reservoir;
+    /* A synchronous FIFO read makes pixel_bundle valid one cycle after
+     * read_bundle. Refill the staging word while consuming the current one
+     * so the path remains pipelined after startup. */
+    assign read_bundle = display_i &&!response_fifo_empty & (!bundle_valid | load_reservoir);
 
     assign reservoir_insert_index = reservoir_size_next[7:0];
 
@@ -140,6 +176,19 @@ module vga_pixel_sequencer #(
             end else begin
                 reservoir_size <= reservoir_size_next;
                 reservoir <= reservoir_next;
+            end
+        end
+
+
+        always_ff @(posedge clk_i) begin
+            if (!rst_n_i | !display_i) begin
+                bundle_valid <= 1'b0;
+            end else begin
+                case ({read_bundle, load_reservoir})
+                    2'b10: bundle_valid <= 1'b1;
+
+                    2'b01: bundle_valid <= 1'b0;
+                endcase
             end
         end
 
@@ -201,6 +250,26 @@ module vga_pixel_sequencer #(
         disable iff (!rst_n_i || !display_i)
         ddr_valid_i |-> (!buffer_full || read_bundle))
         else $error("DDR response FIFO overflow");
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i || !display_i)
+        read_bundle |-> (response_count != 0))
+        else $error("DDR response FIFO read without a confirmed response");
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i || !display_i)
+        load_reservoir |-> bundle_valid)
+        else $error("VGA gearbox loaded without a valid staged DDR word");
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i || !display_i)
+        response_count <= 8)
+        else $error("DDR response FIFO occupancy exceeded capacity");
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i || !display_i)
+        outstanding_count <= 8)
+        else $error("DDR request pipeline exceeded response FIFO credits");
 
     /* 128-bit requests are 16-byte requests and must be aligned accordingly. */
     assert property (@(posedge clk_i)
