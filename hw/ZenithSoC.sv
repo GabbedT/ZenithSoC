@@ -12,6 +12,7 @@
 `define _DEF_ETHERNET_
 `define _DEF_APU_
 `define _DEF_SD_
+`define _DEF_VGA_
 `define _DEF_DDR_MEMORY_
 
 module ZenithSoC #(
@@ -30,6 +31,8 @@ module ZenithSoC #(
     parameter APU = 1,
 
     parameter SD = 1,
+
+    parameter VGA = 1,
 
     parameter DDR_MEMORY = 1,
 
@@ -84,6 +87,13 @@ module ZenithSoC #(
     inout logic [3:0] sd_data_io,
     output logic sd_reset_o,
     output logic sd_clk_o,
+
+    /* VGA Interface */
+    output logic vga_hsync_o,
+    output logic vga_vsync_o,
+    output logic [3:0] vga_red_o,
+    output logic [3:0] vga_green_o,
+    output logic [3:0] vga_blue_o,
 
     /* DDR Interface */
     inout logic [15:0] ddr2_dq,
@@ -1041,15 +1051,90 @@ module ZenithSoC #(
 
 
 //====================================================================================
-//      DDR CONTROLLER
+//      VGA CONTROLLER
 //====================================================================================
 
-    logic [26:0] ddr_address;
-    logic ddr_write, ddr_read, push_trx, pull_trx;
-    logic ddr_data_valid, ddr_done, ddr_hold;
-    logic [63:0] ddr_data_write, ddr_data_read; logic [7:0] ddr_mask; 
+    localparam _VGA_ = _TRACE_UNIT_ + 1;
 
-        
+    dev2ddr_interface vga_ddr_channel();
+    logic vga_ddr_urgent;
+
+    `ifdef _DEF_VGA_
+
+        vga #(
+            .BUFFER_SIZE ( VGA_LINE_BUFFER_SIZE )
+        ) video_controller (
+            .clk_i       ( sys_clk ),
+            .rst_n_i     ( reset_n ),
+            .interrupt_o ( interrupt_source[VGA_IRQ] ),
+
+            .write_i         ( write_request[_VGA_]      ),
+            .write_address_i ( write_address[_VGA_] >> 2 ),
+            .write_data_i    ( write_data[_VGA_]         ),
+            .write_strobe_i  ( write_strobe[_VGA_]       ),
+            .write_error_o   ( write_error[_VGA_]        ),
+            .write_done_o    ( write_done[_VGA_]         ),
+
+            .read_i         ( read_request[_VGA_]      ),
+            .read_address_i ( read_address[_VGA_] >> 2 ),
+            .read_data_o    ( read_data[_VGA_]         ),
+            .read_error_o   ( read_error[_VGA_]        ),
+            .read_done_o    ( read_done[_VGA_]         ),
+
+            .hsync_o ( vga_hsync_o ),
+            .vsync_o ( vga_vsync_o ),
+            .red_o   ( vga_red_o   ),
+            .green_o ( vga_green_o ),
+            .blue_o  ( vga_blue_o  ),
+
+            .ddr_urgent_o ( vga_ddr_urgent ),
+            .ddr_channel  ( vga_ddr_channel )
+        );
+
+        assign write_busy[_VGA_] = 1'b0;
+        assign write_ready[_VGA_] = 1'b1;
+        assign read_busy[_VGA_] = 1'b0;
+        assign read_ready[_VGA_] = 1'b1;
+
+    `else
+
+        assign interrupt_source[VGA_IRQ] = 1'b0;
+        assign vga_hsync_o = 1'b1;
+        assign vga_vsync_o = 1'b1;
+        assign vga_red_o = '0;
+        assign vga_green_o = '0;
+        assign vga_blue_o = '0;
+        assign vga_ddr_urgent = 1'b0;
+
+        assign write_busy[_VGA_] = 1'b0;
+        assign write_ready[_VGA_] = 1'b1;
+        assign read_busy[_VGA_] = 1'b0;
+        assign read_ready[_VGA_] = 1'b1;
+        assign read_done[_VGA_] = read_request[_VGA_];
+        assign read_error[_VGA_] = 1'b0;
+        assign read_data[_VGA_] = '0;
+        assign write_done[_VGA_] = write_request[_VGA_];
+        assign write_error[_VGA_] = 1'b0;
+
+        assign vga_ddr_channel.trx_req = 1'b0;
+        assign vga_ddr_channel.trx_type = 1'b0;
+        assign vga_ddr_channel.trx_addr = '0;
+        assign vga_ddr_channel.wdata = '0;
+        assign vga_ddr_channel.wstrobe = '0;
+
+    `endif
+
+
+//====================================================================================
+//      CACHE TO DDR INTERFACE
+//====================================================================================
+
+    dev2ddr_interface cache_ddr_channel();
+    dev2ddr_interface memory_ddr_channel();
+    logic ddr_hold;
+
+    assign ddr_hold = !cache_ddr_channel.ready;
+
     cache_ddr_interface #(
         .DATA_MAX_BURST        ( DBLOCK_SIZE_BYTE / 4 ),
         .INSTRUCTION_MAX_BURST ( IBLOCK_SIZE_BYTE / 4 )
@@ -1057,10 +1142,6 @@ module ZenithSoC #(
         .clk_i   ( sys_clk ),
         .rst_n_i ( reset_n ),
 
-        /* Arbiter */
-        .hold_i ( ddr_hold ),
-
-        /* Memory interface */
         .load_channel  ( ddr_load_channel  ),
         .store_channel ( ddr_store_channel ),
 
@@ -1069,24 +1150,23 @@ module ZenithSoC #(
         .load_empty_o ( load_trx_room    ),
         .store_idle_o ( store_trx_idle   ),
 
-        /* Common address */
-        .address_o ( ddr_address ), 
-        
-        /* Command interface */
-        .write_o ( ddr_write ), 
-        .read_o  ( ddr_read  ), 
+        .ddr_channel ( cache_ddr_channel )
+    );
 
-        /* Data interface */
-        .push_o       ( push_trx       ), 
-        .pull_o       ( pull_trx       ), 
-        .write_data_o ( ddr_data_write ),
-        .write_mask_o ( ddr_mask       ),
-        .read_data_i  ( ddr_data_read  ),
-        .read_valid_i ( ddr_data_valid ),
 
-        /* Status */
-        .done_o  ( ddr_done  ),
-        .ready_i ( ddr_ready )
+//====================================================================================
+//      DDR CONTROLLER
+//====================================================================================
+
+    ddr_arbiter ddr_request_arbiter (
+        .clk_i   ( sys_clk ),
+        .rst_n_i ( reset_n ),
+
+        .cache_channel  ( cache_ddr_channel  ),
+        .vga_channel    ( vga_ddr_channel    ),
+        .memory_channel ( memory_ddr_channel ),
+
+        .vga_urgent_i ( vga_ddr_urgent )
     );
 
 
@@ -1135,25 +1215,8 @@ module ZenithSoC #(
             .ddr2_cs_n_o ( ddr2_cs_n ),
             .ddr2_odt_o  ( ddr2_odt  ),
 
-            /* Common address */
-            .address_i ( ddr_address ), 
-            
-            /* Command interface */
-            .write_i ( ddr_write ), 
-            .read_i  ( ddr_read  ), 
+            .ddr_channel ( memory_ddr_channel ),
 
-            /* Data interface */
-            .push_i       ( push_trx       ), 
-            .pull_i       ( pull_trx       ), 
-            .write_data_i ( ddr_data_write ),
-            .write_mask_i ( ddr_mask       ),
-            .read_data_o  ( ddr_data_read  ),
-            .read_valid_o ( ddr_data_valid ),
-
-            /* Status */
-            .done_i  ( ddr_done  ),
-            .ready_o ( ddr_ready ),
-            .hold_o  ( ddr_hold  ),
             .start_o (           )
         );
         
@@ -1162,111 +1225,63 @@ module ZenithSoC #(
 
     `ifdef _DDR_BEHAVIOURAL_
 
-    assign ddr_hold = 1'b0;
-
     /** USED FOR SIMULATION **/
     localparam int DDR_SIZE_BYTES  = 128 * 1024 * 1024;
     localparam int DDR_WORDS       = DDR_SIZE_BYTES / 8;
-    localparam int BEATS_PER_BURST = 2;
-    localparam int MAX_CACHE_BEATS = ((DBLOCK_SIZE_BYTE > IBLOCK_SIZE_BYTE) ? 
-                                       DBLOCK_SIZE_BYTE : IBLOCK_SIZE_BYTE) / 8;
-    localparam int LAT_MIN         = 2;
-    localparam int LAT_MAX         = 16;
+    localparam int MODEL_LATENCY   = 8;
 
     /* Memory to hold data (64-bit words) */
     logic [63:0] ddr_memory [0:DDR_WORDS-1];
 
-    typedef enum logic [1:0] {
-        DDR_IDLE,
-        DDR_LAT,
-        DDR_WAIT,
-        DDR_BURST
-    } ddr_burst_state_t;
-
-    ddr_burst_state_t ddr_state;
-
-    logic [63:0] ddr_burst_buf [0:MAX_CACHE_BEATS-1];
-    int unsigned ddr_beat_current, ddr_beat_count;
-    logic [$clog2(LAT_MAX + 1) - 1:0] ddr_lat_cnt;
-
-
     logic [$clog2(DDR_WORDS) - 1:0] ddr_word_address;
+    logic [MODEL_LATENCY - 1:0] model_read_valid;
+    logic [MODEL_LATENCY - 1:0] model_read_error;
+    logic [MODEL_LATENCY - 1:0][127:0] model_read_data;
+    logic model_write_valid, model_write_error;
 
-    assign ddr_word_address = ddr_address[$clog2(DDR_WORDS)+1:2];
-
-    assign ddr_data_valid = (ddr_state == DDR_WAIT) || (ddr_state == DDR_BURST);
-    assign ddr_data_read  = ddr_burst_buf[ddr_beat_current];
+    assign ddr_word_address = memory_ddr_channel.trx_addr[$clog2(DDR_WORDS)+2:3];
+    assign memory_ddr_channel.ready = reset_n;
+    assign memory_ddr_channel.read_valid = model_read_valid[MODEL_LATENCY - 1];
+    assign memory_ddr_channel.read_error = model_read_error[MODEL_LATENCY - 1];
+    assign memory_ddr_channel.rdata = model_read_data[MODEL_LATENCY - 1];
+    assign memory_ddr_channel.write_valid = model_write_valid;
+    assign memory_ddr_channel.write_error = model_write_error;
 
     always_ff @(posedge sys_clk or negedge reset_n) begin
         if (!reset_n) begin
-            ddr_state <= DDR_IDLE;
-            ddr_beat_current <= '0;
-            ddr_beat_count <= 0;
-            ddr_lat_cnt <= '0;
-            for (int i = 0; i < MAX_CACHE_BEATS; i++)
-                ddr_burst_buf[i] <= '0;
+            model_read_valid <= '0;
+            model_read_error <= '0;
+            model_read_data <= '0;
+            model_write_valid <= 1'b0;
+            model_write_error <= 1'b0;
         end else begin
+            model_read_valid <= {model_read_valid[MODEL_LATENCY - 2:0], 1'b0};
+            model_read_error <= {model_read_error[MODEL_LATENCY - 2:0], 1'b0};
+            model_read_data <= {model_read_data[MODEL_LATENCY - 2:0], 128'b0};
+            model_write_valid <= 1'b0;
+            model_write_error <= 1'b0;
 
-            /* The physical MIG queues every read command. A cache line can
-             * span several two-beat DDR commands, all issued before done.
-             * Collect them before introducing model latency, then provide
-             * the contiguous response expected by the cache bridge. */
-            if (ddr_read) begin
-                if (ddr_state != DDR_IDLE ||
-                    ddr_beat_count + BEATS_PER_BURST > MAX_CACHE_BEATS)
-                    $fatal(1, "Behavioral DDR read queue overflow");
-                for (int i = 0; i < BEATS_PER_BURST; i++)
-                    ddr_burst_buf[ddr_beat_count + i] <= ddr_memory[ddr_word_address + i];
-                ddr_beat_count <= ddr_beat_count + BEATS_PER_BURST;
-            end
+            if (memory_ddr_channel.trx_req & memory_ddr_channel.ready) begin
+                if (!memory_ddr_channel.trx_type) begin
+                    model_read_valid[0] <= 1'b1;
+                    model_read_error[0] <= memory_ddr_channel.trx_addr[3:0] != 4'b0;
+                    model_read_data[0] <= {
+                        ddr_memory[ddr_word_address + 1'b1],
+                        ddr_memory[ddr_word_address]
+                    };
+                end else begin
+                    model_write_valid <= 1'b1;
+                    model_write_error <= memory_ddr_channel.trx_addr[3:0] != 4'b0;
 
-            /* Commit a write-data beat on every push */
-            if (push_trx) begin
-                for (int i = 0; i < 8; i++) begin
-                    if (ddr_mask[i]) begin
-                        ddr_memory[ddr_word_address][8*i +: 8] <= ddr_data_write[8*i +: 8];
-                    end
-                end
-            end
-
-            case (ddr_state)
-                DDR_IDLE: begin
-                    if (ddr_done) begin
-                        ddr_beat_current <= '0;
-                        ddr_lat_cnt <= $urandom_range(LAT_MIN, LAT_MAX);
-                        ddr_state <= DDR_LAT;
-                    end
-                end
-
-                DDR_LAT: begin
-                    if (ddr_lat_cnt != '0) begin
-                        ddr_lat_cnt <= ddr_lat_cnt - 1'b1;
-                    end else begin
-                        ddr_state <= DDR_WAIT;
-                    end
-                end
-
-                DDR_WAIT: begin
-                    if (pull_trx) begin
-                        ddr_beat_current <= '0;
-                        ddr_state <= DDR_BURST;
-                    end
-                end
-
-                DDR_BURST: begin
-                    if (pull_trx) begin
-                        if (ddr_beat_current == ddr_beat_count - 1) begin
-                            ddr_beat_current <= '0;
-                            ddr_beat_count <= 0;
-                            ddr_state <= DDR_IDLE;
-                        end else begin
-                            ddr_beat_current <= ddr_beat_current + 1'b1;
+                    for (int i = 0; i < 16; i++) begin
+                        if (memory_ddr_channel.wstrobe[i]) begin
+                            ddr_memory[ddr_word_address + (i >> 3)]
+                                      [8 * (i & 7) +: 8] <=
+                                memory_ddr_channel.wdata[8 * i +: 8];
                         end
                     end
                 end
-
-                default: ddr_state <= DDR_IDLE;
-            endcase
+            end
         end
     end
 

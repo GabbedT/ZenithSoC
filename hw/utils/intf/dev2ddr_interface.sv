@@ -16,9 +16,13 @@ interface dev2ddr_interface();
     logic [15:0] wstrobe;
     logic [127:0] wdata;
 
-    /* Transaction response */
-    logic trx_valid;
-    logic trx_error;
+    /* Read transaction response */
+    logic read_valid;
+    logic read_error;
+
+    /* Write acceptance by the DDR controller */
+    logic write_valid;
+    logic write_error;
 
     /* Target can accept transaction */
     logic ready;
@@ -37,8 +41,10 @@ interface dev2ddr_interface();
         output trx_type,
         output trx_addr,
 
-        input trx_valid,
-        input trx_error,
+        input read_valid,
+        input read_error,
+        input write_valid,
+        input write_error,
 
         /* Slave status */
         input ready,
@@ -57,8 +63,10 @@ interface dev2ddr_interface();
         input trx_type,
         input trx_addr,
 
-        output trx_valid,
-        output trx_error,
+        output read_valid,
+        output read_error,
+        output write_valid,
+        output write_error,
 
         /* Slave status */
         output ready,
@@ -73,4 +81,4 @@ interface dev2ddr_interface();
 
 endinterface : dev2ddr_interface
 
-`endif 
+`endif

@@ -24,6 +24,7 @@ utils/intf/dev2ddr_interface.sv
 memory/ddr/ddr_memory_interface.sv
 memory/ddr/cache_ddr_interface.sv
 memory/ddr/ddr_master.sv
+memory/ddr/ddr_arbiter.sv
 
 memory/memory_bank.sv
 memory/on_chip_memory.sv

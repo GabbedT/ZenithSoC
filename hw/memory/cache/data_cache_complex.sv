@@ -50,7 +50,7 @@ module data_cache_complex #(
 
     localparam TAG = 32 - (2 + OFFSET + INDEX);
     localparam BLOCK_WORDS = BLOCK_SIZE / 4;
-    localparam FLUSH_STORE_RESPONSES = BLOCK_SIZE / 8;
+    localparam FLUSH_STORE_RESPONSES = BLOCK_SIZE / 16;
 
 
     typedef struct packed {

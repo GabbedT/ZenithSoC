@@ -2,17 +2,14 @@
     `define CACHE_DDR_INTERFACE_SV
 
 module cache_ddr_interface #(
-    /* Number of 32 bits requests by cache */
     parameter DATA_MAX_BURST = 4,
-    parameter INSTRUCTION_MAX_BURST = 8
+    parameter INSTRUCTION_MAX_BURST = 8,
+    parameter REQUEST_BUFFER_SIZE = 8,
+    parameter RESPONSE_BUFFER_SIZE = 4
 ) (
     input logic clk_i,
     input logic rst_n_i,
 
-    /* Arbiter */
-    input logic hold_i,
-
-    /* Memory interface */
     load_interface.slave load_channel,
     store_interface.slave store_channel,
 
@@ -21,423 +18,265 @@ module cache_ddr_interface #(
     output logic load_empty_o,
     output logic store_idle_o,
 
-    /* Common address */
-    output logic [26:0] address_o, 
-    
-    /* Command interface */
-    output logic write_o, 
-    output logic read_o, 
-
-    /* Data interface */
-    output logic push_o, 
-    output logic pull_o, 
-    output logic [63:0] write_data_o,
-    output logic [7:0] write_mask_o,
-    input logic [1:0][31:0] read_data_i,
-    input logic read_valid_i,
-
-    /* Status */
-    output logic done_o,
-    input logic ready_i
+    dev2ddr_interface.master ddr_channel
 );
-    
-    localparam MAX_BURST = DATA_MAX_BURST > INSTRUCTION_MAX_BURST ? DATA_MAX_BURST : INSTRUCTION_MAX_BURST; 
-    
+
+    localparam logic READ = 1'b0;
+    localparam logic WRITE = 1'b1;
+
+
 //====================================================================================
 //      STORE TRANSACTIONS BUFFER
 //====================================================================================
 
-    logic str_select;
-
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin 
-                str_select <= 1'b0;
-            end else if (store_channel.request) begin
-                if (single_trx_i) begin
-                    /* A standalone store does not participate in 64-bit burst
-                     * packing and must leave the pair builder empty. */
-                    str_select <= 1'b0;
-                end else begin
-                    /* Keep the partial pair across request gaps.  Cache
-                     * writeback may pause when the core is stalled. */
-                    str_select <= !str_select;
-                end
-            end 
-        end 
-
-
-    logic [31:0] str_saved_data; logic [26:0] str_saved_address;
-
-        always_ff @(posedge clk_i) begin
-            if (!str_select & store_channel.request) begin
-                str_saved_data <= store_channel.data;
-                str_saved_address <= store_channel.address;
-            end
-        end 
-
-    /* FIFO packet structure */
     typedef struct packed {
         logic [26:0] address;
-        logic [63:0] data;
-        logic single_trx;
-        store_width_t width;  
+        logic [127:0] data;
+        logic [15:0] strobe;
     } store_packet_t;
 
+    store_packet_t store_write_packet, store_read_packet;
+    logic store_write, store_read, store_empty, store_full;
 
-    store_packet_t str_wr_packet, str_rd_packet; logic str_read, str_write, str_empty;
-
-    synchronous_buffer #(MAX_BURST / 2, $bits(store_packet_t)) store_info_buffer (
+    synchronous_buffer #(
+        .BUFFER_DEPTH           ( REQUEST_BUFFER_SIZE   ),
+        .DATA_WIDTH             ( $bits(store_packet_t) ),
+        .FIRST_WORD_FALL_TROUGH ( 1                     )
+    ) store_request_buffer (
         .clk_i   ( clk_i   ),
         .rst_n_i ( rst_n_i ),
 
-        .write_i ( str_write ),
-        .read_i  ( str_read  ),
+        .write_i ( store_write ),
+        .read_i  ( store_read  ),
 
-        .empty_o ( str_empty ),
-        .full_o  (           ),
+        .empty_o ( store_empty ),
+        .full_o  ( store_full  ),
 
-        .write_data_i ( str_wr_packet ),
-        .read_data_o  ( str_rd_packet )
+        .write_data_i ( store_write_packet ),
+        .read_data_o  ( store_read_packet  )
     );
 
+    logic [1:0] store_word_count;
+    logic [26:0] store_base_address;
+    logic [3:0][31:0] store_bundle;
 
-    assign str_write = (str_select & store_channel.request) | (store_channel.request & single_trx_i);
+    /* Cache-line stores are packed into one 128-bit DDR request. */
+    assign store_write = store_channel.request & (single_trx_i | (store_word_count == 2'd3));
 
-        always_comb begin
-            if (single_trx_i) begin
-                str_wr_packet.address = store_channel.address;
-                str_wr_packet.data = {32'b0, store_channel.data};
-                str_wr_packet.width = store_channel.width;
-                str_wr_packet.single_trx = 1'b1;
-            end else begin
-                /* Old address is used */
-                str_wr_packet.address = str_saved_address;
-                str_wr_packet.single_trx = 1'b0;
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                store_word_count <= '0;
+                store_base_address <= '0;
+                store_bundle <= '0;
+            end else if (store_channel.request) begin
+                if (single_trx_i) begin
+                    store_word_count <= '0;
+                end else begin
+                    store_bundle[store_word_count] <= store_channel.data;
+                    store_word_count <= store_word_count + 1'b1;
 
-                /* Fuse the two data requests */
-                str_wr_packet.data = {store_channel.data, str_saved_data};
-                str_wr_packet.width = WORD;
+                    if (store_word_count == '0) begin
+                        store_base_address <= store_channel.address;
+                    end
+                end
             end
         end
 
+        always_comb begin
+            store_write_packet = '0;
 
-    logic [$clog2(MAX_BURST / 2):0] str_count; logic str_ready, str_ackn;
+            if (single_trx_i) begin
+                /* Place an uncached store in its addressed byte lanes. */
+                store_write_packet.address = {store_channel.address[26:4], 4'b0};
+                store_write_packet.data[store_channel.address[3:2] * 32 +: 32] = store_channel.data;
 
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin 
-                str_count <= '0;
-                str_ready <= 1'b0;
-            end else begin 
-                if (str_write) begin
-                    str_count <= str_count + 1'b1;
-                end else if (str_read) begin
-                    str_count <= '0;
-                end
+                case (store_channel.width)
+                    WORD: begin
+                        store_write_packet.strobe = 16'h000F << {store_channel.address[3:2], 2'b0};
+                    end
 
-                if (str_ackn) begin
-                    str_ready <= 1'b0;
-                end else if ((str_count == MAX_BURST / 2) | (str_write & single_trx_i)) begin
-                    /* FIFO is ready to be read */
-                    str_ready <= 1'b1;
-                end
-            end 
-        end 
+                    HALF_WORD: begin
+                        store_write_packet.strobe = 16'h0003 << {store_channel.address[3:1], 1'b0};
+                    end
+
+                    BYTE: begin
+                        store_write_packet.strobe = 16'h0001 << store_channel.address[3:0];
+                    end
+
+                    default: store_write_packet.strobe = '0;
+                endcase
+            end else begin
+                store_write_packet.address = {store_base_address[26:4], 4'b0};
+                store_write_packet.data = store_bundle;
+                store_write_packet.data[96 +: 32] = store_channel.data;
+                store_write_packet.strobe = '1;
+            end
+        end
 
 
 //====================================================================================
 //      LOAD TRANSACTIONS BUFFER
 //====================================================================================
 
-    logic ldr_select;
+    logic [26:0] load_write_address, load_read_address;
+    logic load_write, load_read, load_empty, load_full;
+    logic [1:0] load_word_count;
+    logic [26:0] load_base_address;
 
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin 
-                ldr_select <= 1'b0;
-            end else begin 
-                if (load_channel.request) begin
-                    ldr_select <= !ldr_select;
-                end else begin
-                    ldr_select <= 1'b0;
-                end
-            end 
-        end 
-
-
-    logic [26:0] ldr_saved_address;
-
-        always_ff @(posedge clk_i) begin
-            if (!ldr_select & load_channel.request) begin
-                ldr_saved_address <= load_channel.address;
-            end
-        end 
-
-
-    logic [26:0] load_address; logic ldr_write, ldr_read, ldr_empty;
-
-    synchronous_buffer #(MAX_BURST / 2, 27) load_info_buffer (
+    synchronous_buffer #(
+        .BUFFER_DEPTH           ( REQUEST_BUFFER_SIZE ),
+        .DATA_WIDTH             ( 27                  ),
+        .FIRST_WORD_FALL_TROUGH ( 1                   )
+    ) load_request_buffer (
         .clk_i   ( clk_i   ),
         .rst_n_i ( rst_n_i ),
 
-        .write_i ( ldr_write ),
-        .read_i  ( ldr_read  ),
+        .write_i ( load_write ),
+        .read_i  ( load_read  ),
 
-        .empty_o ( ldr_empty ),
-        .full_o  (           ),
+        .empty_o ( load_empty ),
+        .full_o  ( load_full  ),
 
-        .write_data_i ( ldr_saved_address ),
-        .read_data_o  ( load_address      )
+        .write_data_i ( load_write_address ),
+        .read_data_o  ( load_read_address  )
     );
 
-    assign ldr_write = ldr_select & load_channel.request;
+    /* Four 32-bit cache requests share one aligned DDR read. */
+    assign load_write = load_channel.request & (load_word_count == 2'd3);
+    assign load_write_address = {load_base_address[26:4], 4'b0};
 
-
-    logic [$clog2(MAX_BURST / 2):0] ldr_count; logic ldr_ready, ldr_ackn;
-    logic ldr_instruction;
-
-        /* The owner signal is meaningful only while a request is present.
-         * Keep it until the completed burst count is examined: instruction
-         * and data caches need not have the same line size. */
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin
-                ldr_instruction <= 1'b0;
+                load_word_count <= '0;
+                load_base_address <= '0;
             end else if (load_channel.request) begin
-                ldr_instruction <= instr_req_i;
+                load_word_count <= load_word_count + 1'b1;
+
+                if (load_word_count == '0) begin
+                    load_base_address <= load_channel.address;
+                end
             end
         end
 
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin 
-                ldr_count <= '0;
-                ldr_ready <= 1'b0;
-            end else begin 
-                if (ldr_write) begin
-                    ldr_count <= ldr_count + 1'b1;
-                end else if (ldr_read) begin
-                    ldr_count <= '0;
-                end
-
-                if (ldr_ackn) begin
-                    ldr_ready <= 1'b0;
-                end else begin
-                    /* FIFO is ready to be read */
-                    if (ldr_instruction) begin
-                        if (ldr_count == (INSTRUCTION_MAX_BURST / 2)) begin 
-                            ldr_ready <= 1'b1;
-                        end
-                    end else begin
-                        if (ldr_count == (DATA_MAX_BURST / 2)) begin
-                            ldr_ready <= 1'b1;
-                        end
-                    end
-                end
-            end 
-        end 
-
-    assign load_empty_o = ldr_empty;
-    /* A FENCE may start only after every older store packet has left this
-     * bridge.  store_channel.done acknowledges individual packets, not the
-     * complete drain of the bridge FSM. */
-    assign store_idle_o = str_empty & !str_ready & !str_select;
-    
 
 //====================================================================================
-//      ARBITER
+//      DDR REQUEST ARBITER
 //====================================================================================
 
-    typedef enum logic [2:0] { WAIT, STORE, LOAD, LOAD_DATA, WAIT_DATA, EXTRACT_DATA } fsm_states_t;
+    logic request_accept;
 
-    fsm_states_t state_CRT, state_NXT;
+    /* Reads have priority over buffered writes. */
+    assign ddr_channel.trx_req = !load_empty | !store_empty;
+    assign ddr_channel.trx_type = load_empty ? WRITE : READ;
+    assign ddr_channel.trx_addr = load_empty ? store_read_packet.address : load_read_address;
+    assign ddr_channel.wdata = store_read_packet.data;
+    assign ddr_channel.wstrobe = store_read_packet.strobe;
 
-    logic [$clog2(MAX_BURST):0] load_words_CRT;
-    logic [$clog2(MAX_BURST):0] load_word_count_CRT;
+    assign request_accept = ddr_channel.trx_req & ddr_channel.ready;
+    assign load_read = request_accept & !ddr_channel.trx_type;
+    assign store_read = request_accept & ddr_channel.trx_type;
 
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin 
-                state_CRT <= WAIT;
-            end else begin 
-                state_CRT <= state_NXT;
-            end 
-        end 
+    logic [$clog2(REQUEST_BUFFER_SIZE + 1) - 1:0] store_outstanding;
 
-
-        /* Remember the exact response size before ldr_ackn clears the request
-         * count. A 64-bit DDR beat supplies two 32-bit cache words. */
+    /* A flush waits for every accepted DDR write to complete. */
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin
-                load_words_CRT <= '0;
-                load_word_count_CRT <= '0;
+                store_outstanding <= '0;
             end else begin
-                if ((state_CRT == WAIT) & ready_i & !hold_i & ldr_ready) begin
-                    load_words_CRT <= {ldr_count, 1'b0};
-                    load_word_count_CRT <= '0;
-                end else if (state_CRT == LOAD_DATA) begin
-                    load_word_count_CRT <= load_word_count_CRT + 1'b1;
-                end
+                case ({store_read, ddr_channel.write_valid})
+                    2'b10: store_outstanding <= store_outstanding + 1'b1;
+                    2'b01: store_outstanding <= store_outstanding - 1'b1;
+                    default: store_outstanding <= store_outstanding;
+                endcase
+            end
+        end
+
+    assign store_channel.done = ddr_channel.write_valid;
+    assign store_idle_o = store_empty & (store_word_count == '0) & (store_outstanding == '0);
+    assign load_empty_o = load_empty & (load_word_count == '0);
+
+
+//====================================================================================
+//      READ RESPONSE BUFFER
+//====================================================================================
+
+    logic [127:0] response_data;
+    logic response_read, response_empty, response_full;
+    logic [1:0] response_word;
+
+    synchronous_buffer #(
+        .BUFFER_DEPTH           ( RESPONSE_BUFFER_SIZE ),
+        .DATA_WIDTH             ( 128                  ),
+        .FIRST_WORD_FALL_TROUGH ( 1                    )
+    ) read_response_buffer (
+        .clk_i   ( clk_i   ),
+        .rst_n_i ( rst_n_i ),
+
+        .write_i ( ddr_channel.read_valid ),
+        .read_i  ( response_read         ),
+
+        .empty_o ( response_empty ),
+        .full_o  ( response_full  ),
+
+        .write_data_i ( ddr_channel.rdata ),
+        .read_data_o  ( response_data     )
+    );
+
+    assign load_channel.valid = !response_empty;
+    assign load_channel.data = response_data[response_word * 32 +: 32];
+    
+    /* Return one 32-bit cache word per cycle. */
+    assign response_read = !response_empty & (response_word == 2'd3);
+
+        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+            if (!rst_n_i) begin
+                response_word <= '0;
+            end else if (!response_empty) begin
+                response_word <= response_word + 1'b1;
             end
         end
 
 
-    logic valid_address, valid_data;
+//====================================================================================
+//      ASSERTIONS
+//====================================================================================
 
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin 
-                valid_address <= 1'b0;
-            end else begin 
-                if (state_CRT == WAIT) begin
-                    valid_address <= 1'b0;
-                end else if (str_read | ldr_read) begin
-                    valid_address <= !valid_address;
-                end
+`ifndef SYNTHESIS
 
-                if (state_CRT == WAIT) begin
-                    valid_data <= 1'b0;
-                end else if (state_CRT == LOAD_DATA) begin
-                    valid_data <= !valid_data;
-                end
-            end 
-        end 
+    initial begin
+        assert ((DATA_MAX_BURST % 4) == 0)
+            else $error("Data-cache burst must contain complete 128-bit transactions");
 
-        always_comb begin
-            state_NXT = state_CRT;
+        assert ((INSTRUCTION_MAX_BURST % 4) == 0)
+            else $error("Instruction-cache burst must contain complete 128-bit transactions");
+    end
 
-            store_channel.done = 1'b0;
-            load_channel.valid = 1'b0;
-            load_channel.data = '0;
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        store_write |-> !store_full)
+        else $error("Cache DDR store request buffer overflow");
 
-            ldr_read = 1'b0;
-            ldr_ackn = 1'b0;
-            str_read = 1'b0;
-            str_ackn = 1'b0;
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        load_write |-> !load_full)
+        else $error("Cache DDR load request buffer overflow");
 
-            write_mask_o = '0;
-            write_data_o = '0;
-            address_o = '0;
-            write_o = 1'b0;
-            read_o = 1'b0;
-            push_o = 1'b0;
-            pull_o = 1'b0;
-            done_o = 1'b0;
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        ddr_channel.read_valid |-> !response_full)
+        else $error("Cache DDR response buffer overflow");
 
-            case (state_CRT)
-                WAIT: begin
-                    if (ready_i & !hold_i) begin
-                        case ({ldr_ready, str_ready})
-                            2'b10, 2'b11: begin
-                                state_NXT = LOAD;
-                                
-                                ldr_read = 1'b1;
-                                ldr_ackn = 1'b1;
-                            end
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        ddr_channel.trx_req & !ddr_channel.ready |=>
+        $stable({ddr_channel.trx_type, ddr_channel.trx_addr,
+                 ddr_channel.wdata, ddr_channel.wstrobe}))
+        else $error("Cache DDR request changed while stalled");
 
-                            2'b01: begin
-                                state_NXT = STORE;
+`endif
 
-                                str_read = 1'b1;
-                                str_ackn = 1'b1;
-                            end
-                        endcase 
-                    end 
-                end
-
-                STORE: begin
-                    if (str_rd_packet.single_trx) begin
-                        if (!hold_i) begin
-                            state_NXT = WAIT;
-
-                            push_o = 1'b1;
-                            write_o = 1'b1;
-
-                            store_channel.done = 1'b1;
-                        end 
-
-                        write_mask_o[7:0] = '0;
-
-                        if (str_rd_packet.address[2]) begin 
-                            case (str_rd_packet.width)
-                                WORD: write_mask_o[7:4] = '1;
-
-                                HALF_WORD: write_mask_o[7:4] = 2'b11 << {str_rd_packet.address[1], 1'b0};
-
-                                BYTE: write_mask_o[7:4] = 1'b1 << str_rd_packet.address[1:0];
-                            endcase 
-
-                            write_data_o = {str_rd_packet.data[31:0], 32'b0};
-                        end else begin
-                            case (str_rd_packet.width)
-                                WORD: write_mask_o[3:0] = '1;
-
-                                HALF_WORD: write_mask_o[3:0] = 2'b11 << {str_rd_packet.address[1], 1'b0};
-
-                                BYTE: write_mask_o[3:0] = 1'b1 << str_rd_packet.address[1:0];
-                            endcase 
-
-                            write_data_o = {32'b0, str_rd_packet.data[31:0]};
-                        end
-                    end else begin
-                        if (str_empty & !hold_i) begin
-                            state_NXT = WAIT;
-
-                            /* Push last data */
-                            push_o = 1'b1;
-                            store_channel.done = 1'b1;
-                        end
-
-                        if (!str_empty & !hold_i) begin
-                            str_read = 1'b1;
-                            push_o = 1'b1;
-
-                            store_channel.done = 1'b1;
-                        end 
-
-                        write_mask_o = '1;
-                        write_data_o = str_rd_packet.data;
-                    end
-
-                    address_o = {1'b0, str_rd_packet.address[26:3], 2'b0};
-                    write_o = !valid_address & !hold_i;
-                end
-
-                LOAD: begin
-                    if (ldr_empty) begin
-                        state_NXT = WAIT_DATA;
-
-                        done_o = 1'b1;
-                    end 
-
-                    if (!ldr_empty & !hold_i) begin
-                        ldr_read = 1'b1;
-                    end 
-
-                    address_o = {1'b0, load_address[26:3], 2'b0};
-                    read_o = !valid_address;
-                end
-
-                WAIT_DATA: begin
-                    if (read_valid_i) begin
-                        state_NXT = LOAD_DATA;
-
-                        pull_o = 1'b1;
-                    end
-                end
-
-                LOAD_DATA: begin
-                    pull_o = valid_data;
-
-                    load_channel.valid = 1'b1;
-                    load_channel.data = read_data_i[valid_data];
-
-                    if (load_word_count_CRT == load_words_CRT - 1'b1) begin
-                        state_NXT = EXTRACT_DATA;
-                    end
-                end
-
-                EXTRACT_DATA: begin
-                    if (!read_valid_i) begin
-                        state_NXT = WAIT;
-                    end
-                end
-            endcase 
-        end
+    logic unused;
+    assign unused = instr_req_i ^ ddr_channel.read_error ^ ddr_channel.write_error;
 
 endmodule : cache_ddr_interface
 
