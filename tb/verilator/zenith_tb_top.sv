@@ -10,7 +10,14 @@
 
 module zenith_tb_top (
     input logic clk,
-    input logic rst_n
+    input logic rst_n,
+
+    /* Physical VGA pins exported to the C++ monitor. */
+    output wire       vga_hsync_o,
+    output wire       vga_vsync_o,
+    output wire [3:0] vga_red_o,
+    output wire [3:0] vga_green_o,
+    output wire [3:0] vga_blue_o
 );
 
     `define BE      dut.ApogeoRV.system_cpu.apogeo_backend
@@ -98,7 +105,6 @@ module zenith_tb_top (
     wire        ddr2_cs_n;
     wire        ddr2_odt;
 
-
 // ============================================================================
 //      DUT
 // ============================================================================
@@ -146,6 +152,12 @@ module zenith_tb_top (
         .sd_data_io   ( sd_data_io   ),
         .sd_reset_o   ( sd_reset_o   ),
         .sd_clk_o     ( sd_clk_o     ),
+
+        .vga_hsync_o ( vga_hsync_o ),
+        .vga_vsync_o ( vga_vsync_o ),
+        .vga_red_o   ( vga_red_o   ),
+        .vga_green_o ( vga_green_o ),
+        .vga_blue_o  ( vga_blue_o  ),
 
         .ddr2_dq    ( ddr2_dq    ),
         .ddr2_dqs_n ( ddr2_dqs_n ),

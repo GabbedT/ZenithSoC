@@ -21,6 +21,7 @@
 #include <vector>
 #include <algorithm>
 #include <cctype>
+#include <utility>
 
 #include "Vzenith_tb_top.h"
 #include "Vzenith_tb_top__Dpi.h"
@@ -32,6 +33,7 @@
 #include "riscv/disasm.h"
 
 #include "elf_loader.h"      // reused from cosim/sim (added to the include path)
+#include "vga_receiver.h"
 
 #ifndef COSIM_ISA
 #define COSIM_ISA "rv32im_zicsr"
@@ -280,11 +282,13 @@ public:
     Sim(bool trace_wave,
         bool trace_print,
         uint64_t trace_start,
-        uint64_t max_cycles)
+        uint64_t max_cycles,
+        VgaReceiverOptions vga_options)
         : enable_wave_(trace_wave),
           enable_print_(trace_print),
           trace_start_(trace_start),
           max_cycles_(max_cycles),
+          vga_(std::move(vga_options)),
           isa_(COSIM_ISA, "MSU"),
           dis_(&isa_) {
 
@@ -359,6 +363,12 @@ public:
     void tick() {
         dut_->clk = 1;
         dut_->eval();
+        vga_.sample(dut_->rst_n,
+                    dut_->vga_hsync_o,
+                    dut_->vga_vsync_o,
+                    dut_->vga_red_o,
+                    dut_->vga_green_o,
+                    dut_->vga_blue_o);
         dump();
 
         Verilated::timeInc(HALF_PERIOD_NS);
@@ -397,6 +407,11 @@ public:
 
         while (!finished_ && !g_stop_requested && !Verilated::gotFinish()) {
             tick();
+
+            if (vga_.quit_requested()) {
+                std::cout << "[ZTB] VGA window closed -> stop\n";
+                return 0;
+            }
 
             if (tohost_addr_ && tohost_hit_) {
                 uint32_t exit_code = tohost_value_ >> 1;
@@ -493,7 +508,8 @@ private:
 
             if (e.is_store &&
                 tohost_addr_ &&
-                e.mem_addr == tohost_addr_) {
+                e.mem_addr == tohost_addr_ &&
+                e.mem_data != 0) {
 
                 tohost_hit_ = true;
                 tohost_value_ = e.mem_data;
@@ -592,6 +608,8 @@ private:
     uint32_t tohost_value_ = 0;
     bool finished_ = false;
 
+    VgaReceiver vga_;
+
     std::deque<TraceEvent> recent_events_;
     uint64_t last_retire_cycle_ = 0;
 
@@ -623,6 +641,10 @@ int main(int argc, char** argv) {
     uint32_t sd_block = 0x2000;
     bool enable_wave  = false;
     bool enable_print = true;
+    bool enable_vga = false;
+    bool live_vga = false;
+    std::string vga_dump_path;
+    unsigned vga_scale = 1;
     uint64_t trace_start = 0;
     uint64_t max_cycles = 0;   // 0 = unlimited
 
@@ -641,7 +663,15 @@ int main(int argc, char** argv) {
             enable_wave = true;
         else if (a == "+notrace")
             enable_print = false;
-        else if (a.rfind("+trace_start=", 0) == 0)
+        else if (a == "+vga") {
+            enable_vga = true;
+            live_vga = true;
+        } else if (a.rfind("+vga_dump=", 0) == 0) {
+            enable_vga = true;
+            vga_dump_path = a.substr(10);
+        } else if (a.rfind("+vga_scale=", 0) == 0) {
+            vga_scale = std::stoul(a.substr(11));
+        } else if (a.rfind("+trace_start=", 0) == 0)
             trace_start = std::stoull(a.substr(13));
         else if (a.rfind("+max_cycles=", 0) == 0)
             max_cycles = std::stoull(a.substr(12));
@@ -650,7 +680,8 @@ int main(int argc, char** argv) {
     if (fw_path.empty() && sd_path.empty()) {
         std::cerr << "[ZTB] usage: " << argv[0]
                   << " +firmware=fw.elf [+boot=boot.elf] [+wave] [+notrace]"
-                  << " [+sd=image.bin|hex] [+sd_block=N] [+max_cycles=N]\n";
+                  << " [+sd=image.bin|hex] [+sd_block=N] [+max_cycles=N]"
+                  << " [+vga] [+vga_dump=frame.png] [+vga_scale=1..4]\n";
         return 2;
     }
 
@@ -670,7 +701,17 @@ int main(int argc, char** argv) {
     uart_capture_open("out");
     g_trace_file.open("out/trace.txt", std::ios::out | std::ios::trunc);
 
-    g_sim = new Sim(enable_wave, enable_print, trace_start, max_cycles);
+    VgaReceiverOptions vga_options;
+    vga_options.enabled = enable_vga;
+    vga_options.live = live_vga;
+    vga_options.scale = vga_scale;
+    vga_options.dump_path = vga_dump_path;
+
+    g_sim = new Sim(enable_wave,
+                    enable_print,
+                    trace_start,
+                    max_cycles,
+                    std::move(vga_options));
     if (!g_sim->scope()) {
         std::cerr << "[ZTB] FATAL: DPI scope zenith_tb_top not found\n";
         return 4;

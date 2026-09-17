@@ -36,10 +36,46 @@ make run \
 | `TRACE=0` | disable the per-instruction trace | trace on |
 | `TRACE_START=N` | start the instruction trace after cycle N | `0` |
 | `MAX_CYCLES=N` | stop after N cycles (`0` = run until `tohost`) | `0` |
+| `VGA=1` | decode the physical VGA pins and open a live X11 window | `0` |
+| `VGA_SCALE=1..4` | integer scale of the live VGA window | `1` |
+| `VGA_DUMP=path.png` | keep the latest complete decoded frame as a PNG file | – |
 | `ISA=...` | ISA string for the disassembler (match the firmware toolchain) | `rv32im_zfinx_zba_zbs_zicsr` |
 
 Other targets: `make build`, `make wave` (open the latest FST in GTKWave),
 `make info`, `make clean`.
+
+## Live VGA receiver
+
+The C++ harness includes a monitor for the actual top-level VGA pins. It
+recovers the 25 MHz pixel cadence from the 100 MHz simulation clock, locks to
+the active-low HSYNC/VSYNC pulses, and reconstructs the 640x480 RGB444 image.
+It does not peek at the RTL framebuffer or internal scan counters.
+
+To watch frames as firmware produces them:
+
+```bash
+make run DDR=firmware.elf VGA=1 VGA_SCALE=2 TRACE=0
+```
+
+The X11 dependency is detected automatically at build time. On a headless
+machine the simulation continues and `VGA=1` falls back to
+`out/vga_latest.png`. A deterministic headless capture can be requested
+explicitly (with or without the live window):
+
+```bash
+make run DDR=firmware.elf VGA_DUMP=out/vga_latest.png TRACE=0
+```
+
+`VGA_DUMP` is a standard RGB PNG atomically replaced after every complete
+frame, so it can also be opened or watched by another process while the
+simulation is running. Close the window, or press `q`/Escape in it, to stop
+the simulation cleanly.
+
+The live-window title and the headless log report three rates: `signal FPS`,
+measured in simulated 100 MHz SoC cycles between complete frames; `content
+FPS`, which counts only frames whose visible pixels changed; and `host FPS`,
+measured using wall-clock time. They respectively expose scanout stalls, the
+effective animation/buffer-swap rate, and how fast the host runs simulation.
 
 ## Trace format
 

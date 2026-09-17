@@ -19,6 +19,9 @@
 #   SD_BLOCK=N          first SD block used for the image (default 0x2000)
 #   WAVE=1              dump out/zenith.fst                       (default 0)
 #   TRACE=1             print the per-instruction trace           (default 1)
+#   VGA=1               open a live VGA window                    (default 0)
+#   VGA_DUMP=path.png   continuously save the latest complete frame
+#   VGA_SCALE=1..4      live-window integer scaling               (default 1)
 #   TRACE_START=N       start printing after N simulated cycles  (default 0)
 #   MAX_CYCLES=N        stop after N cycles (0 = run until tohost) (default 0)
 # ======================================================================
@@ -33,7 +36,7 @@ ZENITH_HW := $(abspath ../../hw)
 COSIM_SIM := $(abspath ../../cosim/sim)
 SD_MODEL  := $(abspath ../sd_model)
 TB_F      = zenith_tb.f
-SIM_SRC   = sim_main.cpp
+SIM_SRC   = sim_main.cpp vga_receiver.cpp
 
 OUT    = out
 LOGDIR = logs
@@ -51,6 +54,9 @@ WAVE       ?= 0
 TRACE      ?= 1
 TRACE_START ?= 0
 MAX_CYCLES ?= 0
+VGA        ?= 0
+VGA_DUMP   ?=
+VGA_SCALE  ?= 1
 
 # --- Tools -------------------------------------------------------------
 VERILATOR ?= verilator
@@ -60,6 +66,13 @@ SPIKE_LIB ?= $(HOME)/riscv-isa-sim/build
 SIM_DIR   := $(abspath .)
 
 VLATOR_DEFS = -DCOSIM_ISA=\\\"$(ISA)\\\"
+
+# X11 is optional: headless VGA capture and PNG dumps do not need it.
+X11_FOUND  := $(shell pkg-config --exists x11 2>/dev/null && echo 1)
+ifeq ($(X11_FOUND),1)
+VGA_CFLAGS  := $(shell pkg-config --cflags x11) -DZTB_HAVE_X11=1
+VGA_LDFLAGS := $(shell pkg-config --libs x11)
+endif
 
 # --- Verilator flags ---------------------------------------------------
 VFLAGS = --cc --exe --trace-fst --trace-structs --timing \
@@ -76,8 +89,8 @@ VFLAGS = --cc --exe --trace-fst --trace-structs --timing \
     -I$(ZENITH_HW) \
     -I$(SD_MODEL) \
     -Mdir obj_dir \
-    -CFLAGS "-std=c++20 -O2 -I$(SPIKE_INC) -I$(COSIM_SIM) -I$(SIM_DIR) $(VLATOR_DEFS)" \
-    -LDFLAGS "-L$(SPIKE_LIB) -lriscv -lfesvr -lpthread -ldl"
+    -CFLAGS "-std=c++20 -O2 -I$(SPIKE_INC) -I$(COSIM_SIM) -I$(SIM_DIR) $(VGA_CFLAGS) $(VLATOR_DEFS)" \
+    -LDFLAGS "-L$(SPIKE_LIB) -lriscv -lfesvr -lpthread -ldl -lz $(VGA_LDFLAGS)"
 
 .PHONY: all build run wave info clean
 
@@ -102,6 +115,8 @@ run: build
 		$(if $(SD),+sd=$(SD) +sd_block=$(SD_BLOCK),) \
 		$(if $(filter 1,$(WAVE)),+wave,) \
 		$(if $(filter 0,$(TRACE)),+notrace,) \
+		$(if $(filter 1,$(VGA)),+vga +vga_scale=$(VGA_SCALE),) \
+		$(if $(VGA_DUMP),+vga_dump=$(VGA_DUMP),) \
 		$(if $(filter-out 0,$(TRACE_START)),+trace_start=$(TRACE_START),) \
 		$(if $(filter-out 0,$(MAX_CYCLES)),+max_cycles=$(MAX_CYCLES),) \
 		2>&1 | tee $(LOGDIR)/run.log
@@ -122,6 +137,8 @@ info:
 	@echo "BOOT       : $(BOOT)"
 	@echo "SD         : $(SD)   SD_BLOCK=$(SD_BLOCK)"
 	@echo "WAVE/TRACE : $(WAVE)/$(TRACE)   TRACE_START=$(TRACE_START)   MAX_CYCLES=$(MAX_CYCLES)"
+	@echo "VGA         : $(VGA)   VGA_SCALE=$(VGA_SCALE)   VGA_DUMP=$(VGA_DUMP)"
+	@echo "X11 viewer  : $(if $(X11_FOUND),available,not built; PNG capture only)"
 
 clean:
 	rm -rf obj_dir $(OUT) $(LOGDIR)
