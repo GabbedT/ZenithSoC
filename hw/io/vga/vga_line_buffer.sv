@@ -39,6 +39,7 @@ module vga_line_buffer #(
 
     localparam SIZE_WIDTH = $clog2(DEPTH + 1);
     localparam LOW_RESOLUTION_SIZE = 320;
+    localparam LOW_RESOLUTION_OUTPUT_SIZE = LOW_RESOLUTION_SIZE * 2;
 
     /* Buffer pointers */
     logic [PTR_SIZE - 1:0] write_ptr, read_ptr, line_start_ptr;
@@ -59,9 +60,9 @@ module vga_line_buffer #(
     /* Read is NOT popping, this is used for low resolution logic */
     assign read_enable = enable_video_i & read_i & !empty_o;
 
-    /* In 320x240 mode, a line must be read two times since the same pixel will be 
-     * written to positions: (X, Y), (X+1, Y) (X, Y+1) (X+1, Y+1) */
-    assign pop_enable = read_enable & ((resolution_i != _320x240_) | low_resolution_second_pass);
+    /* In 320x240 mode, each source pixel is displayed twice horizontally and
+     * each source line is displayed twice vertically. */
+    assign pop_enable = read_enable & ((resolution_i != _320x240_) || (low_resolution_second_pass && low_resolution_read_count[0]));
 
 
         always_ff @(posedge clk_i) begin
@@ -71,7 +72,7 @@ module vga_line_buffer #(
         end
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin
+            if (!rst_n_i | !enable_video_i) begin
                 pixel_o <= '0;
             end else if (read_enable) begin
                 pixel_o <= buffer[read_ptr];
@@ -87,7 +88,7 @@ module vga_line_buffer #(
     logic [PTR_SIZE - 1:0] inc_write_ptr, inc_read_ptr;
 
     /* 320x240 logic */
-    logic [$clog2(LOW_RESOLUTION_SIZE) - 1:0] low_resolution_read_count;
+    logic [$clog2(LOW_RESOLUTION_OUTPUT_SIZE) - 1:0] low_resolution_read_count;
     logic low_resolution_second_pass;
 
 
@@ -96,7 +97,7 @@ module vga_line_buffer #(
     assign inc_read_ptr = (read_ptr == LAST_POINTER) ? '0 : read_ptr + 1'b1;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin
+            if (!rst_n_i | !enable_video_i) begin
                 write_ptr <= '0;
             end else if (write_enable) begin
                 write_ptr <= inc_write_ptr;
@@ -104,7 +105,7 @@ module vga_line_buffer #(
         end
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin
+            if (!rst_n_i | !enable_video_i) begin
                 read_ptr <= '0;
                 
                 line_start_ptr <= '0;
@@ -113,7 +114,7 @@ module vga_line_buffer #(
                 low_resolution_second_pass <= 1'b0;
             end else if (read_enable) begin
                 if (resolution_i == _320x240_) begin
-                    if (low_resolution_read_count == (LOW_RESOLUTION_SIZE - 1)) begin
+                    if (low_resolution_read_count == (LOW_RESOLUTION_OUTPUT_SIZE - 1)) begin
                         /* First pass: goes back to the line start 
                          * Second pass: advance FIFO pointer */
                         read_ptr <= low_resolution_second_pass ? inc_read_ptr : line_start_ptr;
@@ -122,7 +123,10 @@ module vga_line_buffer #(
                         low_resolution_read_count <= '0;
                         low_resolution_second_pass <= !low_resolution_second_pass;
                     end else begin
-                        read_ptr <= inc_read_ptr;
+                        /* The same source pixel is used for two output pixels. */
+                        if (low_resolution_read_count[0]) begin
+                            read_ptr <= inc_read_ptr;
+                        end
 
                         low_resolution_read_count <= low_resolution_read_count + 1'b1;
                     end
@@ -148,7 +152,7 @@ module vga_line_buffer #(
 //====================================================================================
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin
+            if (!rst_n_i | !enable_video_i) begin
                 size <= '0;
             end else begin
                 case ({write_enable, pop_enable})
