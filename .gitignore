@@ -34,5 +34,7 @@ sw/test/out
 
 /docs/_build
 
+/sw/examples/vga/out
+
 /fpga/nexys_a7/.Xil
 /fpga/nexys_a7/build
