@@ -12,6 +12,7 @@ module vga_line_buffer #(
     input logic clk_i,
     input logic rst_n_i,
     input logic enable_video_i,
+    input logic flush_i,
     input resolution_t resolution_i,
 
     /* Write interface */
@@ -55,10 +56,10 @@ module vga_line_buffer #(
     logic write_enable, read_enable, pop_enable;
 
     /* Write when not full and buffer is able to pop */
-    assign write_enable = enable_video_i & write_i & (!full_o | pop_enable);
+    assign write_enable = enable_video_i & !flush_i & write_i & (!full_o | pop_enable);
 
     /* Read is NOT popping, this is used for low resolution logic */
-    assign read_enable = enable_video_i & read_i & !empty_o;
+    assign read_enable = enable_video_i & !flush_i & read_i & !empty_o;
 
     /* In 320x240 mode, each source pixel is displayed twice horizontally and
      * each source line is displayed twice vertically. */
@@ -72,7 +73,7 @@ module vga_line_buffer #(
         end
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i | !enable_video_i) begin
+            if (!rst_n_i | !enable_video_i | flush_i) begin
                 pixel_o <= '0;
             end else if (read_enable) begin
                 pixel_o <= buffer[read_ptr];
@@ -97,7 +98,7 @@ module vga_line_buffer #(
     assign inc_read_ptr = (read_ptr == LAST_POINTER) ? '0 : read_ptr + 1'b1;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i | !enable_video_i) begin
+            if (!rst_n_i | !enable_video_i | flush_i) begin
                 write_ptr <= '0;
             end else if (write_enable) begin
                 write_ptr <= inc_write_ptr;
@@ -105,7 +106,7 @@ module vga_line_buffer #(
         end
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i | !enable_video_i) begin
+            if (!rst_n_i | !enable_video_i | flush_i) begin
                 read_ptr <= '0;
                 
                 line_start_ptr <= '0;
@@ -152,7 +153,7 @@ module vga_line_buffer #(
 //====================================================================================
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i | !enable_video_i) begin
+            if (!rst_n_i | !enable_video_i | flush_i) begin
                 size <= '0;
             end else begin
                 case ({write_enable, pop_enable})

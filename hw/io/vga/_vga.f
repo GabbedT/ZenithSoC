@@ -1,4 +1,5 @@
 vga_registers.sv
+vga_flush_engine.sv
 vga_sprite.sv
 vga_line_buffer.sv
 vga_pixel_sequencer.sv

@@ -11,6 +11,7 @@ module vga_pixel_sequencer #(
     input logic clk_i,
     input logic rst_n_i,
     input logic display_i,
+    input logic flush_i,
 
     /* Frame buffer */
     input logic [26:0] base_address_i,
@@ -28,7 +29,8 @@ module vga_pixel_sequencer #(
     input logic ddr_valid_i,
     input logic [127:0] ddr_data_i,
     output logic [26:0] ddr_address_o,
-    output logic ddr_read_o
+    output logic ddr_read_o,
+    output logic [3:0] outstanding_count_o
 );
 
 //====================================================================================
@@ -43,7 +45,7 @@ module vga_pixel_sequencer #(
     logic request_accepted;
 
         always_ff @(posedge clk_i) begin
-            if (!rst_n_i | !display_i) begin
+            if (!rst_n_i | !display_i | flush_i) begin
                 frame_buffer_offset <= '0;
             end else if (request_accepted) begin
                 if (frame_buffer_offset == ((size_i >> 4) - 1'b1)) begin
@@ -62,7 +64,7 @@ module vga_pixel_sequencer #(
     assign request_accepted = ddr_read_o & ddr_ready_i;
 
     /* Read until the credit count match a full buffer */
-    assign ddr_read_o = display_i & ((credit_count < 8) | read_bundle);
+    assign ddr_read_o = display_i & !flush_i & ((credit_count < 8) | read_bundle);
 
     assign ddr_address_o = base_address_i + (frame_buffer_offset << 4);
 
@@ -79,11 +81,11 @@ module vga_pixel_sequencer #(
         .DATA_WIDTH             ( 128 ), 
         .FIRST_WORD_FALL_TROUGH ( 0   )
     ) ddr_data_buffer (
-        .clk_i   ( clk_i               ),
-        .rst_n_i ( rst_n_i & display_i ),
+        .clk_i   ( clk_i                          ),
+        .rst_n_i ( rst_n_i & display_i & !flush_i ),
 
-        .write_i ( ddr_valid_i ),
-        .read_i  ( read_bundle ),
+        .write_i ( ddr_valid_i & !flush_i ),
+        .read_i  ( read_bundle            ),
 
         .empty_o ( buffer_empty ),
         .full_o  ( buffer_full  ),
@@ -95,7 +97,7 @@ module vga_pixel_sequencer #(
 
     /* Response FIFO occupancy and outstanding request credits */
     always_ff @(posedge clk_i) begin
-        if (!rst_n_i | !display_i) begin
+        if (!rst_n_i | !display_i | flush_i) begin
             response_count <= '0;
             outstanding_count <= '0;
         end else begin
@@ -131,14 +133,17 @@ module vga_pixel_sequencer #(
     logic [7:0] reservoir_insert_index;
 
 
-    assign extract_pixel = display_i & (reservoir_size >= PIXEL_WIDTH) & !full_i;
+    assign extract_pixel = display_i & !flush_i &
+                           (reservoir_size >= PIXEL_WIDTH) & !full_i;
 
-    assign load_reservoir = display_i & bundle_valid & (reservoir_size <= RESERVOIR_LOAD_LIMIT);
+    assign load_reservoir = display_i & !flush_i & bundle_valid &
+                            (reservoir_size <= RESERVOIR_LOAD_LIMIT);
 
     /* A synchronous FIFO read makes pixel_bundle valid one cycle after
      * read_bundle. Refill the staging word while consuming the current one
      * so the path remains pipelined after startup. */
-    assign read_bundle = display_i & !response_fifo_empty & (!bundle_valid | load_reservoir);
+    assign read_bundle = display_i & !flush_i & !response_fifo_empty &
+                         (!bundle_valid | load_reservoir);
 
         /*
          * A new 128-bit word is accepted when, after an optional pixel
@@ -173,7 +178,7 @@ module vga_pixel_sequencer #(
 
 
         always_ff @(posedge clk_i) begin
-            if (!rst_n_i | !display_i) begin
+            if (!rst_n_i | !display_i | flush_i) begin
                 reservoir_size <= '0;
                 reservoir <= '0;
             end else begin
@@ -184,7 +189,7 @@ module vga_pixel_sequencer #(
 
 
         always_ff @(posedge clk_i) begin
-            if (!rst_n_i | !display_i) begin
+            if (!rst_n_i | !display_i | flush_i) begin
                 bundle_valid <= 1'b0;
             end else begin
                 case ({read_bundle, load_reservoir})
@@ -200,9 +205,11 @@ module vga_pixel_sequencer #(
 //      OUTPUT
 //====================================================================================
 
-    assign pixel_o = pixel_t'(reservoir[11:0]);
+    assign pixel_o = flush_i ? '0 : pixel_t'(reservoir[11:0]);
 
-    assign write_o = extract_pixel;
+    assign write_o = extract_pixel & !flush_i;
+
+    assign outstanding_count_o = outstanding_count;
 
 
 //====================================================================================

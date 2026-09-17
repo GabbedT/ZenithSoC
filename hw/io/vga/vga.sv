@@ -43,10 +43,12 @@ module vga #(
 //====================================================================================
 
     logic enable_video, video_on, buffer_empty, frame_done, early_frame_done;
+    logic flush_sequencer, flush_line_buffer;
 
     logic [9:0] sprite_x, sprite_y; logic sprite_enable, write_ptable, write_ctable;
     logic [11:0] sprite_data; logic [6:0] sprite_address; logic [9:0] vsync_counter;
     logic ddr_error;
+    logic [3:0] outstanding_count;
     logic [26:0] frame_buffer_base; logic [19:0] frame_buffer_size;
 
     resolution_t resolution;
@@ -106,6 +108,7 @@ module vga #(
         .clk_i       ( clk_i       ),
         .rst_n_i     ( rst_n_i     ),
         .display_i   ( enable_video ),
+        .flush_i     ( flush_sequencer ),
 
         .base_address_i ( frame_buffer_base ),
         .size_i         ( frame_buffer_size ),
@@ -120,7 +123,8 @@ module vga #(
         .ddr_data_i  ( ddr_data  ),
 
         .ddr_address_o ( ddr_address ),
-        .ddr_read_o    ( ddr_request )
+        .ddr_read_o    ( ddr_request ),
+        .outstanding_count_o ( outstanding_count )
     );
 
     ddr_master ddr_master (
@@ -152,6 +156,8 @@ module vga #(
             if (!rst_n_i) begin
                 controller_enable <= 1'b0;
             end else if (!enable_video) begin
+                controller_enable <= 1'b0;
+            end else if (flush_sequencer || flush_line_buffer) begin
                 controller_enable <= 1'b0;
             end else if (!controller_enable & !buffer_empty) begin
                 controller_enable <= 1'b1;
@@ -214,6 +220,7 @@ module vga #(
         .rst_n_i ( rst_n_i ),
 
         .enable_video_i ( enable_video ),
+        .flush_i       ( flush_line_buffer ),
         .resolution_i   ( resolution   ),
 
         .write_i   ( sequencer_write ),
@@ -224,6 +231,25 @@ module vga #(
 
         .full_o   ( buffer_full   ),
         .empty_o ( buffer_empty )
+    );
+
+
+//====================================================================================
+//      FRAMEBUFFER FLUSH
+//====================================================================================
+
+    vga_flush_engine flush_engine (
+        .clk_i       ( clk_i       ),
+        .rst_n_i     ( rst_n_i     ),
+        .enable_video_i ( enable_video ),
+        .video_on_i  ( video_on    ),
+
+        .frame_buffer_base_i ( frame_buffer_base ),
+        .early_frame_done_i  ( early_frame_done  ),
+        .outstanding_count_i ( outstanding_count ),
+
+        .flush_sequencer_o   ( flush_sequencer   ),
+        .flush_line_buffer_o ( flush_line_buffer )
     );
 
 
