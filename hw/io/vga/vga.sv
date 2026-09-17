@@ -42,12 +42,12 @@ module vga #(
 //      REGISTERS
 //====================================================================================
 
-    logic enable_video, video_on, buffer_empty, frame_done;
+    logic enable_video, video_on, buffer_empty, frame_done, early_frame_done;
 
     logic [9:0] sprite_x, sprite_y; logic sprite_enable, write_ptable, write_ctable;
     logic [11:0] sprite_data; logic [6:0] sprite_address; logic [9:0] vsync_counter;
     logic ddr_error;
-    logic [26:0] frame_buffer_base; logic [18:0] frame_buffer_size;
+    logic [26:0] frame_buffer_base; logic [19:0] frame_buffer_size;
 
     resolution_t resolution;
 
@@ -73,6 +73,7 @@ module vga #(
         .video_on_i      ( video_on      ),
         .buffer_empty_i  ( buffer_empty  ),
         .frame_done_i    ( frame_done    ),
+        .early_frame_done_i ( early_frame_done ),
         .ddr_req_error_i ( ddr_error     ),
 
         .write_i         ( write_i         ),
@@ -240,6 +241,7 @@ module vga #(
         .next_pixel_i    ( pixel_pulse   ),
         .video_on_o      ( video_on      ),
         .frame_done_o    ( frame_done    ),
+        .early_frame_done_o ( early_frame_done ),
         .vsync_counter_o ( vsync_counter ),
 
         .sprite_x_i     ( sprite_x      ),

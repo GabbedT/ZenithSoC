@@ -22,6 +22,12 @@ package vga_pkg;
 
 
     typedef struct packed {
+        /* The last visible pixel has entered horizontal blanking */
+        logic early_frame_done_interrupt;
+
+        /* The last visible pixel has entered horizontal blanking */
+        logic early_frame_done;
+
         /* Value of VSYNC */
         logic [9:0] vsync_counter;
 
@@ -43,6 +49,9 @@ package vga_pkg;
 
 
     typedef struct packed {
+        /* The last visible pixel has entered horizontal blanking */
+        logic early_frame_done;
+
         /* DDR master error */
         logic ddr_error;
 

@@ -9,6 +9,7 @@ module vga_controller (
     input logic next_pixel_i,
     output logic video_on_o,
     output logic frame_done_o,
+    output logic early_frame_done_o,
     output logic [9:0] vsync_counter_o,
 
     /* Sprite interface */
@@ -83,6 +84,9 @@ module vga_controller (
 
         /* Every pixel has beed drawn */
         assign frame_done_o = (vsync == V_SCAN_PIXEL - 1) & (hsync == H_SCAN_PIXEL - 1);
+
+        /* The last visible pixel has just been sent  */
+        assign early_frame_done_o = (vsync == V_DISPLAY_SIZE - 1) & (hsync == H_DISPLAY_SIZE);
 
         /* Disable HSYNC during horizontal retrace */
         assign hsync_o = !((hsync >= H_DISPLAY_SIZE + H_FRONT_PORCH) & (hsync <= (H_DISPLAY_SIZE + H_FRONT_PORCH + H_RETRACE - 1)));

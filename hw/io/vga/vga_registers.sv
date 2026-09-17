@@ -10,7 +10,7 @@ module vga_registers (
     output logic enable_video_o,
     output resolution_t resolution_o,
     output logic [26:0] frame_buffer_base_o,
-    output logic [18:0] frame_buffer_size_o,
+    output logic [19:0] frame_buffer_size_o,
 
     /* Sprite interface */
     output logic write_ctable_o,
@@ -27,6 +27,7 @@ module vga_registers (
     input logic buffer_empty_i,
     input logic ddr_req_error_i,
     input logic frame_done_i,
+    input logic early_frame_done_i,
 
     /* Write interface */
     input logic write_i,
@@ -65,7 +66,7 @@ module vga_registers (
 
     /* Status register holds the status and control of VGA device */
     control_status_register_t status_register;
-    logic [3:0] enable_interrupt;
+    logic [4:0] enable_interrupt;
     logic enable_video;
     resolution_t resolution;
 
@@ -84,6 +85,10 @@ module vga_registers (
                 if (write_strobe_i[1]) begin
                     enable_interrupt[3] <= write_data_i[1][0];
                 end
+
+                if (write_strobe_i[2]) begin
+                    enable_interrupt[4] <= write_data_i[2][4];
+                end
             end 
         end 
 
@@ -91,8 +96,10 @@ module vga_registers (
         always_comb begin
             status_register = '0;
 
+            status_register.early_frame_done_interrupt = enable_interrupt[4];
+            status_register.early_frame_done = early_frame_done_i;
             status_register.vsync_counter = vsync_counter_i;
-            status_register.enable_interrupt = enable_interrupt;
+            status_register.enable_interrupt = enable_interrupt[3:0];
             status_register.enable_video = enable_video;
             status_register.resolution = resolution;
             status_register.video_on = video_on_i;
@@ -108,7 +115,7 @@ module vga_registers (
 //====================================================================================
 
     logic [26:0] frame_buffer_base;
-    logic [18:0] frame_buffer_size;
+    logic [19:0] frame_buffer_size;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin
@@ -143,7 +150,7 @@ module vga_registers (
                     end
 
                     if (write_strobe_i[2]) begin
-                        frame_buffer_size[18:16] <= write_data_i[2][2:0];
+                        frame_buffer_size[19:16] <= write_data_i[2][3:0];
                     end
                 end
             end
@@ -157,7 +164,7 @@ module vga_registers (
 //      INTERRUPT
 //====================================================================================
 
-    logic [3:0] event_edge;
+    logic [4:0] event_edge;
 
         edge_detector #(1, 0) buffer_empty_detector (
             .clk_i   ( clk_i   ),
@@ -183,6 +190,14 @@ module vga_registers (
             .edge_o   ( event_edge[2]                         )
         );
 
+        edge_detector #(1, 0) early_frame_done_detector (
+            .clk_i   ( clk_i   ),
+            .rst_n_i ( rst_n_i ),
+
+            .signal_i ( early_frame_done_i & enable_video_o ),
+            .edge_o   ( event_edge[4] )
+        );
+
         edge_detector #(1, 0) ddr_error_detector (
             .clk_i   ( clk_i   ),
             .rst_n_i ( rst_n_i ),
@@ -191,7 +206,7 @@ module vga_registers (
             .edge_o   ( event_edge[3]    )
         );
 
-    assign interrupt_o = ((event_edge & enable_interrupt) != '0);
+    assign interrupt_o = ((event_edge[4:0] & enable_interrupt[4:0]) != '0) & status_register.enable_video;
 
 
 //====================================================================================
@@ -220,6 +235,10 @@ module vga_registers (
                     if (write_data_i[0][3]) begin
                         event_register.ddr_error <= 1'b0;
                     end
+
+                    if (write_data_i[0][4]) begin
+                        event_register.early_frame_done <= 1'b0;
+                    end
                 end
             end else begin 
                 if (event_edge[0]) begin
@@ -236,6 +255,10 @@ module vga_registers (
 
                 if (event_edge[3]) begin
                     event_register.ddr_error <= 1'b1;
+                end
+
+                if (event_edge[4]) begin
+                    event_register.early_frame_done <= 1'b1;
                 end
             end 
         end 
@@ -312,13 +335,13 @@ module vga_registers (
             read_data_o = '0;
 
             case (read_address)
-                VGA_CTLR_STATUS: read_data_o = {{13{1'b0}}, status_register};
+                VGA_CTLR_STATUS: read_data_o = {{11{1'b0}}, status_register};
 
                 VGA_FRM_BUF_BASE: read_data_o = {{5{1'b0}}, frame_buffer_base};
 
-                VGA_FRM_BUF_SIZE: read_data_o = {{13{1'b0}}, frame_buffer_size};
+                VGA_FRM_BUF_SIZE: read_data_o = {{12{1'b0}}, frame_buffer_size};
 
-                VGA_EVENT: read_data_o = {{28{1'b0}}, event_register};
+                VGA_EVENT: read_data_o = {{27{1'b0}}, event_register};
 
                 VGA_SPRITE: read_data_o = {{11{1'b0}}, sprite_register};
 
