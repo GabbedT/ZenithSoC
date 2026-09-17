@@ -88,8 +88,8 @@ module vga_flush_engine #(
     end
 
     /* Empty data is not enough to skip the flush: control pointers can remain stale. */
-    assign flush_sequencer_o = state == FLUSH;
-    assign flush_line_buffer_o = state == FLUSH;
+    assign flush_sequencer_o = state_CRT == FLUSH;
+    assign flush_line_buffer_o = state_CRT == FLUSH;
 
 endmodule : vga_flush_engine
 
