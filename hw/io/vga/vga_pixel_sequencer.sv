@@ -14,7 +14,7 @@ module vga_pixel_sequencer #(
 
     /* Frame buffer */
     input logic [26:0] base_address_i,
-    input logic [18:0] size_i,
+    input logic [19:0] size_i,
 
     /* Line buffer status */
     input logic full_i,
@@ -59,10 +59,10 @@ module vga_pixel_sequencer #(
     assign credit_count = response_count + outstanding_count;
 
     assign response_fifo_empty = response_count == 0;
-    assign request_accepted = ddr_read_o && ddr_ready_i;
+    assign request_accepted = ddr_read_o & ddr_ready_i;
 
     /* Read until the credit count match a full buffer */
-    assign ddr_read_o = display_i && ((credit_count < 8) || read_bundle);
+    assign ddr_read_o = display_i & ((credit_count < 8) | read_bundle);
 
     assign ddr_address_o = base_address_i + (frame_buffer_offset << 4);
 
@@ -125,21 +125,20 @@ module vga_pixel_sequencer #(
 
     logic [RESERVOIR_WIDTH - 1:0] reservoir, reservoir_next;
     logic [RESERVOIR_COUNT_WIDTH - 1:0] reservoir_size, reservoir_size_next;
+    logic [RESERVOIR_WIDTH - 1:0] reservoir_after_extract;
+    logic [RESERVOIR_COUNT_WIDTH - 1:0] reservoir_size_after_extract;
     logic load_reservoir, extract_pixel;
     logic [7:0] reservoir_insert_index;
 
 
     assign extract_pixel = display_i & (reservoir_size >= PIXEL_WIDTH) & !full_i;
 
-    assign load_reservoir = display_i & bundle_valid &
-                            (reservoir_size <= RESERVOIR_LOAD_LIMIT);
+    assign load_reservoir = display_i & bundle_valid & (reservoir_size <= RESERVOIR_LOAD_LIMIT);
 
     /* A synchronous FIFO read makes pixel_bundle valid one cycle after
      * read_bundle. Refill the staging word while consuming the current one
      * so the path remains pipelined after startup. */
-    assign read_bundle = display_i &&!response_fifo_empty & (!bundle_valid | load_reservoir);
-
-    assign reservoir_insert_index = reservoir_size_next[7:0];
+    assign read_bundle = display_i & !response_fifo_empty & (!bundle_valid | load_reservoir);
 
         /*
          * A new 128-bit word is accepted when, after an optional pixel
@@ -151,20 +150,24 @@ module vga_pixel_sequencer #(
          *   124 bits: extract 12 bits and append at bit 112
          */
         always_comb begin
-            reservoir_next = reservoir;
-            reservoir_size_next = reservoir_size;
+            reservoir_after_extract = reservoir;
+            reservoir_size_after_extract = reservoir_size;
 
             /* Remove the pixel at the bottom of the bit stream first. */
             if (extract_pixel) begin
-                reservoir_next = reservoir_next >> PIXEL_WIDTH;
-                reservoir_size_next = reservoir_size_next - PIXEL_WIDTH;
+                reservoir_after_extract = reservoir >> PIXEL_WIDTH;
+                reservoir_size_after_extract = reservoir_size - PIXEL_WIDTH;
             end
+
+            reservoir_insert_index = reservoir_size_after_extract[7:0];
+            reservoir_next = reservoir_after_extract;
+            reservoir_size_next = reservoir_size_after_extract;
 
             /* Append after the optional extraction.  This handles all byte and
              * nibble misalignment cases without special-case logic. */
             if (load_reservoir) begin
                 reservoir_next[reservoir_insert_index +: 128] = pixel_bundle;
-                reservoir_size_next = reservoir_size_next + 128;
+                reservoir_size_next = reservoir_size_after_extract + 128;
             end
         end
 
