@@ -1,6 +1,7 @@
 #include "platform.h"
 #include "test_cases.h"
 
+/* Run the complete VGA VP regression suite and report the first failure. */
 extern "C" int main(void) {
     if (!displayHighResolutionTest()) {
         TEST_FAIL();
@@ -15,6 +16,10 @@ extern "C" int main(void) {
     }
 
     if (!displayLowResolutionSpriteTest()) {
+        TEST_FAIL();
+    }
+
+    if (!doubleBufferingTest()) {
         TEST_FAIL();
     }
 

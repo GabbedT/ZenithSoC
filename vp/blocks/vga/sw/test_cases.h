@@ -9,6 +9,11 @@
 #define FRAME_BUFFER_BASE 0x01000000
 #define DISPLAY_BASE      0x08000000
 
+/*
+ * Generate the deterministic background pattern used by the display tests.
+ * The coordinate bits are distributed across the RGB nibbles so that the
+ * tests can detect address, pixel-order, and row/column indexing errors.
+ */
 static inline uint16_t test_pixel(uint32_t x, uint32_t y) {
     const uint16_t red = static_cast<uint16_t>((x >> 4) & 0xF);
     const uint16_t green = static_cast<uint16_t>((y >> 4) & 0xF);
@@ -21,6 +26,7 @@ static bool displayHighResolutionTest();
 static bool displayHighResolutionSpriteTest();
 static bool displayLowResolutionTest();
 static bool displayLowResolutionSpriteTest();
+static bool doubleBufferingTest();
 
 static const uint8_t sprite_test_pattern[64] = {
     0xF, 0x1, 0x2, 0x3, 0x4, 0xF, 0x6, 0x7,
@@ -33,6 +39,11 @@ static const uint8_t sprite_test_pattern[64] = {
     0xB, 0xC, 0xD, 0xE, 0x0, 0x1, 0x2, 0xF
 };
 
+/*
+ * Generate a deterministic color-table entry for a sprite index. Each color
+ * channel uses a different multiplier, making neighboring indices visibly
+ * different and exposing color-table or sprite-indexing errors.
+ */
 static VGA::pixel_s sprite_test_color(uint8_t index) {
     VGA::pixel_s color = {};
 
@@ -43,10 +54,19 @@ static VGA::pixel_s sprite_test_color(uint8_t index) {
     return color;
 }
 
+/*
+ * Convert the structured VGA sprite color into the 16-bit framebuffer/display
+ * representation used when comparing the rendered output.
+ */
 static uint16_t sprite_test_color_value(uint8_t index) {
     return VGA::pixel2int16(sprite_test_color(index));
 }
 
+/*
+ * Calculate the expected output pixel for a background plus an 8x8 sprite.
+ * Sprite index 0xF is treated as transparent; every other index replaces the
+ * background with the corresponding color-table entry.
+ */
 static uint16_t sprite_test_expected_pixel(uint32_t x, uint32_t y, uint32_t sprite_x, uint32_t sprite_y, uint16_t background) {
     if ((x < sprite_x) || (x >= sprite_x + 8) || (y < sprite_y) || (y >= sprite_y + 8)) {
         return background;
@@ -57,6 +77,12 @@ static uint16_t sprite_test_expected_pixel(uint32_t x, uint32_t y, uint32_t spri
     return color_index == 0xF ? background : sprite_test_color_value(color_index);
 }
 
+/*
+ * Poll the sticky early-frame-done event until the VGA has finished the last
+ * visible line. The event is cleared with the driver's write-one-to-clear
+ * operation, and a bounded loop prevents a stalled display from hanging the
+ * firmware forever.
+ */
 static bool waitForFrame(VGA& vga) {
     for (uint32_t poll = 0; poll < 2000000; ++poll) {
         vp_delay_cycles(5);
@@ -70,6 +96,24 @@ static bool waitForFrame(VGA& vga) {
     return false;
 }
 
+/*
+ * Generate a second deterministic pattern that is intentionally different
+ * from test_pixel(), allowing the double-buffer test to detect stale pixels
+ * from the previous framebuffer.
+ */
+static inline uint16_t double_buffer_pixel(uint32_t x, uint32_t y) {
+    const uint16_t red = 0xD;
+    const uint16_t green = static_cast<uint16_t>((x >> 3) & 0xF);
+    const uint16_t blue = static_cast<uint16_t>((x + y) & 0xF);
+
+    return static_cast<uint16_t>((red << 8) | (green << 4) | blue);
+}
+
+/*
+ * Fill a 640x480 framebuffer, display one complete frame without sprites,
+ * then compare every pixel in the simulated display memory with the expected
+ * coordinate pattern.
+ */
 static bool displayHighResolutionTest() {
     const uint32_t width = 640;
     const uint32_t height = 480;
@@ -141,6 +185,12 @@ static bool displayHighResolutionTest() {
 }
 
 
+/*
+ * Fill a 640x480 background, configure the sprite pattern and color table,
+ * and render two frames with the sprite at different positions. Each frame
+ * is checked pixel by pixel, including transparent sprite entries that must
+ * preserve the framebuffer background.
+ */
 static bool displayHighResolutionSpriteTest() {
     const uint32_t width = 640;
     const uint32_t height = 480;
@@ -245,6 +295,11 @@ static bool displayHighResolutionSpriteTest() {
 }
 
 
+/*
+ * Fill a 320x240 framebuffer and display it in low-resolution mode. Every
+ * source pixel must appear in a 2x2 block, so the test checks horizontal and
+ * vertical duplication for all source coordinates.
+ */
 static bool displayLowResolutionTest() {
     const uint32_t width = 320;
     const uint32_t height = 240;
@@ -323,6 +378,11 @@ static bool displayLowResolutionTest() {
 }
 
 
+/*
+ * Combine low-resolution 2x2 pixel duplication with sprite rendering. The
+ * test renders the same background twice with the sprite at two positions and
+ * verifies the complete 640x480 output, including transparent sprite pixels.
+ */
 static bool displayLowResolutionSpriteTest() {
     const uint32_t framebuffer_width = 320;
     const uint32_t framebuffer_height = 240;
@@ -426,6 +486,112 @@ static bool displayLowResolutionSpriteTest() {
     }
 
     vp_println("[VGA] Low-resolution sprite test passed");
+    return true;
+}
+
+
+/*
+ * Verify framebuffer switching at the early-frame boundary. The test fills
+ * two framebuffer regions with different patterns, displays the first one,
+ * changes the framebuffer base after earlyFrameDone, and waits for the next
+ * frame. The final display memory must contain only the second pattern,
+ * proving that the old sequencer and line-buffer contents were flushed.
+ */
+static bool doubleBufferingTest() {
+    const uint32_t framebuffer_width = 320;
+    const uint32_t framebuffer_height = 240;
+    const uint32_t display_width = 640;
+    const uint32_t display_height = 480;
+    const uint32_t framebuffer_size = framebuffer_width * framebuffer_height * 2;
+    const uint32_t second_framebuffer_base = FRAME_BUFFER_BASE + framebuffer_size;
+
+    volatile uint16_t* first_framebuffer = reinterpret_cast<volatile uint16_t*>(FRAME_BUFFER_BASE);
+    volatile uint16_t* second_framebuffer = reinterpret_cast<volatile uint16_t*>(second_framebuffer_base);
+    volatile uint16_t* display = reinterpret_cast<volatile uint16_t*>(DISPLAY_BASE);
+
+    vp_println("");
+    vp_println("===========================================");
+    vp_println("       VGA DOUBLE BUFFERING TEST START    ");
+    vp_println("===========================================");
+
+    vp_println("[VGA] Loading first frame buffer...");
+
+    for (uint32_t y = 0; y < framebuffer_height; ++y) {
+        for (uint32_t x = 0; x < framebuffer_width; ++x) {
+            first_framebuffer[y * framebuffer_width + x] = test_pixel(x, y);
+        }
+    }
+
+    vp_println("[VGA] Loading second frame buffer...");
+
+    for (uint32_t y = 0; y < framebuffer_height; ++y) {
+        for (uint32_t x = 0; x < framebuffer_width; ++x) {
+            second_framebuffer[y * framebuffer_width + x] = double_buffer_pixel(x, y);
+        }
+    }
+
+    VGA vga;
+    VGA::error_e error = VGA::NO_ERROR;
+    vga.enableSprite(false)
+       .setResolution(VGA::_320x240)
+       .setFrameBuffer(FRAME_BUFFER_BASE, framebuffer_size, &error);
+
+    if (error != VGA::NO_ERROR) {
+        vp_println("[ERROR] First frame buffer setup error");
+
+        return false;
+    }
+
+    vp_println("[VGA] Displaying first buffer...");
+    vga.clearEarlyFrameDone();
+    vga.enableDisplay(true);
+
+    if (!waitForFrame(vga)) {
+        vp_println("[ERROR] First frame timeout");
+
+        return false;
+    }
+
+    const uint32_t first_display_index = 0;
+    if (display[first_display_index] != test_pixel(0, 0)) {
+        vp_println("[ERROR] First frame was not displayed");
+        
+        return false;
+    }
+
+    vp_println("[VGA] Switching framebuffer at early frame done...");
+    vga.setFrameBuffer(second_framebuffer_base, framebuffer_size, &error);
+
+    if (error != VGA::NO_ERROR) {
+        vp_println("[ERROR] Second frame buffer setup error");
+        return false;
+    }
+
+    if (!waitForFrame(vga)) {
+        vp_println("[ERROR] Second frame timeout");
+        return false;
+    }
+
+    vga.enableDisplay(false);
+
+    vp_println("[VGA] Checking second displayed buffer...");
+
+    for (uint32_t y = 0; y < display_height; ++y) {
+        for (uint32_t x = 0; x < display_width; ++x) {
+            const uint16_t expected = double_buffer_pixel(x >> 1, y >> 1);
+            const uint16_t actual = display[y * display_width + x];
+
+            if (actual != expected) {
+                vp_print("[ERROR] Double buffering mismatch! Expected: ");
+                vp_print_hex(expected);
+                vp_print(" Actual: ");
+                vp_println_hex(actual);
+                return false;
+            }
+        }
+    }
+
+    vp_println("[VGA] Double buffering test passed");
     return true;
 }
 
