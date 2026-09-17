@@ -2,8 +2,8 @@
 `define COSIM_DDR_SV
 
 module cosim_ddr #(
-    parameter int DATA_MAX_BURST        = 4,   // DCACHE BLOCK_SIZE_BYTE / 4
-    parameter int INSTRUCTION_MAX_BURST = 4,   // ICACHE BLOCK_SIZE_BYTE / 4
+    parameter int DATA_MAX_BURST        = 4,
+    parameter int INSTRUCTION_MAX_BURST = 4,
     parameter int SIZE_BYTES            = 64 * 1024 * 1024,
     parameter int LAT_MIN               = 2,
     parameter int LAT_MAX               = 16
@@ -11,7 +11,6 @@ module cosim_ddr #(
     input  logic clk_i,
     input  logic rst_n_i,
 
-    /* Same interfaces seen by cpu_complex (slave side) */
     load_interface.slave  load_channel,
     store_interface.slave store_channel,
 
@@ -22,23 +21,16 @@ module cosim_ddr #(
 );
 
     localparam int DDR_WORDS = SIZE_BYTES / 8;
+    localparam int MODEL_LATENCY = 8;
 
-    /* Nets connected to the physical model (same as ZenithSoC.sv) */
-    logic [26:0] ddr_address;
-    logic ddr_write, ddr_read, push_trx, pull_trx, ddr_data_valid, ddr_done;
-    logic [63:0] ddr_data_write, ddr_data_read;
-    logic [7:0] ddr_mask;
-    logic ddr_ready;
+    dev2ddr_interface ddr_channel();
 
     cache_ddr_interface #(
         .DATA_MAX_BURST        ( DATA_MAX_BURST        ),
         .INSTRUCTION_MAX_BURST ( INSTRUCTION_MAX_BURST )
     ) ddr_controller_interface (
-
         .clk_i   ( clk_i   ),
         .rst_n_i ( rst_n_i ),
-
-        .hold_i ( 1'b0 ),
 
         .load_channel  ( load_channel  ),
         .store_channel ( store_channel ),
@@ -48,130 +40,74 @@ module cosim_ddr #(
         .load_empty_o ( load_empty_o ),
         .store_idle_o ( store_idle_o ),
 
-        .address_o ( ddr_address ),
-
-        .write_o ( ddr_write ),
-        .read_o  ( ddr_read  ),
-
-        .push_o       ( push_trx       ),
-        .pull_o       ( pull_trx       ),
-        .write_data_o ( ddr_data_write ),
-        .write_mask_o ( ddr_mask       ),
-        .read_data_i  ( ddr_data_read  ),
-        .read_valid_i ( ddr_data_valid ),
-
-        .done_o    ( ddr_done  ),
-        .ready_i   ( ddr_ready )
+        .ddr_channel ( ddr_channel )
     );
-
-    assign ddr_ready = 1'b1; // Calibration is always completed in simulation
 
 
 //====================================================================================
-//      DDR MODEL
+//      STREAMED DDR MODEL
 //====================================================================================
 
     logic [63:0] ddr_memory [0:DDR_WORDS-1];
+    logic [$clog2(DDR_WORDS) - 1:0] ddr_word_address;
+    logic [MODEL_LATENCY - 1:0] read_valid;
+    logic [MODEL_LATENCY - 1:0] read_error;
+    logic [MODEL_LATENCY - 1:0][127:0] read_data;
+    logic write_valid, write_error;
 
-    localparam int BEATS_PER_BURST = 2;
-    localparam int MAX_CACHE_BEATS =
-        ((DATA_MAX_BURST > INSTRUCTION_MAX_BURST) ? DATA_MAX_BURST : INSTRUCTION_MAX_BURST) / 2;
-
-    /* FSM states */
-    typedef enum logic [1:0] { IDLE, LAT, WAIT, BURST } burst_state_t;
-    burst_state_t state;
-
-    /* Buffer that contains each beat */
-    logic [63:0] burst_buf [0:MAX_CACHE_BEATS-1];
-    int unsigned beat_current, beat_count;
-
-    /* Latency counter */
-    logic [$clog2(LAT_MAX + 1) - 1:0] lat_cnt;
-
-    /* DDR to word address */
-    logic [$clog2(DDR_WORDS) - 1:0] word_address;
-    assign word_address = ddr_address[$clog2(DDR_WORDS)+1:2];
-
-    /* To interface */
-    assign ddr_data_valid = (state == WAIT) | (state == BURST);
-    assign ddr_data_read  = burst_buf[beat_current];
+    assign ddr_word_address = ddr_channel.trx_addr[$clog2(DDR_WORDS)+2:3];
+    assign ddr_channel.ready = rst_n_i;
+    assign ddr_channel.read_valid = read_valid[MODEL_LATENCY - 1];
+    assign ddr_channel.read_error = read_error[MODEL_LATENCY - 1];
+    assign ddr_channel.rdata = read_data[MODEL_LATENCY - 1];
+    assign ddr_channel.write_valid = write_valid;
+    assign ddr_channel.write_error = write_error;
 
     always_ff @(posedge clk_i or negedge rst_n_i) begin
         if (!rst_n_i) begin
-            state         <= IDLE;
-            beat_current  <= '0;
-            beat_count    <= 0;
-            lat_cnt       <= '0;
-            for (int i = 0; i < MAX_CACHE_BEATS; i++)
-                burst_buf[i] <= '0;
+            read_valid <= '0;
+            read_error <= '0;
+            read_data <= '0;
+            write_valid <= 1'b0;
+            write_error <= 1'b0;
         end else begin
-            // A cache line can contain several two-beat DDR read commands.
-            // Queue all commands before returning the contiguous response.
-            if (ddr_read) begin
-                if (state != IDLE || beat_count + BEATS_PER_BURST > MAX_CACHE_BEATS)
-                    $fatal(1, "Co-simulation DDR read queue overflow");
-                for (int i = 0; i < BEATS_PER_BURST; i++)
-                    burst_buf[beat_count + i] <= ddr_memory[word_address + i];
-                beat_count <= beat_count + BEATS_PER_BURST;
-            end
-            if (push_trx) begin
-                for (int i = 0; i < 8; i++) begin
-                    if (ddr_mask[i]) begin
-                        /* Write DDR */
-                        ddr_memory[word_address][8*i +: 8] <= ddr_data_write[8*i +: 8];
-                    end
-                end
-            end
+            read_valid <= {read_valid[MODEL_LATENCY - 2:0], 1'b0};
+            read_error <= {read_error[MODEL_LATENCY - 2:0], 1'b0};
+            read_data <= {read_data[MODEL_LATENCY - 2:0], 128'b0};
+            write_valid <= 1'b0;
+            write_error <= 1'b0;
 
-            case (state)
-                IDLE: if (ddr_done) begin
-                    beat_current <= '0;
+            if (ddr_channel.trx_req & ddr_channel.ready) begin
+                if (!ddr_channel.trx_type) begin
+                    read_valid[0] <= 1'b1;
+                    read_error[0] <= ddr_channel.trx_addr[3:0] != 4'b0;
+                    read_data[0] <= {
+                        ddr_memory[ddr_word_address + 1'b1],
+                        ddr_memory[ddr_word_address]
+                    };
+                end else begin
+                    write_valid <= 1'b1;
+                    write_error <= ddr_channel.trx_addr[3:0] != 4'b0;
 
-                    /* Load a random latency */
-                    lat_cnt <= $urandom_range(LAT_MIN, LAT_MAX);
-                    state <= LAT;
-                end
-
-                LAT: begin
-                    /* Wait random latency */
-                    if (lat_cnt != '0) begin
-                        lat_cnt <= lat_cnt - 1'b1;
-                    end else begin
-                        state <= WAIT;
-                    end
-                end
-
-                WAIT: begin
-                    /* Wait for pull request from interface */
-                    if (pull_trx) begin
-                        beat_current <= '0;
-                        state <= BURST;
-                    end
-                end
-
-                BURST: begin
-                    /* Keep pulling until nothing left */
-                    if (pull_trx) begin
-                        if (beat_current == beat_count - 1) begin
-                            beat_current <= '0;
-                            beat_count <= 0;
-                            state    <= IDLE;
-                        end else begin
-                            beat_current <= beat_current + 1'b1;
+                    for (int i = 0; i < 16; i++) begin
+                        if (ddr_channel.wstrobe[i]) begin
+                            ddr_memory[ddr_word_address + (i >> 3)]
+                                      [8 * (i & 7) +: 8] <=
+                                ddr_channel.wdata[8 * i +: 8];
                         end
                     end
                 end
-
-                default: state <= IDLE;
-
-            endcase
+            end
         end
     end
 
-    
+
+//====================================================================================
+//      DPI MEMORY ACCESS
+//====================================================================================
+
     export "DPI-C" function ddr_preload_word;
 
-    /* To load ELF */
     function void ddr_preload_word(input int unsigned byte_addr, input int unsigned data);
         automatic int unsigned widx = byte_addr >> 3;
 
@@ -184,10 +120,8 @@ module cosim_ddr #(
         end
     endfunction
 
-
     export "DPI-C" function ddr_peek_word;
 
-    /* Readback a 32-bit word for final memory diff */
     function int unsigned ddr_peek_word(input int unsigned byte_addr);
         automatic int unsigned idx = byte_addr >> 3;
 
@@ -201,6 +135,9 @@ module cosim_ddr #(
             return ddr_memory[idx][31:0];
         end
     endfunction : ddr_peek_word
+
+    logic unused;
+    assign unused = (LAT_MIN == LAT_MAX);
 
 endmodule : cosim_ddr
 

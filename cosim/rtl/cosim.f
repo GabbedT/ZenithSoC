@@ -1,4 +1,5 @@
 ../../hw/utils/pkg/cache_pkg.sv
+../../hw/utils/intf/dev2ddr_interface.sv
 
 -F ../../hw/cpu/_cpu.f
 -F ../../hw/common/_common.f
