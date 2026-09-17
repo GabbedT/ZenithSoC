@@ -74,6 +74,12 @@ module soc_testbench;
     wire        ddr2_cs_n;
     wire        ddr2_odt;
 
+    wire        vga_hsync_o;
+    wire        vga_vsync_o;
+    wire [3:0]  vga_red_o;
+    wire [3:0]  vga_green_o;
+    wire [3:0]  vga_blue_o;
+
     ZenithSoC #(
         .DDR_MEMORY ( 1 )
     ) dut (.*);

@@ -77,6 +77,8 @@ module framebuffer_memory #(
 
     assign ddr_ready = rst_n_i && (!stress_mode || ddr_gap == 0);
     assign ddr_channel.ready = ddr_ready;
+    assign ddr_channel.write_valid = 1'b0;
+    assign ddr_channel.write_error = 1'b0;
 
     initial begin
         stress_mode = 1'b0;
@@ -99,27 +101,27 @@ module framebuffer_memory #(
     endfunction
 
     always_ff @(posedge clk_i) begin
-        ddr_channel.trx_valid <= 1'b0;
-        ddr_channel.trx_error <= 1'b0;
+        ddr_channel.read_valid <= 1'b0;
+        ddr_channel.read_error <= 1'b0;
 
         if (!rst_n_i) begin
             ddr_gap <= '0;
             lfsr <= 16'h1;
-            ddr_channel.trx_valid <= 1'b0;
-            ddr_channel.trx_error <= 1'b0;
+            ddr_channel.read_valid <= 1'b0;
+            ddr_channel.read_error <= 1'b0;
             ddr_channel.rdata <= '0;
             debug_response_count <= 0;
         end else begin
             lfsr <= {lfsr[14:0], lfsr[15] ^ lfsr[13] ^ lfsr[12] ^ lfsr[10]};
 
-            ddr_channel.trx_valid <= ddr_channel.trx_req && ddr_ready;
-            ddr_channel.trx_error <= 1'b0;
+            ddr_channel.read_valid <= ddr_channel.trx_req && ddr_ready;
+            ddr_channel.read_error <= 1'b0;
 
             if (ddr_gap != 0) begin
                 ddr_gap <= ddr_gap - 1'b1;
             end
             if (ddr_channel.trx_req && ddr_ready) begin
-                ddr_channel.trx_error <= !((ddr_channel.trx_type === 1'b0) && (ddr_channel.trx_addr >= BASE_ADDRESS) &&
+                ddr_channel.read_error <= !((ddr_channel.trx_type === 1'b0) && (ddr_channel.trx_addr >= BASE_ADDRESS) &&
                                            (ddr_channel.trx_addr <= END_ADDRESS - 32'd16) && ddr_aligned);
                                            
                 if ((ddr_channel.trx_type === 1'b0) && (ddr_channel.trx_addr >= BASE_ADDRESS) && (ddr_channel.trx_addr <= END_ADDRESS - 32'd16) && ddr_aligned) begin
