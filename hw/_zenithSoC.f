@@ -15,6 +15,7 @@ utils/pkg/vga_pkg.sv
 
 utils/intf/axi_read_interface.sv
 utils/intf/axi_write_interface.sv
+utils/intf/dev2ddr_interface.sv
 
 -F common/_common.f
 
@@ -22,6 +23,7 @@ utils/intf/axi_write_interface.sv
 
 memory/ddr/ddr_memory_interface.sv
 memory/ddr/cache_ddr_interface.sv
+memory/ddr/ddr_master.sv
 
 memory/memory_bank.sv
 memory/on_chip_memory.sv
@@ -34,6 +36,7 @@ memory/on_chip_memory.sv
 -F io/sd/_sd.f
 -F io/spi/_spi.f
 -F io/uart/_uart.f
+-F io/vga/_vga.f
 
 io/gpio/gpio.sv
 io/prng/prng.sv

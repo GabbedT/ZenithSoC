@@ -122,9 +122,10 @@ class zenith_io_device_t : public abstract_device_t {
 public:
     uint64_t base;
     uint64_t dev_size;
+    bool absolute_addresses;
 
-    zenith_io_device_t(uint64_t b, uint64_t s)
-        : base(b), dev_size(s) {}
+    zenith_io_device_t(uint64_t b, uint64_t s, bool absolute)
+        : base(b), dev_size(s), absolute_addresses(absolute) {}
 
     reg_t size() override {
         return dev_size;
@@ -132,6 +133,9 @@ public:
 
     bool load(reg_t addr, size_t len, uint8_t* bytes) override {
         uint32_t offset = static_cast<uint32_t>(addr);
+        if (absolute_addresses) {
+            offset += static_cast<uint32_t>(base);
+        }
 
         uint32_t data = axi_read(offset);
 
@@ -145,6 +149,9 @@ public:
 
     bool store(reg_t addr, size_t len, const uint8_t* bytes) override {
         uint32_t offset = static_cast<uint32_t>(addr);
+        if (absolute_addresses) {
+            offset += static_cast<uint32_t>(base);
+        }
 
         uint32_t data = 0;
         memcpy(&data, bytes, std::min(len, sizeof(data)));
@@ -185,8 +192,6 @@ public:
     bool store(reg_t addr, size_t len, const uint8_t* bytes) override {
         uint32_t cycles = 0;
         memcpy(&cycles, bytes, std::min(len, sizeof(cycles)));
-
-        std::cout << "[VP TICK] advancing " << cycles << " cycles" << std::endl;
 
         for (uint32_t i = 0; i < cycles; i++) {
             clk_tick();
@@ -361,6 +366,7 @@ int main(int argc, char **argv) {
     std::string fw_path = "out/firmware.elf";
     uint64_t io_base = 0x00004000;  // default: UART base
     uint64_t io_size = 0x00002000;  // default: one device interleave
+    bool io_absolute = false;
     
     for (int i = 1; i < argc; i++) {
         std::string arg(argv[i]);
@@ -375,6 +381,10 @@ int main(int argc, char **argv) {
 
         else if (arg.find("+io_size=") == 0) {
             io_size = std::stoull(arg.substr(9), nullptr, 0);
+        }
+
+        else if (arg == "+io_absolute") {
+            io_absolute = true;
         }
 
         else if (arg.find("+trace_start=") == 0) {
@@ -400,7 +410,7 @@ int main(int argc, char **argv) {
     mems.push_back(std::make_pair(mem_base, new mem_t(mem_size)));
 
 
-    auto io_dev = std::make_shared<zenith_io_device_t>(io_base, io_size);
+    auto io_dev = std::make_shared<zenith_io_device_t>(io_base, io_size, io_absolute);
     auto dbg_uart = std::make_shared<debug_uart_t>();
     auto test_res = std::make_shared<test_result_t>();
     auto vp_tick = std::make_shared<vp_tick_t>();

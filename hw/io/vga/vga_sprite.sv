@@ -26,7 +26,7 @@ module vga_sprite (
 
     initial begin
         for (int i = 0; i < 16; ++i) begin
-            color_table[i] = i * 256;
+            color_table[i] = {i[3:0], 8'b0};
         end
     end
     
@@ -46,7 +46,7 @@ module vga_sprite (
 
     initial begin
         for (int i = 0; i < 64; ++i) begin
-            pattern_table[i] = i % 16;
+            pattern_table[i] = i[3:0];
         end
     end
 
@@ -78,6 +78,25 @@ module vga_sprite (
      * of the color inside the color table */
     assign pixel_o = color_table[pattern_table[read_pointer]];
 
+
+//====================================================================================
+//      ASSERTIONS
+//====================================================================================
+
+`ifndef SYNTHESIS
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        write_ctable_i |-> address_i[6])
+        else $error("VGA color table write has a pattern table address");
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i)
+        write_ptable_i |-> !address_i[6])
+        else $error("VGA pattern table write has a color table address");
+
+`endif
+
 endmodule : vga_sprite 
 
-`endif 
+`endif

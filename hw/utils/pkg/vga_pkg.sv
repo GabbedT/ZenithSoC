@@ -18,15 +18,21 @@ package vga_pkg;
     } pixel_t;
 
     
-    typedef enum logic { _640x480_, _800x600_ } resolution_t;
+    typedef enum logic [1:0] { _320x240_, _640x480_ } resolution_t;
 
 
     typedef struct packed {
+        /* The last visible pixel has entered horizontal blanking */
+        logic early_frame_done_interrupt;
+
+        /* The last visible pixel has entered horizontal blanking */
+        logic early_frame_done;
+
         /* Value of VSYNC */
-        logic [8:0] vsync_counter;
+        logic [9:0] vsync_counter;
 
         /* Interrupt generation enable */
-        logic [2:0] enable_interrupt;
+        logic [3:0] enable_interrupt;
 
         /* Enable VGA output */
         logic enable_video;
@@ -34,49 +40,57 @@ package vga_pkg;
         /* Setup VGA resolution */
         resolution_t resolution;
 
-        /* No data in line buffer */
-        logic buffer_empty;
-
         /* VSYNC and HSYNC are in display area */
         logic video_on;
 
         /* The whole frame has been displayed */
-        logic frame_done;   
-
-        /* Enable auto increment while writing
-         * to line buffer */
-        logic auto_increment;
-    } status_register_t;
+        logic frame_done;
+    } control_status_register_t;
 
 
     typedef struct packed {
-        /* No data in line buffer */
-        logic buffer_empty;
+        /* The last visible pixel has entered horizontal blanking */
+        logic early_frame_done;
+
+        /* DDR master error */
+        logic ddr_error;
+
+        /* The whole frame has been displayed */
+        logic frame_done;
 
         /* VSYNC and HSYNC are in display area */
         logic video_on;
 
-        /* The whole frame has been displayed */
-        logic frame_done;   
+        /* Line buffer must not be empty during video on */
+        logic buffer_empty;
     } event_register_t;
 
 
     typedef struct packed {
-        /* Sprite top left X-position */
-        logic [9:0] x_position;
-
         /* Sprite top left Y-position */
         logic [9:0] y_position;
+
+        /* Sprite top left X-position */
+        logic [9:0] x_position;
 
         /* Sprite is visible */
         logic enable;
     } sprite_register_t;
 
 
-    typedef enum logic [2:0] { VGA_STATUS, VGA_INCREMENT, VGA_BUFFER_SIZE, VGA_EVENT, VGA_SPRITE } registers_t;
+    /* Sprite table addresses */
+    localparam logic [6:0] VGA_REGISTER_SPACE = 7'd5;
+    localparam logic [6:0] VGA_CTABLE_BASE = 7'd5;
+    localparam logic [6:0] VGA_CTABLE_SIZE = 7'd16;
+    localparam logic [6:0] VGA_PTABLE_BASE = VGA_CTABLE_BASE + VGA_CTABLE_SIZE;
+    localparam logic [6:0] VGA_PTABLE_SIZE = 7'd64;
+    localparam logic [6:0] VGA_DEVICE_SPACE = VGA_PTABLE_BASE + VGA_PTABLE_SIZE;
+
+
+    typedef enum logic [2:0] { VGA_CTLR_STATUS, VGA_FRM_BUF_BASE, VGA_FRM_BUF_SIZE, VGA_EVENT, VGA_SPRITE } registers_t;
 
 endpackage : vga_pkg
 
 import vga_pkg::*;
 
-`endif 
+`endif
