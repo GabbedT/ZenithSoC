@@ -70,7 +70,13 @@ public:
         /* Vertical synchronization counter */
         unsigned int vsyncCounter : 10;
 
-        unsigned int padding : 13;
+        /* Last visible pixel has entered horizontal blanking */
+        unsigned int earlyFrameDone : 1;
+
+        /* Enable early-frame-done interrupt */
+        unsigned int earlyFrameDoneInt : 1;
+
+        unsigned int padding : 11;
     };
     
     /* Event register fields */
@@ -83,7 +89,10 @@ public:
 
         unsigned int ddrError : 1;
 
-        unsigned int padding : 28;
+        /* Last visible pixel has entered horizontal blanking */
+        unsigned int earlyFrameDone : 1;
+
+        unsigned int padding : 27;
     };
     
     /* Sprite register */
@@ -154,6 +163,15 @@ public:
 
     inline bool frameDone() {
         return status->frameDone;
+    };
+
+    inline bool earlyFrameDone() {
+        return event->earlyFrameDone;
+    };
+
+    inline void clearEarlyFrameDone() {
+        /* EVENT bits are cleared by writing one. */
+        event->earlyFrameDone = true;
     };
 
     inline bool bufferEmpty() {

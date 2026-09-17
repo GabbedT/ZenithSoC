@@ -23,6 +23,7 @@ VGA::VGA() :
     e.bufferEmpty = false;
     e.ddrError = false;
     e.frameDone = false;
+    e.earlyFrameDone = false;
     e.videoActive = false;
 
     setInterruptEnable(e);
@@ -36,6 +37,7 @@ VGA::~VGA() {
     e.bufferEmpty = false;
     e.ddrError = false;
     e.frameDone = false;
+    e.earlyFrameDone = false;
     e.videoActive = false;
     
     /* Disable interrupts and VGA output */
@@ -84,6 +86,7 @@ VGA& VGA::setFrameBuffer(uint32_t base, uint32_t size, error_e* error) {
 VGA& VGA::setInterruptEnable(VGA::eventRegister_s event) {
     status->ddrErrorInt = event.ddrError;
     status->frameDoneInt = event.frameDone;
+    status->earlyFrameDoneInt = event.earlyFrameDone;
     status->bufferEmptyInt = event.bufferEmpty;
     status->videoActiveInt = event.videoActive;
 
