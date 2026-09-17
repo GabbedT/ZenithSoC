@@ -101,6 +101,8 @@ module dut_wrapper (
         .green_o ( green ),
         .blue_o  ( blue ),
 
+        .ddr_urgent_o ( ),
+
         .ddr_channel ( ddr_channel )
     );
 

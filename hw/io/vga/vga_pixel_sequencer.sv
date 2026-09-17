@@ -30,7 +30,8 @@ module vga_pixel_sequencer #(
     input logic [127:0] ddr_data_i,
     output logic [26:0] ddr_address_o,
     output logic ddr_read_o,
-    output logic [3:0] outstanding_count_o
+    output logic [3:0] outstanding_count_o,
+    output logic [4:0] buffered_packets_o
 );
 
 //====================================================================================
@@ -211,6 +212,12 @@ module vga_pixel_sequencer #(
 
     assign outstanding_count_o = outstanding_count;
 
+    /* Include the response FIFO, the staged bundle and complete 128-bit
+     * portions of the reservoir. This is the data already available to the
+     * scanout path, not requests that may still be delayed by DDR. */
+    assign buffered_packets_o = response_count + bundle_valid +
+                                (reservoir_size >> 7);
+
 
 //====================================================================================
 //      ASSERTIONS
@@ -284,8 +291,13 @@ module vga_pixel_sequencer #(
     /* 128-bit requests are 16-byte requests and must be aligned accordingly. */
     assert property (@(posedge clk_i)
         disable iff (!rst_n_i || !display_i)
-        ddr_read_o |-> (ddr_ready_i && ddr_address_o[3:0] == 4'b0))
-        else $error("Unaligned or unaccepted VGA DDR request");
+        (ddr_read_o && ddr_ready_i) |-> (ddr_address_o[3:0] == 4'b0))
+        else $error("Unaligned VGA DDR request");
+
+    assert property (@(posedge clk_i)
+        disable iff (!rst_n_i || !display_i)
+        ddr_read_o && !ddr_ready_i |=> $stable(ddr_address_o))
+        else $error("VGA DDR request changed while stalled");
 
     assert property (@(posedge clk_i)
         disable iff (!rst_n_i || !display_i)

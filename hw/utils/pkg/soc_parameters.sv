@@ -265,8 +265,9 @@ package soc_parameters;
     localparam UART_IRQ = 6;
     localparam TIMER_IRQ = 7;
     localparam BUS_ERROR_IRQ = 8;
+    localparam VGA_IRQ = 9;
 
-    localparam INTERRUPT_SOURCES = 9;
+    localparam INTERRUPT_SOURCES = 10;
 
     /* Devices connected to AXI network */
     localparam NETWORK_DEVICES = UART_DEVICE_NUMBER + 
@@ -279,7 +280,8 @@ package soc_parameters;
                                  APU_NUMBER +
                                  NC_MEMORY_NUMBER + 
                                  SD_DEVICE_NUMBER +
-                                 TRACE_UNIT_DEVICE_NUMBER;
+                                 TRACE_UNIT_DEVICE_NUMBER +
+                                 VGA_DEVICE_NUMBER;
 
 
     /* To add more than 1 device, increase the parameter and add the device address into 
@@ -310,7 +312,9 @@ package soc_parameters;
 
         SD_BASE_ADDRESS,
 
-        TRACE_UNIT_BASE_ADDRESS
+        TRACE_UNIT_BASE_ADDRESS,
+
+        VGA_BASE_ADDRESS
     };
 
     localparam int HIGH_SLAVE_ADDRESS [NETWORK_DEVICES] = '{
@@ -334,7 +338,9 @@ package soc_parameters;
 
         SD_END_ADDRESS,
 
-        TRACE_UNIT_END_ADDRESS
+        TRACE_UNIT_END_ADDRESS,
+
+        VGA_END_ADDRESS
     };
 
 endpackage : soc_parameters

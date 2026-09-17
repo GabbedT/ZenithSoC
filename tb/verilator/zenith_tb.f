@@ -15,12 +15,15 @@
 
 ../../hw/utils/intf/axi_read_interface.sv
 ../../hw/utils/intf/axi_write_interface.sv
+../../hw/utils/intf/dev2ddr_interface.sv
 
 -F ../../hw/cpu/_cpu.f
 -F ../../hw/common/_common.f
 -F ../../hw/apu/_apu.f
 
 ../../hw/memory/ddr/cache_ddr_interface.sv
+../../hw/memory/ddr/ddr_master.sv
+../../hw/memory/ddr/ddr_arbiter.sv
 
 ../../hw/memory/memory_bank.sv
 ../../hw/memory/on_chip_memory.sv
@@ -34,6 +37,7 @@
 -F ../../hw/io/sd/_sd.f
 -F ../../hw/io/spi/_spi.f
 -F ../../hw/io/uart/_uart.f
+-F ../../hw/io/vga/_vga.f
 
 ../../hw/io/gpio/gpio.sv
 ../../hw/io/prng/prng.sv

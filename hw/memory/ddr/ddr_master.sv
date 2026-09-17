@@ -49,7 +49,7 @@ module ddr_master (
         if (!rst_n_i) begin
             error_o <= 1'b0;
         end else begin
-            error_o <= dev2ddr_channel.trx_error;
+            error_o <= dev2ddr_channel.read_error;
         end
     end
 
@@ -72,7 +72,7 @@ module ddr_master (
 //====================================================================================
 
     always_ff @(posedge clk_i) begin
-        if (dev2ddr_channel.trx_valid) begin
+        if (dev2ddr_channel.read_valid) begin
             read_data_o <= dev2ddr_channel.rdata;
         end
     end
@@ -81,7 +81,7 @@ module ddr_master (
         if (!rst_n_i) begin
             valid_o <= 1'b0;
         end else begin
-            valid_o <= dev2ddr_channel.trx_valid;
+            valid_o <= dev2ddr_channel.read_valid;
         end
     end
 

@@ -30,6 +30,9 @@ module vga #(
     output logic [3:0] green_o,
     output logic [3:0] blue_o,
 
+    /* Dynamic DDR arbitration priority */
+    output logic ddr_urgent_o,
+
     /* DDR interface */
     dev2ddr_interface.master ddr_channel
 );
@@ -49,6 +52,7 @@ module vga #(
     logic [11:0] sprite_data; logic [6:0] sprite_address; logic [9:0] vsync_counter;
     logic ddr_error;
     logic [3:0] outstanding_count;
+    logic [4:0] buffered_packets;
     logic [26:0] frame_buffer_base; logic [19:0] frame_buffer_size;
 
     resolution_t resolution;
@@ -124,8 +128,13 @@ module vga #(
 
         .ddr_address_o ( ddr_address ),
         .ddr_read_o    ( ddr_request ),
-        .outstanding_count_o ( outstanding_count )
+        .outstanding_count_o ( outstanding_count ),
+        .buffered_packets_o  ( buffered_packets  )
     );
+
+    /* Below three locally buffered packets the VGA receives urgent service.
+     * Outstanding reads are deliberately excluded: they may still be delayed. */
+    assign ddr_urgent_o = enable_video & (buffered_packets < 3);
 
     ddr_master ddr_master (
         .clk_i   ( clk_i   ),

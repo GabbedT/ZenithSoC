@@ -1,7 +1,10 @@
 `ifndef DDR_MEMORY_INTERFACE_SV
     `define DDR_MEMORY_INTERFACE_SV
 
-module ddr_memory_interface (
+module ddr_memory_interface #(
+    parameter REQUEST_BUFFER_SIZE = 32,
+    parameter RESPONSE_BUFFER_SIZE = 32
+) (
     input logic clk_i,
     input logic rst_n_i,
     input logic mem_clk_i,
@@ -33,169 +36,176 @@ module ddr_memory_interface (
     output logic ddr2_cs_n_o,
     output logic ddr2_odt_o,
 
+    dev2ddr_interface.slave ddr_channel,
 
-    /* Common address */
-    input logic [26:0] address_i, 
-    
-    /* Command interface */
-    input logic write_i, 
-    input logic read_i, 
-
-    /* Data interface */
-    input logic push_i, 
-    input logic pull_i, 
-    input logic [63:0] write_data_i,
-    input logic [7:0] write_mask_i,
-    output logic [63:0] read_data_o,
-    output logic read_valid_o,
-
-    /* Status */
-    input logic done_i,
-    output logic ready_o,
-    output logic hold_o,
     output logic start_o
 );
+
 
 //====================================================================================
 //      CLOCK DOMAIN CROSSING LOGIC
 //====================================================================================
 
-    /* User interface timing signals */
     logic ui_clk, ui_rst;
 
-
     typedef struct packed {
-        /* Command type: 0 = Write 1 = Read */
-        logic command;
+        logic operation;
+        logic [26:0] address;
+        logic [127:0] data;
+        logic [15:0] strobe;
+    } request_packet_t;
 
-        /* DRAM Address */
-        logic [26:0] address; 
-    } dram_command_t;
+    request_packet_t request_write_packet, request_read_packet;
+    logic request_write, request_read, request_empty, request_full;
 
+    /* Requests cross once and remain 128-bit transactions in the UI domain. */
+    assign request_write_packet.operation = ddr_channel.trx_type;
+    assign request_write_packet.address = ddr_channel.trx_addr;
+    assign request_write_packet.data = ddr_channel.wdata;
+    assign request_write_packet.strobe = ddr_channel.wstrobe;
+    assign request_write = ddr_channel.trx_req & ddr_channel.ready;
 
-    dram_command_t write_packet, read_packet; logic command_empty, command_full, read_fifo_command;
-
-    asynchronous_buffer #(16, $bits(dram_command_t)) command_buffer (
-        /* Global signals */
+    asynchronous_buffer #(
+        .BUFFER_DEPTH           ( REQUEST_BUFFER_SIZE   ),
+        .DATA_WIDTH             ( $bits(request_packet_t) ),
+        .FIRST_WORD_FALL_TROUGH ( 1                     )
+    ) request_buffer (
         .write_clk_i  ( clk_i   ),
         .write_rstn_i ( rst_n_i ),
         .read_clk_i   ( ui_clk  ),
         .read_rstn_i  ( !ui_rst ),
 
-        /* Control signals */
-        .write_i ( write_i | read_i  ),
-        .read_i  ( read_fifo_command ),
+        .write_i ( request_write ),
+        .read_i  ( request_read  ),
 
-        /* Status signals */
-        .empty_o ( command_empty ),
-        .full_o  ( command_full  ),
+        .empty_o ( request_empty ),
+        .full_o  ( request_full  ),
 
-        /* Data */
-        .write_data_i ( write_packet ),
-        .read_data_o  ( read_packet  )
+        .write_data_i ( request_write_packet ),
+        .read_data_o  ( request_read_packet  )
     );
-
-    assign write_packet = {read_i, address_i};
-
 
     typedef struct packed {
-        /* Data to write */
-        logic [63:0] data;
+        logic error;
+        logic [127:0] data;
+    } read_response_t;
 
-        /* Data mask */
-        logic [7:0] mask;
-    } dram_data_t;
+    read_response_t read_response_write_packet, read_response_read_packet;
+    logic read_response_write, read_response_read;
+    logic read_response_empty, read_response_full;
 
-    dram_data_t write_data; logic write_data_empty, write_data_full, read_fifo;
-
-    asynchronous_buffer #(16, $bits(dram_data_t)) write_data_buffer (
-        /* Global signals */
-        .write_clk_i  ( clk_i   ),
-        .write_rstn_i ( rst_n_i ),
-        .read_clk_i   ( ui_clk  ),
-        .read_rstn_i  ( !ui_rst ),
-
-        /* Control signals */
-        .write_i ( push_i    ),
-        .read_i  ( read_fifo ),
-
-        /* Status signals */
-        .empty_o ( write_data_empty ),
-        .full_o  ( write_data_full  ),
-
-        /* Data */
-        .write_data_i ( {write_data_i, write_mask_i} ),
-        .read_data_o  ( write_data                   )
-    );
-
-    /* These FIFO-full flags are generated in clk_i's write domain.  Feed
-     * them back to the cache bridge so a temporary MIG stall cannot drop a
-     * command or data beat. */
-    assign hold_o = command_full | write_data_full;
-
-
-    logic [63:0] read_data;
-    logic read_data_empty, read_data_full, write_fifo;
-
-    asynchronous_buffer #(16, 64) read_data_buffer (
-        /* Global signals */
+    asynchronous_buffer #(
+        .BUFFER_DEPTH           ( RESPONSE_BUFFER_SIZE   ),
+        .DATA_WIDTH             ( $bits(read_response_t) ),
+        .FIRST_WORD_FALL_TROUGH ( 1                      )
+    ) read_response_buffer (
         .write_clk_i  ( ui_clk  ),
         .write_rstn_i ( !ui_rst ),
         .read_clk_i   ( clk_i   ),
         .read_rstn_i  ( rst_n_i ),
 
-        /* Control signals */
-        .write_i ( write_fifo ),
-        .read_i  ( pull_i     ),
+        .write_i ( read_response_write ),
+        .read_i  ( read_response_read  ),
 
-        /* Status signals */
-        .empty_o ( read_data_empty ),
-        .full_o  ( read_data_full  ),
+        .empty_o ( read_response_empty ),
+        .full_o  ( read_response_full  ),
 
-        /* Data */
-        .write_data_i ( read_data   ),
-        .read_data_o  ( read_data_o )
+        .write_data_i ( read_response_write_packet ),
+        .read_data_o  ( read_response_read_packet  )
     );
 
+    logic write_response_write, write_response_read;
+    logic write_response_error;
+    logic write_response_empty, write_response_full;
 
-    logic read_sync, pull_sync;
+    asynchronous_buffer #(
+        .BUFFER_DEPTH           ( RESPONSE_BUFFER_SIZE ),
+        .DATA_WIDTH             ( 1                    ),
+        .FIRST_WORD_FALL_TROUGH ( 1                    )
+    ) write_response_buffer (
+        .write_clk_i  ( ui_clk  ),
+        .write_rstn_i ( !ui_rst ),
+        .read_clk_i   ( clk_i   ),
+        .read_rstn_i  ( rst_n_i ),
 
-        synchronizer read_synchronizer (
-            .clk_i   ( ui_clk  ),
-            .rst_n_i ( rst_n_i ),
+        .write_i ( write_response_write ),
+        .read_i  ( write_response_read  ),
 
-            .signal_i ( read_i    ),
-            .sync_o   ( read_sync )
-        );
+        .empty_o ( write_response_empty ),
+        .full_o  ( write_response_full  ),
 
-        synchronizer pull_synchronizer (
-            .clk_i   ( ui_clk  ),
-            .rst_n_i ( rst_n_i ),
-
-            .signal_i ( pull_i    ),
-            .sync_o   ( pull_sync )
-        );
-
-
-    logic [3:0] read_cmd_count, read_data_count;
-    logic read_valid;
-    logic read_batch_ready_sys;
-    logic read_batch_seen_sys, read_batch_consumed_sys, read_batch_consumed_ui;
-
-
-    logic done_sync;
-
-    flag_synchronizer done_synchronizer (
-        /* Global signals */
-        .clk_A_i  ( clk_i   ),
-        .rstn_A_i ( rst_n_i ),
-        .clk_B_i  ( ui_clk  ),
-        .rstn_B_i ( !ui_rst ),
-
-        /* Clock domain A signals */
-        .flag_A_i ( done_i    ),
-        .flag_B_o ( done_sync )
+        .write_data_i ( write_response_error ),
+        .read_data_o  ( ddr_channel.write_error )
     );
+
+    assign read_response_read = !read_response_empty;
+    assign write_response_read = !write_response_empty;
+
+    /* Responses are consumed immediately after crossing to the system clock. */
+    assign ddr_channel.read_valid = !read_response_empty;
+    assign ddr_channel.read_error = read_response_read_packet.error;
+    assign ddr_channel.rdata = read_response_read_packet.data;
+    assign ddr_channel.write_valid = !write_response_empty;
+
+
+//====================================================================================
+//      RESPONSE CAPACITY CREDITS
+//====================================================================================
+
+    logic read_credit_write, read_credit_read;
+    logic read_credit_empty, read_credit_full, read_credit_data;
+    logic write_credit_write, write_credit_read;
+    logic write_credit_empty, write_credit_full, write_credit_data;
+
+    /* Returned credits release slots previously reserved in the UI domain. */
+    assign read_credit_write = read_response_read;
+    assign write_credit_write = write_response_read;
+    assign read_credit_read = !read_credit_empty;
+    assign write_credit_read = !write_credit_empty;
+
+    asynchronous_buffer #(
+        .BUFFER_DEPTH           ( RESPONSE_BUFFER_SIZE ),
+        .DATA_WIDTH             ( 1                    ),
+        .FIRST_WORD_FALL_TROUGH ( 1                    )
+    ) read_credit_buffer (
+        .write_clk_i  ( clk_i   ),
+        .write_rstn_i ( rst_n_i ),
+        .read_clk_i   ( ui_clk  ),
+        .read_rstn_i  ( !ui_rst ),
+
+        .write_i ( read_credit_write ),
+        .read_i  ( read_credit_read  ),
+
+        .empty_o ( read_credit_empty ),
+        .full_o  ( read_credit_full  ),
+
+        .write_data_i ( 1'b1             ),
+        .read_data_o  ( read_credit_data )
+    );
+
+    asynchronous_buffer #(
+        .BUFFER_DEPTH           ( RESPONSE_BUFFER_SIZE ),
+        .DATA_WIDTH             ( 1                    ),
+        .FIRST_WORD_FALL_TROUGH ( 1                    )
+    ) write_credit_buffer (
+        .write_clk_i  ( clk_i   ),
+        .write_rstn_i ( rst_n_i ),
+        .read_clk_i   ( ui_clk  ),
+        .read_rstn_i  ( !ui_rst ),
+
+        .write_i ( write_credit_write ),
+        .read_i  ( write_credit_read  ),
+
+        .empty_o ( write_credit_empty ),
+        .full_o  ( write_credit_full  ),
+
+        .write_data_i ( 1'b1              ),
+        .read_data_o  ( write_credit_data )
+    );
+
+    localparam CREDIT_WIDTH = $clog2(RESPONSE_BUFFER_SIZE + 1);
+    logic [CREDIT_WIDTH - 1:0] read_reserved, write_reserved;
+    logic reserve_read, reserve_write;
 
 
 //====================================================================================
@@ -205,12 +215,13 @@ module ddr_memory_interface (
     logic [26:0] app_addr;
     logic [2:0] app_cmd;
     logic app_en, app_rdy;
-    logic [63:0] app_wdf_data; logic [7:0] app_wdf_mask; logic app_wdf_end, app_wdf_rdy, app_wdf_wren;
-    logic [63:0] app_rd_data;
+    logic [127:0] app_wdf_data;
+    logic [15:0] app_wdf_mask;
+    logic app_wdf_end, app_wdf_rdy, app_wdf_wren;
+    logic [127:0] app_rd_data;
     logic app_rd_data_end, app_rd_data_valid;
     logic init_calib_complete;
 
-    /* Vivado IP */
     ddr_controller ddr_memory_controller (
         .ddr2_addr  ( ddr2_addr_o   ),
         .ddr2_ba    ( ddr2_ba_o     ),
@@ -248,315 +259,180 @@ module ddr_memory_interface (
         .app_ref_ack       (                   ),
         .app_zq_ack        (                   ),
 
-        .ui_clk            ( ui_clk ),
-        .ui_clk_sync_rst   ( ui_rst ),
-        
+        .ui_clk          ( ui_clk ),
+        .ui_clk_sync_rst ( ui_rst ),
+
         .sys_clk_i ( mem_clk_i   ),
-        .sys_rst   ( mem_rst_n_i ) 
+        .sys_rst   ( mem_rst_n_i )
     );
 
 
 //====================================================================================
-//      FSM LOGIC
+//      STREAMED MIG USER INTERFACE
 //====================================================================================
 
-    typedef enum logic [2:0] {CMD_IDLE, CMD_TYPE, CMD_SEND} command_fsm_states_t;
-    typedef enum logic [1:0] {DAT_IDLE, DAT_WRITE, DAT_WAIT, DAT_LAST} data_fsm_states_t;
+    logic write_command_accepted, write_data_accepted, write_head_reserved;
+    logic command_accept, data_accept, write_complete;
+    logic aligned_request, read_slot, write_slot;
 
-    command_fsm_states_t cmd_state_CRT;
-    command_fsm_states_t cmd_state_NXT;
-    data_fsm_states_t dat_state_CRT;
-    data_fsm_states_t dat_state_NXT;
-    logic write_burst_ready;
-    logic write_command_accept;
+    assign aligned_request = request_read_packet.address[3:0] == 4'b0;
+    assign read_slot = read_reserved < RESPONSE_BUFFER_SIZE;
+    assign write_slot = write_reserved < RESPONSE_BUFFER_SIZE;
 
-        always_ff @(posedge ui_clk) begin
-            if (ui_rst | !init_calib_complete) begin 
-                cmd_state_CRT <= CMD_IDLE;
-                dat_state_CRT <= DAT_IDLE;
-            end else begin 
-                cmd_state_CRT <= cmd_state_NXT;
-                dat_state_CRT <= dat_state_NXT;
-            end 
-        end 
+    always_comb begin
+        /* MIG addresses count 16-bit words, while requests use byte addresses. */
+        app_addr = {1'b0, request_read_packet.address[26:4], 3'b0};
+        app_cmd = request_read_packet.operation ? 3'b000 : 3'b001;
+        app_en = 1'b0;
 
+        app_wdf_data = request_read_packet.data;
+        app_wdf_mask = ~request_read_packet.strobe;
+        app_wdf_end = 1'b1;
+        app_wdf_wren = 1'b0;
 
-        always_comb begin : command_fsm_logic
-            /* Default Values */
-            cmd_state_NXT = cmd_state_CRT;
+        request_read = 1'b0;
+        reserve_read = 1'b0;
+        reserve_write = 1'b0;
 
-            app_en = 1'b0;
-            app_cmd = {2'b0, read_packet.command};
-            app_addr = read_packet.address;
-            read_fifo_command = 1'b0;
+        read_response_write = app_rd_data_valid;
+        read_response_write_packet.error = 1'b0;
+        read_response_write_packet.data = app_rd_data;
 
-            case (cmd_state_CRT)
-                CMD_IDLE: begin
-                    if (!command_empty) begin
-                        /* Start memory request if the FIFO is filled
-                         * and the external module issue a done signal */
-                        read_fifo_command = 1'b1;
+        write_response_write = 1'b0;
+        write_response_error = 1'b0;
 
-                        cmd_state_NXT = CMD_TYPE;
+        if (!request_empty & init_calib_complete) begin
+            if (!request_read_packet.operation) begin
+                if (!aligned_request) begin
+                    if (read_slot & !app_rd_data_valid) begin
+                        request_read = 1'b1;
+                        reserve_read = 1'b1;
+                        read_response_write = 1'b1;
+                        read_response_write_packet.error = 1'b1;
+                        read_response_write_packet.data = '0;
+                    end
+                end else if (read_slot) begin
+                    app_en = 1'b1;
+
+                    if (app_rdy) begin
+                        request_read = 1'b1;
+                        reserve_read = 1'b1;
                     end
                 end
-
-                CMD_TYPE: begin
-                    app_addr = read_packet.address;
-
-                    /* Keep command and write-data ordering explicit.  A read
-                     * may issue only while no write burst is staged.  A write
-                     * command issues only after its complete two-beat WDF
-                     * burst (including a masked pad beat when necessary) has
-                     * been accepted by MIG. */
-                    if (read_packet.command) begin
-                        app_en = (dat_state_CRT == DAT_IDLE) & !write_burst_ready;
-                    end else begin
-                        app_en = write_burst_ready;
-                    end
-
-                    if (app_en & app_rdy) begin
-                        /* Re-enter IDLE before prefetching the next command so
-                         * read_packet cannot change underneath the data FSM. */
-                        cmd_state_NXT = CMD_IDLE;
-                    end
+            end else if (!aligned_request) begin
+                if (write_slot) begin
+                    request_read = 1'b1;
+                    reserve_write = 1'b1;
+                    write_response_write = 1'b1;
+                    write_response_error = 1'b1;
                 end
+            end else if (write_head_reserved | write_slot) begin
+                /* MIG may accept the write command and data independently. */
+                reserve_write = !write_head_reserved;
+                app_en = !write_command_accepted;
+                app_wdf_wren = !write_data_accepted;
 
-                CMD_SEND: begin
-                    /* Legacy state retained for encoding compatibility.  The
-                     * serialized controller no longer pipelines commands. */
-                    cmd_state_NXT = CMD_IDLE;
+                if (write_complete) begin
+                    request_read = 1'b1;
+                    write_response_write = 1'b1;
                 end
-            endcase
-        end : command_fsm_logic
-
-
-    synchronizer #(2, 0) start_synchronizer (
-        /* Global signals */
-        .clk_i   ( clk_i   ),
-        .rst_n_i ( rst_n_i ),
-
-        /* Sync signal */
-        .signal_i ( !command_empty & cmd_state_CRT == CMD_IDLE ),
-        .sync_o   ( start_o                                    )
-    );
-
-
-    logic rd_data_end_CRT, rd_data_end_NXT, wr_data_end_CRT, wr_data_end_NXT;
-
-        always_ff @(posedge ui_clk) begin
-            if (ui_rst) begin 
-                rd_data_end_CRT <= '0;
-                wr_data_end_CRT <= '0;
-            end else begin 
-                rd_data_end_CRT <= rd_data_end_NXT;
-                wr_data_end_CRT <= wr_data_end_NXT;
-            end 
-        end 
-
-
-        /* One token represents exactly one complete MIG write-data burst.
-         * Hold it until the matching write command is accepted. */
-        always_ff @(posedge ui_clk) begin
-            if (ui_rst) begin
-                write_burst_ready <= 1'b0;
-            end else if (write_command_accept) begin
-                write_burst_ready <= 1'b0;
-            end else if (((dat_state_CRT == DAT_WRITE) & app_wdf_wren &
-                          app_wdf_rdy & app_wdf_end) |
-                         ((dat_state_CRT == DAT_LAST) & app_wdf_rdy)) begin
-                write_burst_ready <= 1'b1;
             end
         end
+    end
 
-
-        always_comb begin : data_write_logic 
-            /* Default Values */
-            dat_state_NXT = dat_state_CRT;
-            wr_data_end_NXT = wr_data_end_CRT;
-
-            app_wdf_wren = 1'b0;
-            app_wdf_end = 1'b0;
-            app_wdf_data = '0;
-            app_wdf_mask = '1;
-
-            read_fifo = 1'b0;
-
-            case (dat_state_CRT)
-                DAT_IDLE: begin
-                    if (!write_burst_ready & (cmd_state_CRT == CMD_TYPE) &
-                        !read_packet.command & !write_data_empty) begin
-                        dat_state_NXT = DAT_WRITE;
-
-                        read_fifo = 1'b1;
-                    end
-
-                    wr_data_end_NXT = 1'b0;
-                end
-
-                DAT_WRITE: begin
-                    app_wdf_wren = 1'b1;
-                    app_wdf_end = wr_data_end_CRT;
-                    app_wdf_data = write_data.data;
-                    app_wdf_mask = ~write_data.mask;
-
-                    if (app_wdf_rdy) begin
-                        if (app_wdf_end) begin
-                            /* Exactly two accepted beats belong to one MIG
-                             * command.  Do not consume data for a later
-                             * command, even when the FIFO is non-empty. */
-                            wr_data_end_NXT = 1'b0;
-                            dat_state_NXT = DAT_IDLE;
-                        end else if (write_data.mask != '1) begin
-                            /* A masked beat is a standalone 32-bit/partial
-                             * store and is completed by a masked pad beat.
-                             * FIFO empty is not a transaction delimiter: the
-                             * second beat of a normal cache writeback may
-                             * still be crossing from clk_i. */
-                            wr_data_end_NXT = 1'b1;
-                            dat_state_NXT = DAT_LAST;
-                        end else if (!write_data_empty) begin
-                            wr_data_end_NXT = 1'b1;
-                            read_fifo = 1'b1;
-                        end else begin
-                            /* The first full-width beat was accepted before
-                             * its partner reached this clock domain. Do not
-                             * fabricate a pad or resend the first beat. */
-                            wr_data_end_NXT = 1'b1;
-                            dat_state_NXT = DAT_WAIT;
-                        end
-                    end
-                end
-
-                DAT_WAIT: begin
-                    /* Prime the registered FIFO output only after the second
-                     * full-width beat is actually visible. DAT_WRITE will
-                     * present it to MIG with app_wdf_end asserted. */
-                    if (!write_data_empty) begin
-                        read_fifo = 1'b1;
-                        dat_state_NXT = DAT_WRITE;
-                    end
-                end
-
-                DAT_LAST: begin
-                    app_wdf_wren = 1'b1;
-                    app_wdf_end = 1'b1;
-                    app_wdf_data = '0;
-                    app_wdf_mask = '1;
-
-                    if (app_wdf_rdy) begin
-                        wr_data_end_NXT = 1'b0;
-                        dat_state_NXT = DAT_IDLE;
-                    end
-                end
-            endcase 
-        end : data_write_logic
-
-        always_comb begin : data_read_logic
-            /* Default Values */
-            rd_data_end_NXT = rd_data_end_CRT;
-
-            write_fifo = 1'b0;
-            read_data = '0;
-
-            if (app_rd_data_valid) begin
-                rd_data_end_NXT = app_rd_data_end;
-
-                write_fifo = 1'b1;
-                read_data = app_rd_data;
-            end
-        end : data_read_logic
-
-
-    /* Count real MIG transactions in their native clock domain */
-    logic read_command_accept;
-
-    assign read_command_accept = app_en & app_rdy & (app_cmd == 3'b001);
-    assign write_command_accept = app_en & app_rdy & (app_cmd == 3'b000);
+    assign command_accept = app_en & app_rdy;
+    assign data_accept = app_wdf_wren & app_wdf_rdy;
+    assign write_complete = (write_command_accepted | command_accept) & (write_data_accepted | data_accept);
 
         always_ff @(posedge ui_clk) begin
-            if (ui_rst) begin
-                read_cmd_count <= '0;
-                read_data_count <= '0;
-                read_valid <= 1'b0;
-            end else if (read_batch_consumed_ui) begin
-                read_cmd_count <= '0;
-                read_data_count <= '0;
-                read_valid <= 1'b0;
+            if (ui_rst | !init_calib_complete) begin
+                write_command_accepted <= 1'b0;
+                write_data_accepted <= 1'b0;
+                write_head_reserved <= 1'b0;
+            end else if (request_read) begin
+                write_command_accepted <= 1'b0;
+                write_data_accepted <= 1'b0;
+                write_head_reserved <= 1'b0;
             end else begin
-                if (read_command_accept) begin
-                    read_cmd_count <= read_cmd_count + 1'b1;
-                    read_valid <= 1'b0;
+                if (reserve_write) begin
+                    write_head_reserved <= 1'b1;
                 end
 
-                if (app_rd_data_valid) begin
-                    read_data_count <= read_data_count + 1'b1;
+                if (command_accept) begin
+                    write_command_accepted <= 1'b1;
                 end
 
-                /* app_rd_data_end is meaningful only together with valid.
-                 * Each accepted command returns two 64-bit beats. */
-                if (app_rd_data_valid & app_rd_data_end &
-                    ((read_data_count + 1'b1) == (read_cmd_count << 1))) begin
-                    read_valid <= 1'b1;
+                if (data_accept) begin
+                    write_data_accepted <= 1'b1;
                 end
             end
         end
 
-    synchronizer read_batch_ready_synchronizer (
-        .clk_i   ( clk_i   ),
-        .rst_n_i ( rst_n_i ),
-
-        .signal_i ( read_valid          ),
-        .sync_o   ( read_batch_ready_sys )
-    );
-
-        /* Keep valid asserted until the system-clock side has observed the full
-         * burst and drained the asynchronous FIFO.  This four-phase level
-         * handshake cannot lose a pulse in either clock domain. */
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin
-                read_batch_seen_sys <= 1'b0;
-                read_batch_consumed_sys <= 1'b0;
-            end else if (!read_batch_ready_sys) begin
-                read_batch_seen_sys <= 1'b0;
-                read_batch_consumed_sys <= 1'b0;
+        always_ff @(posedge ui_clk) begin
+            if (ui_rst | !init_calib_complete) begin
+                read_reserved <= '0;
+                write_reserved <= '0;
             end else begin
-                if (!read_data_empty) begin
-                    read_batch_seen_sys <= 1'b1;
-                end
-                if (read_batch_seen_sys & read_data_empty) begin
-                    read_batch_consumed_sys <= 1'b1;
-                end
+                case ({reserve_read, read_credit_read})
+                    2'b10: read_reserved <= read_reserved + 1'b1;
+                    2'b01: read_reserved <= read_reserved - 1'b1;
+                    default: read_reserved <= read_reserved;
+                endcase
+
+                case ({reserve_write, write_credit_read})
+                    2'b10: write_reserved <= write_reserved + 1'b1;
+                    2'b01: write_reserved <= write_reserved - 1'b1;
+                    default: write_reserved <= write_reserved;
+                endcase
             end
         end
 
-    synchronizer read_batch_consumed_synchronizer (
-        .clk_i   ( ui_clk  ),
-        .rst_n_i ( !ui_rst ),
-
-        .signal_i ( read_batch_consumed_sys ),
-        .sync_o   ( read_batch_consumed_ui  )
-    );
-
-    /* This is a batch-ready level, not merely FIFO-not-empty. The bridge uses
-     * it both to start extraction and to wait until the cross-domain consumed
-     * acknowledgement has fully reset the batch counters. */
-    assign read_valid_o = read_batch_ready_sys & read_batch_seen_sys;
-
-
-    logic ready;
-
-    assign ready = init_calib_complete;
-    
+    logic memory_ready;
 
     synchronizer ready_synchronizer (
-        /* Global signals */
-        .clk_i   ( clk_i ),
-        .rst_n_i ( 1'b1  ),
+        .clk_i   ( clk_i   ),
+        .rst_n_i ( rst_n_i ),
 
-        .signal_i ( ready   ),
-        .sync_o   ( ready_o )
+        .signal_i ( init_calib_complete ),
+        .sync_o   ( memory_ready        )
     );
+
+    /* Backpressure starts before the CDC request FIFO can overflow. */
+    assign ddr_channel.ready = memory_ready & !request_full;
+    assign start_o = ddr_channel.trx_req & ddr_channel.ready;
+
+
+//====================================================================================
+//      ASSERTIONS
+//====================================================================================
+
+`ifndef SYNTHESIS
+
+    assert property (@(posedge ui_clk)
+        disable iff (ui_rst)
+        app_rd_data_valid |-> !read_response_full)
+        else $error("DDR read response FIFO overflow");
+
+    assert property (@(posedge ui_clk)
+        disable iff (ui_rst)
+        write_response_write |-> !write_response_full)
+        else $error("DDR write response FIFO overflow");
+
+    assert property (@(posedge ui_clk)
+        disable iff (ui_rst)
+        read_reserved <= RESPONSE_BUFFER_SIZE)
+        else $error("DDR read response credits exceeded capacity");
+
+    assert property (@(posedge ui_clk)
+        disable iff (ui_rst)
+        write_reserved <= RESPONSE_BUFFER_SIZE)
+        else $error("DDR write response credits exceeded capacity");
+
+`endif
+
+    logic unused;
+    assign unused = app_rd_data_end ^ read_credit_full ^ write_credit_full ^
+                    read_credit_data ^ write_credit_data;
 
 endmodule : ddr_memory_interface
 

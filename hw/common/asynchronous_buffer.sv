@@ -6,7 +6,10 @@ module asynchronous_buffer #(
     parameter BUFFER_DEPTH = 1024,
 
     /* Entries width */
-    parameter DATA_WIDTH = 32
+    parameter DATA_WIDTH = 32,
+
+    /* Word at the read pointer is immediately available. */
+    parameter FIRST_WORD_FALL_TROUGH = 0
 ) (
     /* Global signals */
     input logic write_clk_i,
@@ -47,12 +50,16 @@ module asynchronous_buffer #(
             end
         end 
 
-        /* Read clocked port */
-        always_ff @(posedge read_clk_i) begin
-            if (read_i & !empty_o) begin
-                read_data_o <= buffer_memory[read_ptr[PTR_SIZE - 1:0]];
+        if (!FIRST_WORD_FALL_TROUGH) begin
+            /* Read clocked port */
+            always_ff @(posedge read_clk_i) begin
+                if (read_i & !empty_o) begin
+                    read_data_o <= buffer_memory[read_ptr[PTR_SIZE - 1:0]];
+                end
             end
-        end 
+        end else begin
+            assign read_data_o = buffer_memory[read_ptr[PTR_SIZE - 1:0]];
+        end
 
 
 //====================================================================================
@@ -126,26 +133,26 @@ module asynchronous_buffer #(
 //====================================================================================
 
     xpm_fifo_async #(
-        .CASCADE_HEIGHT      ( 0            ),
-        .CDC_SYNC_STAGES     ( 2            ),
-        .DOUT_RESET_VALUE    ( "0"          ),
-        .ECC_MODE            ( "no_ecc"     ),
-        .EN_SIM_ASSERT_ERR   ( "warning"    ),
-        .FIFO_MEMORY_TYPE    ( "auto"       ),
-        .FIFO_READ_LATENCY   ( 1            ),
-        .FIFO_WRITE_DEPTH    ( BUFFER_DEPTH ),
-        .FULL_RESET_VALUE    ( 0            ),
-        .PROG_EMPTY_THRESH   ( 10           ),
-        .PROG_FULL_THRESH    ( 10           ),
-        .RD_DATA_COUNT_WIDTH ( 1            ),
-        .READ_DATA_WIDTH     ( DATA_WIDTH   ),
-        .READ_MODE           ( "std"        ),
-        .RELATED_CLOCKS      ( 0            ),
-        .SIM_ASSERT_CHK      ( 0            ),
-        .USE_ADV_FEATURES    ( "0707"       ),
-        .WAKEUP_TIME         ( 0            ),
-        .WRITE_DATA_WIDTH    ( DATA_WIDTH   ),
-        .WR_DATA_COUNT_WIDTH ( 1            )
+        .CASCADE_HEIGHT      ( 0                                       ),
+        .CDC_SYNC_STAGES     ( 2                                       ),
+        .DOUT_RESET_VALUE    ( "0"                                     ),
+        .ECC_MODE            ( "no_ecc"                                ),
+        .EN_SIM_ASSERT_ERR   ( "warning"                               ),
+        .FIFO_MEMORY_TYPE    ( "auto"                                  ),
+        .FIFO_READ_LATENCY   ( FIRST_WORD_FALL_TROUGH ? 0 : 1          ),
+        .FIFO_WRITE_DEPTH    ( BUFFER_DEPTH                            ),
+        .FULL_RESET_VALUE    ( 0                                       ),
+        .PROG_EMPTY_THRESH   ( 10                                      ),
+        .PROG_FULL_THRESH    ( 10                                      ),
+        .RD_DATA_COUNT_WIDTH ( 1                                       ),
+        .READ_DATA_WIDTH     ( DATA_WIDTH                              ),
+        .READ_MODE           ( FIRST_WORD_FALL_TROUGH ? "fwft" : "std" ),
+        .RELATED_CLOCKS      ( 0                                       ),
+        .SIM_ASSERT_CHK      ( 0                                       ),
+        .USE_ADV_FEATURES    ( "0707"                                  ),
+        .WAKEUP_TIME         ( 0                                       ),
+        .WRITE_DATA_WIDTH    ( DATA_WIDTH                              ),
+        .WR_DATA_COUNT_WIDTH ( 1                                       )
     ) vivado_async_fifo (
         .almost_empty  (               ),
         .almost_full   (               ),
