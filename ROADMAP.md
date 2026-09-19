@@ -5,8 +5,8 @@ The project will be developed using an incremental approach, structured into fou
 ## Roadmap 
 
 * Implement successfully in FPGA ✅
-* Run real benchmark on it
-* Run Fractal with VGA output
+* Run real benchmark on it ✅
+* Run Fractal with VGA output ✅
 * Run DOOM?
 
 ### Project Structure
@@ -15,8 +15,6 @@ The project will be developed using an incremental approach, structured into fou
 * Add CPU cosimulation with Spike ✅
 
 * Update documentation on ZenithSoC and ApogeoRV
-
-* Add a single point Makefile to execute each workflow
 
 
 ### Testing
@@ -28,8 +26,6 @@ The project will be developed using an incremental approach, structured into fou
 * Verify again every block extensively with SW driven tests thanks to Virtual Platform ✅
 
 * Trace Unit design and verification
-
-* Port SW driven test on VP to firmware for test to do a regression suite
 
 * C extension verification ✅
 * Zfinx extension verification ✅
@@ -47,7 +43,7 @@ The project will be developed using an incremental approach, structured into fou
 * Embench-IoT porting for SoC ✅
 * STREAM porting for SoC
 
-* Improve performances on ApogeoRV (See pipelined LSU maybe)
+* Improve performances on ApogeoRV ✅
 
 
 ### Bugfix
@@ -63,8 +59,8 @@ The project will be developed using an incremental approach, structured into fou
 * Add FENCE.I
 * Add fused FPU instructions
 
-* Add VGA
-* Modify ddr interface to accomodate 3 masters
+* Add VGA ✅
+* Modify ddr interface to accomodate 2 masters ✅
 * Re-analyze and upgrade AXI bus
 * Add external slave port for AXI bus
 * Add external interrupts
