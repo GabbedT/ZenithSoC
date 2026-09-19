@@ -54,7 +54,7 @@ module vga_registers (
 //      ERROR CHECK
 //====================================================================================
 
-    assign write_error_o = write_i & (write_address_i >= VGA_DEVICE_SPACE);
+    assign write_error_o = write_i & (write_address_i >= vga_pkg::VGA_DEVICE_SPACE);
 
     /* The sprite tables are write-only through this interface. */
     assign read_error_o = read_i & (read_address_i >= VGA_REGISTER_SPACE);
@@ -363,7 +363,7 @@ module vga_registers (
         assert (VGA_PTABLE_BASE == VGA_CTABLE_BASE + VGA_CTABLE_SIZE)
             else $error("VGA pattern table does not follow the color table");
 
-        assert (VGA_DEVICE_SPACE == VGA_PTABLE_BASE + VGA_PTABLE_SIZE)
+        assert (vga_pkg::VGA_DEVICE_SPACE == VGA_PTABLE_BASE + VGA_PTABLE_SIZE)
             else $error("VGA device space does not contain the sprite tables");
     end
 
