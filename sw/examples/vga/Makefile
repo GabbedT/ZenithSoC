@@ -30,7 +30,18 @@ LIBGCC := $(shell $(CC) $(ARCH) -print-libgcc-file-name)
 
 DEMO_FRAMES ?= 0
 RESOLUTION ?= 320x240
+VGA_DEMO ?= cube
 SD_BLOCK ?= 0x2000
+
+ifneq ($(filter cube fractal,$(VGA_DEMO)),$(VGA_DEMO))
+$(error VGA_DEMO must be cube or fractal)
+endif
+
+ifeq ($(VGA_DEMO),fractal)
+DEMO_FLAGS := -DVGA_DEMO_FRACTAL=1
+else
+DEMO_FLAGS :=
+endif
 
 ifeq ($(RESOLUTION),320x240)
 VGA_HIGH_RES := 0
@@ -42,16 +53,18 @@ endif
 
 # Configuration-specific objects ensure changing the resolution or finite-run
 # count cannot silently reuse an object compiled with different defines.
-OBJ := $(OUT)/obj_$(subst x,_,$(RESOLUTION))_f$(DEMO_FRAMES)
+OBJ := $(OUT)/obj_$(subst x,_,$(RESOLUTION))_$(VGA_DEMO)_f$(DEMO_FRAMES)
 
-APP_ELF := $(OUT)/vga_cube.elf
+APP_ELF := $(OUT)/vga_$(VGA_DEMO).elf
 APP_BIN := $(OUT)/program.bin
 BOOT_ELF := $(OUT)/boot.elf
 BOOT_HEX := $(OUT)/boot.hex
 
 APP_OBJS := \
     $(OBJ)/app_start.o \
+    $(OBJ)/vga.o \
     $(OBJ)/cube.o \
+    $(OBJ)/fractal.o \
     $(OBJ)/runtime.o \
     $(OBJ)/serial_io.o \
     $(OBJ)/vga_driver.o
@@ -71,14 +84,23 @@ all: $(BOOT_HEX) $(APP_BIN)
 	@echo "=== ZenithSoC VGA SD demo ==="
 	@echo "Boot ROM : $(BOOT_HEX)"
 	@echo "SD image : $(APP_BIN) (write at block $(SD_BLOCK))"
+	@echo "Demo     : $(VGA_DEMO)"
 	@echo "Mode     : $(RESOLUTION)"
 	@echo "Verilator: make run"
 
 $(OBJ)/app_start.o: app_start.S | $(OBJ)
 	$(AS) $(ARCH) $< -o $@
 
+$(OBJ)/vga.o: vga.cpp | $(OBJ)
+	$(CXX) $(COMMON_FLAGS) $(DEMO_FLAGS) -DDEMO_FRAMES=$(DEMO_FRAMES) \
+		-DVGA_HIGH_RES=$(VGA_HIGH_RES) -c $< -o $@
+
 $(OBJ)/cube.o: cube.cpp | $(OBJ)
-	$(CXX) $(COMMON_FLAGS) -DDEMO_FRAMES=$(DEMO_FRAMES) \
+	$(CXX) $(COMMON_FLAGS) \
+		-DVGA_HIGH_RES=$(VGA_HIGH_RES) -c $< -o $@
+
+$(OBJ)/fractal.o: fractal.cpp | $(OBJ)
+	$(CXX) $(COMMON_FLAGS) \
 		-DVGA_HIGH_RES=$(VGA_HIGH_RES) -c $< -o $@
 
 $(OBJ)/runtime.o: runtime.cpp | $(OBJ)
@@ -93,7 +115,7 @@ $(OBJ)/vga_driver.o: $(SRC_DIR)/VGA.cpp | $(OBJ)
 $(APP_ELF): $(APP_OBJS) app.ld FORCE | $(OUT)
 	$(CXX) $(LINK_FLAGS) -T app.ld -o $@ $(APP_OBJS) $(LIBGCC)
 	$(SIZE) $@
-	$(DUMP) -d $@ > $(OUT)/vga_cube.dump
+	$(DUMP) -d $@ > $(OUT)/vga_$(VGA_DEMO).dump
 
 $(APP_BIN): $(APP_ELF)
 	$(COPY) -O binary $< $@
