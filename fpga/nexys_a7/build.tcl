@@ -161,6 +161,19 @@ if {$target eq "retry_impl"} {
     open_project [file join $build_dir project ZenithSoC.xpr]
     configure_timing_runs
 
+    # The floorplan is implementation-only: keep synthesis reusable while
+    # making sure retry_impl applies the CPU/MIG placement regions to an
+    # already-created project as well.
+    set floorplan_xdc [file join $root_dir constraint floorplan.xdc]
+    if {[file exists $floorplan_xdc]} {
+        set floorplan_files [get_files -of_objects [get_filesets constrs_1] $floorplan_xdc]
+        if {[llength $floorplan_files] == 0} {
+            add_files -norecurse -fileset constrs_1 $floorplan_xdc
+            set floorplan_files [get_files -of_objects [get_filesets constrs_1] $floorplan_xdc]
+        }
+        set_property USED_IN_SYNTHESIS false $floorplan_files
+    }
+
     set synth_status [get_property STATUS [get_runs synth_1]]
     if {![string match "*Complete*" $synth_status]} {
         # A stale synthesis (e.g. after constraint changes) is re-run here so
@@ -210,6 +223,11 @@ add_files -norecurse -fileset sources_1 $rtl_files
 add_files -norecurse -fileset sources_1 $memory_files
 set_property file_type {Memory Initialization Files} [get_files $memory_files]
 add_files -norecurse -fileset constrs_1 [file join $root_dir constraint pins.xdc]
+set floorplan_xdc [file join $root_dir constraint floorplan.xdc]
+if {[file exists $floorplan_xdc]} {
+    add_files -norecurse -fileset constrs_1 $floorplan_xdc
+    set_property USED_IN_SYNTHESIS false [get_files $floorplan_xdc]
+}
 
 set header_files {}
 foreach source $rtl_files {
