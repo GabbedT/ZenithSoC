@@ -1,9 +1,18 @@
 # VGA cube/fractal SD demo
 
-This example boots through the CoreMark SD bootloader, copies the application
+This example boots through the shared ZenithSoC SD bootloader, copies the application
 from SD block `0x2000` to DDR at `0x80000000`, and displays either a rotating,
 software-rasterized cube or a continuous fixed-point Mandelbrot zoom through
 the ZenithSoC VGA controller.
+
+The fractal camera is expressed relative to the exact center pixel, so integer
+rounding cannot make the zoom target drift. Its scale decreases monotonically
+and never reverses. Three fixed-point paths are selected automatically: Q2.14
+uses the native RV32 multiplier for the common fast path, Q4.28 preserves
+detail after Q2.14 is exhausted, and Q4.60 extends the practical zoom range to
+about `10^16:1`. The iteration budget grows only as deeper detail requires it.
+The renderer also skips the first, known Mandelbrot iteration and rejects the
+main cardioid and period-2 bulb analytically.
 
 The renderer supports both 320x240 RGB444 with hardware 2x scaling and native
 640x480 RGB444. It uses a depth buffer, fixed-point transforms, and two DDR
@@ -38,7 +47,7 @@ kept in separate translation units (`cube.cpp` and `fractal.cpp`).
 
 The outputs are:
 
-- `out/boot.hex`: boot-ROM image built from CoreMark's `boot_sd.cpp`.
+- `out/boot.hex`: boot-ROM image built from `sw/bootloader`.
 - `out/program.bin`: application image to write at SD block `0x2000`.
 - `out/boot.elf` and `out/vga_<demo>.elf`: symbol-bearing versions used by the
   Verilator harness.
@@ -70,5 +79,5 @@ make -C ../../../tb/verilator run \
 To prepare a card or disk image manually:
 
 ```bash
-dd if=out/program.bin of=/dev/sdX bs=512 seek=8192 conv=notrunc
+../../../tools/write_sd.sh /dev/sdX out/program.bin 0x2000
 ```

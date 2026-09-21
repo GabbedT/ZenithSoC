@@ -75,11 +75,17 @@ void publish_framebuffer() {
     asm volatile ("fence rw, rw" ::: "memory");
 }
 
-void wait_for_frame_boundary(VGA& vga) {
+void swap_framebuffer_at_boundary(VGA& vga,
+                                  uint32_t offset,
+                                  uint32_t size,
+                                  VGA::error_e* error) {
     vga.clearEarlyFrameDone();
     while (!vga.earlyFrameDone()) {
         asm volatile ("nop");
     }
+
+    /* Change the base immediately, while the raster is in vertical blanking. */
+    vga.setFrameBuffer(offset, size, error);
     vga.clearEarlyFrameDone();
 }
 
@@ -130,9 +136,7 @@ extern "C" int main() {
     while (true) {
         render_demo(back, frame + 1);
         publish_framebuffer();
-        wait_for_frame_boundary(vga);
-
-        vga.setFrameBuffer(back_offset, FRAME_BYTES, &error);
+        swap_framebuffer_at_boundary(vga, back_offset, FRAME_BYTES, &error);
         if (error != VGA::NO_ERROR) {
             Serial_IO::printf("[VGA] buffer swap failed: %d\n", error);
             tohost = 5;

@@ -5,7 +5,7 @@ SHELL := /bin/bash
 REPO_ROOT := $(abspath ../../..)
 LIB_DIR := $(abspath ../../lib)
 SRC_DIR := $(abspath ../../src)
-COREMARK_BOOT := $(abspath ../../benchmark/CoreMark/bootloader)
+BOOTLOADER_DIR := $(abspath ../../bootloader)
 TB_DIR := $(abspath ../../../tb/verilator)
 OUT := $(abspath out)
 
@@ -24,7 +24,6 @@ COMMON_FLAGS := $(ARCH) -O3 -mno-fdiv -ffreestanding -fno-exceptions \
     -fno-rtti -fno-use-cxa-atexit -fno-threadsafe-statics -fno-common \
     -fno-builtin \
     -I$(LIB_DIR)
-BOOT_FLAGS := $(filter-out -O3,$(COMMON_FLAGS)) -Os -fno-inline-functions
 LINK_FLAGS := $(ARCH) -nostdlib -fno-exceptions -fno-use-cxa-atexit
 LIBGCC := $(shell $(CC) $(ARCH) -print-libgcc-file-name)
 
@@ -58,7 +57,9 @@ OBJ := $(OUT)/obj_$(subst x,_,$(RESOLUTION))_$(VGA_DEMO)_f$(DEMO_FRAMES)
 APP_ELF := $(OUT)/vga_$(VGA_DEMO).elf
 APP_BIN := $(OUT)/program.bin
 BOOT_ELF := $(OUT)/boot.elf
+BOOT_BIN := $(OUT)/boot.bin
 BOOT_HEX := $(OUT)/boot.hex
+SD_HEX := $(OUT)/vga_$(VGA_DEMO)_sd_words.hex
 
 APP_OBJS := \
     $(OBJ)/app_start.o \
@@ -69,21 +70,33 @@ APP_OBJS := \
     $(OBJ)/serial_io.o \
     $(OBJ)/vga_driver.o
 
-BOOT_OBJS := \
-    $(OBJ)/boot_start.o \
-    $(OBJ)/boot_sd.o \
-    $(OBJ)/runtime.o \
-    $(OBJ)/boot_uart.o \
-    $(OBJ)/boot_sd_driver.o
+BOOTLOADER_SOURCES := \
+    $(BOOTLOADER_DIR)/Makefile \
+    $(BOOTLOADER_DIR)/boot.ld \
+    $(BOOTLOADER_DIR)/boot_config.h \
+    $(BOOTLOADER_DIR)/boot_start.s \
+    $(BOOTLOADER_DIR)/boot_sd.cpp \
+    $(BOOTLOADER_DIR)/boot_runtime.cpp
+
+BOOT_IMAGE_BLOCK ?= $(SD_BLOCK)
+BOOT_LOAD_ADDRESS ?= 0x80000000
+BOOT_ENTRY_ADDRESS ?= $(BOOT_LOAD_ADDRESS)
+BOOT_UART_INDEX ?= 0
+BOOT_BAUD_RATE ?= 115200
+BOOT_SD_CLOCK ?= 1
+BOOT_SD_BUS ?= 1
+BOOT_LOGGING ?= 1
+BOOT_DUMP_WORDS ?= 16
 
 .PHONY: all run run-headless clean FORCE
 
 FORCE:
 
-all: $(BOOT_HEX) $(APP_BIN)
+all: $(BOOT_HEX) $(APP_BIN) $(SD_HEX)
 	@echo "=== ZenithSoC VGA SD demo ==="
 	@echo "Boot ROM : $(BOOT_HEX)"
 	@echo "SD image : $(APP_BIN) (write at block $(SD_BLOCK))"
+	@echo "SD hex   : $(SD_HEX)"
 	@echo "Demo     : $(VGA_DEMO)"
 	@echo "Mode     : $(RESOLUTION)"
 	@echo "Verilator: make run"
@@ -120,27 +133,30 @@ $(APP_ELF): $(APP_OBJS) app.ld FORCE | $(OUT)
 $(APP_BIN): $(APP_ELF)
 	$(COPY) -O binary $< $@
 
-$(OBJ)/boot_start.o: $(COREMARK_BOOT)/boot_start.s | $(OBJ)
-	$(AS) $(ARCH) $< -o $@
+$(SD_HEX): $(APP_BIN)
+	@command -v xxd >/dev/null || { echo "xxd is required to create the SD image" >&2; exit 1; }
+	xxd -p -c 4 $< > $@
 
-$(OBJ)/boot_sd.o: $(COREMARK_BOOT)/boot_sd.cpp $(APP_BIN) | $(OBJ)
-	$(CXX) $(BOOT_FLAGS) \
-		-DIMG_BLOCKS=$$((($$(stat -c%s "$(APP_BIN)") + 511) / 512)) \
-		-c $< -o $@
+$(BOOT_ELF): $(APP_BIN) $(BOOTLOADER_SOURCES) FORCE | $(OUT)
+	$(MAKE) -C $(BOOTLOADER_DIR) all \
+		APP_BIN=$(APP_BIN) \
+		OBJ_DIR=$(OUT)/boot_obj \
+		BOOT_ELF=$(BOOT_ELF) \
+		BOOT_BIN=$(BOOT_BIN) \
+		BOOT_HEX=$(BOOT_HEX) \
+		BOOT_DUMP=$(OUT)/boot.dump \
+		BOOT_IMAGE_BLOCK=$(BOOT_IMAGE_BLOCK) \
+		BOOT_LOAD_ADDRESS=$(BOOT_LOAD_ADDRESS) \
+		BOOT_ENTRY_ADDRESS=$(BOOT_ENTRY_ADDRESS) \
+		BOOT_UART_INDEX=$(BOOT_UART_INDEX) \
+		BOOT_BAUD_RATE=$(BOOT_BAUD_RATE) \
+		BOOT_SD_CLOCK=$(BOOT_SD_CLOCK) \
+		BOOT_SD_BUS=$(BOOT_SD_BUS) \
+		BOOT_LOGGING=$(BOOT_LOGGING) \
+		BOOT_DUMP_WORDS=$(BOOT_DUMP_WORDS)
 
-$(OBJ)/boot_uart.o: $(SRC_DIR)/UART.cpp | $(OBJ)
-	$(CXX) $(BOOT_FLAGS) -c $< -o $@
-
-$(OBJ)/boot_sd_driver.o: $(SRC_DIR)/SD.cpp | $(OBJ)
-	$(CXX) $(BOOT_FLAGS) -c $< -o $@
-
-$(BOOT_ELF): $(BOOT_OBJS) $(COREMARK_BOOT)/boot.ld | $(OUT)
-	$(CXX) $(LINK_FLAGS) -T $(COREMARK_BOOT)/boot.ld -o $@ $(BOOT_OBJS) $(LIBGCC)
-	$(SIZE) $@
-	$(DUMP) -d $@ > $(OUT)/boot.dump
-
-$(BOOT_HEX): $(BOOT_ELF) $(REPO_ROOT)/tools/elf2hex.sh
-	bash $(REPO_ROOT)/tools/elf2hex.sh $< $@
+$(BOOT_BIN) $(BOOT_HEX): $(BOOT_ELF)
+	@test -s "$@"
 
 run: all
 	$(MAKE) -C $(TB_DIR) run \
