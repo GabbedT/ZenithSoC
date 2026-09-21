@@ -193,7 +193,7 @@ cd tb/verilator/script
 ./run_coremark.sh 3000 0 0
 ```
 
-### Risultato corrente
+### Current Result
 
 The result below is taken from `tb/verilator/logs/run.log`. The run completed
 the standard 10-second measurement interval and validated correctly. CoreMark

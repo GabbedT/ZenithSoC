@@ -2,7 +2,7 @@
 # Targets:
 #   make fpga   Build a ROM-initialization hex for the bootloader and the
 #               CoreMark application image for the SD card.
-#   make sd     Build the legacy bootloader and application binaries.
+#   make sd     Build the shared SD bootloader and application binaries.
 #   make sim    Build Verilator-direct ELF (firmware only, DDR@0x8000_0000)
 #   make clean
 #
@@ -24,7 +24,7 @@ SRC_DIR   := $(abspath ../../src)
 CORE_DIR  := $(abspath coremark)
 PORT_DIR  := $(abspath port)
 APP_DIR   := $(abspath app)
-BOOT_DIR  := $(abspath bootloader)
+BOOT_DIR  := $(abspath ../../bootloader)
 SIM_DIR   := $(abspath sim)
 COSIM_SW  := $(abspath ../../../cosim/sw)
 OUT       := $(abspath out)
@@ -60,6 +60,7 @@ MABI  := ilp32
 SD_ITERATIONS  ?= 2000      # standard score (real hardware)
 SIM_ITERATIONS ?= 50        # quick functional check in simulation
 DATA_SIZE      ?= 2000      # PERFORMANCE_RUN
+SD_BLOCK       ?= 0x2000    # first SD block containing the application
 
 # ----------------------------------------------------------------------------
 # Common compiler/linker flags
@@ -93,6 +94,13 @@ APP_BIN   := $(OUT)/coremark_app.bin
 BOOT_ELF  := $(OUT)/bootloader.elf
 BOOT_BIN  := $(OUT)/bootloader.bin
 BOOT_HEX  := $(OUT)/bootloader.hex
+BOOTLOADER_SOURCES := \
+    $(BOOT_DIR)/Makefile \
+    $(BOOT_DIR)/boot.ld \
+    $(BOOT_DIR)/boot_config.h \
+    $(BOOT_DIR)/boot_start.s \
+    $(BOOT_DIR)/boot_sd.cpp \
+    $(BOOT_DIR)/boot_runtime.cpp
 
 APP_OBJS := \
     $(SD_OUT)/app_start.o \
@@ -105,16 +113,10 @@ APP_OBJS := \
     $(SD_OUT)/cm_ee_printf_zenith.o \
     $(SD_OUT)/cm_uart.o
 
-BOOT_OBJS := \
-    $(SD_OUT)/boot_start.o \
-    $(SD_OUT)/boot_sd.o \
-    $(SD_OUT)/boot_uart.o \
-    $(SD_OUT)/boot_sddrv.o
-
-.PHONY: sd fpga
+.PHONY: sd fpga FORCE
 
 sd: $(APP_BIN) $(BOOT_BIN)
-	@echo "=== Legacy binaries ready ==="
+	@echo "=== SD binaries ready ==="
 	@echo "  Bootloader: $(BOOT_BIN)"
 	@echo "  App:        $(APP_BIN)"
 	@echo "For FPGA ROM boot, use: make fpga"
@@ -162,28 +164,18 @@ $(APP_ELF): $(APP_OBJS) | $(OUT)
 $(APP_BIN): $(APP_ELF)
 	$(COPY) -O binary $< $@
 
-$(SD_OUT)/boot_start.o: $(BOOT_DIR)/boot_start.s | $(SD_OUT)
-	$(AS) -march=$(MARCH) -mabi=$(MABI) $< -o $@
+$(BOOT_ELF): $(APP_BIN) $(BOOTLOADER_SOURCES) FORCE | $(OUT)
+	$(MAKE) -C $(BOOT_DIR) all \
+		APP_BIN=$(APP_BIN) \
+		OBJ_DIR=$(OUT)/boot_obj \
+		BOOT_ELF=$(BOOT_ELF) \
+		BOOT_BIN=$(BOOT_BIN) \
+		BOOT_HEX=$(BOOT_HEX) \
+		BOOT_DUMP=$(OUT)/bootloader.dump \
+		BOOT_IMAGE_BLOCK=$(SD_BLOCK)
 
-$(SD_OUT)/boot_sd.o: $(BOOT_DIR)/boot_sd.cpp $(APP_BIN) | $(SD_OUT)
-	$(CXX) $(CFLAGS_BOOT) -DIMG_BLOCKS=$$((($$(stat -c%s "$(APP_BIN)") + 511) / 512)) -c $< -o $@
-
-$(SD_OUT)/boot_uart.o: $(SRC_DIR)/UART.cpp | $(SD_OUT)
-	$(CXX) $(CFLAGS_BOOT) -c $< -o $@
-
-$(SD_OUT)/boot_sddrv.o: $(SRC_DIR)/SD.cpp | $(SD_OUT)
-	$(CXX) $(CFLAGS_BOOT) -c $< -o $@
-
-$(BOOT_ELF): $(BOOT_OBJS) | $(OUT)
-	$(LD) $(LFLAGS_BASE) -T $(BOOT_DIR)/boot.ld -o $@ $^ $(LIBGCC)
-	$(SIZE) $@
-	$(DUMP) -d $@ > $(OUT)/bootloader.dump
-
-$(BOOT_BIN): $(BOOT_ELF)
-	$(COPY) -O binary $< $@
-
-$(BOOT_HEX): $(BOOT_ELF) $(REPO_ROOT)/tools/elf2hex.sh
-	bash $(REPO_ROOT)/tools/elf2hex.sh $< $@
+$(BOOT_BIN) $(BOOT_HEX): $(BOOT_ELF)
+	@test -s "$@"
 
 # ============================================================================
 # SIM TARGET
@@ -267,7 +259,6 @@ clean:
 
 TEMP_SIM_OBJS := \
     $(APP_OBJS) \
-    $(BOOT_OBJS) \
     $(SIM_OBJS) \
     $(SIM_OUT)/boot_rom.o
 

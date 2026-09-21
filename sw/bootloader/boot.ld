@@ -1,7 +1,7 @@
 ENTRY(boot_program)
 
 MEMORY {
-    /* Leave the upper 2 KiB of the physical 16 KiB boot RAM for the stack. */
+    /* The SoC boot ROM is 16 KiB; keep its upper 2 KiB for the boot stack. */
     boot (rwx) : ORIGIN = 0x00000000, LENGTH = 14K
 }
 
@@ -12,7 +12,7 @@ SECTIONS {
         *(.data*) *(.bss*) *(COMMON)
     } > boot
 
-    /DISCARD/ : { *(.eh_frame) }
+    /DISCARD/ : { *(.eh_frame) *(.comment) }
 
     ASSERT(SIZEOF(.boot) <= LENGTH(boot), "bootloader overlaps boot stack")
 }
