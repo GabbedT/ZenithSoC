@@ -160,13 +160,13 @@ module vga #(
 //      DISPLAY STARTUP
 //====================================================================================
 
-        /* Do not start the controller until the buffer has some pixel */
+        /* Do not start the controller until the buffer has some pixel.
+         * A framebuffer flush occurs during vertical blanking, when no
+         * visible pixel is consumed, so it must not interrupt sync. */
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
             if (!rst_n_i) begin
                 controller_enable <= 1'b0;
             end else if (!enable_video) begin
-                controller_enable <= 1'b0;
-            end else if (flush_sequencer || flush_line_buffer) begin
                 controller_enable <= 1'b0;
             end else if (!controller_enable & !buffer_empty) begin
                 controller_enable <= 1'b1;
