@@ -18,6 +18,12 @@ make sim_gui       # open the simulation in the Vivado GUI
 make wave          # open the captured waveform database in XSim
 ```
 
+To open the project manually, use `build/vivado/project/ZenithSoC.xpr` after
+running `make project`. In Vivado select **Simulation Sources**, verify
+`soc_testbench` as the simulation top, then choose **Run Simulation > Run
+Behavioral Simulation**. The generated project now contains the MIG, DDR2,
+SD-card model, testbench, and SD image in `sim_1`.
+
 The simulation target uses the generated clock wizard and MIG controller, the
 Micron DDR2 component model in `tb/ddr_model`, and the SD-card model maintained
 in `vp/blocks/sd/rtl`.  Testbench sources are added explicitly to the Vivado
@@ -28,6 +34,22 @@ overridden, for example:
 ```bash
 make sim SIM_RUNTIME=5ms JOBS=8
 ```
+
+For the VGA fractal image, build the application and pass both generated
+initialization files explicitly:
+
+```bash
+make -C sw/examples/vga VGA_DEMO=fractal RESOLUTION=320x240 all
+make -C fpga/nexys_a7 sim SIM_RUNTIME=20ms JOBS=4 \
+    VIVADO=/tools/Xilinx/2026.1/Vivado/bin/vivado \
+    BOOTLOADER_HEX=../../sw/examples/vga/out/boot.hex \
+    SD_IMAGE_HEX=../../sw/examples/vga/out/vga_fractal_sd_words.hex
+```
+
+The VGA Makefile converts `program.bin` to one 32-bit hexadecimal word per
+line for the SD-card model. The simulation Tcl stages the selected boot image
+under the canonical `bootloader.hex` name expected by the SoC ROM and adds the
+selected SD image to the XSim memory fileset.
 
 `make sim_gui` uses the same project and waveform setup but leaves the
 simulation open for interactive use.  After a batch run, `make wave` creates a

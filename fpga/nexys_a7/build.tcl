@@ -222,6 +222,60 @@ lappend rtl_files [file join $root_dir hw ZenithSoC.sv]
 add_files -norecurse -fileset sources_1 $rtl_files
 add_files -norecurse -fileset sources_1 $memory_files
 set_property file_type {Memory Initialization Files} [get_files $memory_files]
+
+# Populate the implementation project's simulation fileset as well.  This
+# keeps the GUI project self-contained: opening ZenithSoC.xpr exposes the
+# real MIG/DDR2/SD testbench instead of leaving sim_1 empty.
+set sd_model_dir [file join $root_dir vp blocks sd rtl]
+set sd_model_files [list \
+    [file join $sd_model_dir sd_params.vh] \
+    [file join $sd_model_dir sd_const.vh] \
+    [file join $sd_model_dir synch_3.v] \
+    [file join $sd_model_dir sd_bram_block_dp.v] \
+    [file join $sd_model_dir sd_wishbone.v] \
+    [file join $sd_model_dir sd_mgr.v] \
+    [file join $sd_model_dir sd_link.v] \
+    [file join $sd_model_dir sd_phy.v] \
+    [file join $sd_model_dir sd_top.v] \
+    [file join $sd_model_dir bram_whishbone.sv] \
+]
+set ddr_model_dir [file join $root_dir tb ddr_model]
+set ddr_model_files [list \
+    [file join $ddr_model_dir ddr2_model_parameters.vh] \
+    [file join $ddr_model_dir ddr2_model.v] \
+]
+set tb_files [concat \
+    $sd_model_files \
+    $ddr_model_files \
+    [list [file join $root_dir tb top SoC_testbench.sv]] \
+]
+if {[info exists ::env(ZENITH_SD_IMAGE_HEX)]} {
+    set sd_image_hex [file normalize $::env(ZENITH_SD_IMAGE_HEX)]
+} else {
+    set sd_image_hex [file join $root_dir coremark_sd_words.hex]
+}
+if {[file exists $sd_image_hex]} {
+    add_files -norecurse -fileset sim_1 $sd_image_hex
+    set_property file_type {Memory Initialization Files} [get_files $sd_image_hex]
+} else {
+    puts "WARNING: SD image not found; simulation will need ZENITH_SD_IMAGE_HEX before launch: $sd_image_hex"
+}
+add_files -norecurse -fileset sim_1 $tb_files
+set sd_systemverilog_files {}
+foreach source $sd_model_files {
+    if {[file extension $source] in {.v .sv}} {
+        lappend sd_systemverilog_files $source
+    }
+}
+set_property file_type SystemVerilog [get_files $sd_systemverilog_files]
+set sim_header_files {}
+foreach source [concat $sd_model_files $ddr_model_files $tb_files] {
+    if {[file extension $source] in {.vh .svh}} {
+        lappend sim_header_files $source
+    }
+}
+set_property file_type {Verilog Header} [get_files $sim_header_files]
+
 add_files -norecurse -fileset constrs_1 [file join $root_dir constraint pins.xdc]
 set floorplan_xdc [file join $root_dir constraint floorplan.xdc]
 if {[file exists $floorplan_xdc]} {
@@ -246,6 +300,11 @@ set_property include_dirs $include_dirs [get_filesets sources_1]
 set_property verilog_define $project_defines [get_filesets sources_1]
 set_property top $top [get_filesets sources_1]
 set_property top_auto_set 0 [get_filesets sources_1]
+set sim_include_dirs [lsort -unique [concat $include_dirs $sd_model_dir $ddr_model_dir]]
+set_property include_dirs $sim_include_dirs [get_filesets sim_1]
+set_property verilog_define $project_defines [get_filesets sim_1]
+set_property top soc_testbench [get_filesets sim_1]
+set_property top_auto_set 0 [get_filesets sim_1]
 
 create_ip -name clk_wiz -vendor xilinx.com -library ip -module_name system_clocking
 set_property -dict [list \

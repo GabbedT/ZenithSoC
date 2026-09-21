@@ -11,8 +11,18 @@ if {[info exists ::env(ZENITH_BOOTLOADER_HEX)]} {
     set bootloader_hex [file join $root_dir sw benchmark CoreMark out bootloader.hex]
 }
 
+# ZenithSoC's boot ROM parameter is intentionally fixed at
+# "bootloader.hex".  Stage an overridden image under that canonical name so
+# both synthesis and XSim load the selected application bootloader rather than
+# relying on the source file's basename (for example, VGA's boot.hex).
+set staged_bootloader_hex [file join $build_dir bootloader.hex]
+file mkdir $build_dir
+if {[file normalize $bootloader_hex] ne [file normalize $staged_bootloader_hex]} {
+    file copy -force $bootloader_hex $staged_bootloader_hex
+}
+
 set memory_files [list \
-    $bootloader_hex \
+    $staged_bootloader_hex \
     [file join $root_dir hw apu synthesis_unit sine sine_quarter.hex] \
 ]
 

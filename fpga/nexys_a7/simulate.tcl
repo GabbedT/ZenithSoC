@@ -76,6 +76,15 @@ set tb_files [concat \
     [list [file join $root_dir tb top SoC_testbench.sv]] \
 ]
 
+if {[info exists ::env(ZENITH_SD_IMAGE_HEX)]} {
+    set sd_image_hex [file normalize $::env(ZENITH_SD_IMAGE_HEX)]
+} else {
+    set sd_image_hex [file join $root_dir coremark_sd_words.hex]
+}
+if {![file exists $sd_image_hex]} {
+    error "SD image not found: $sd_image_hex"
+}
+
 file mkdir $build_dir
 create_project -force ZenithSoC_sim [file join $build_dir project] -part $part
 set_property target_language Verilog [current_project]
@@ -86,6 +95,8 @@ add_files -norecurse -fileset sources_1 $rtl_files
 add_files -norecurse -fileset sources_1 $memory_files
 set_property file_type {Memory Initialization Files} [get_files $memory_files]
 add_files -norecurse -fileset sim_1 $tb_files
+add_files -norecurse -fileset sim_1 $sd_image_hex
+set_property file_type {Memory Initialization Files} [get_files $sd_image_hex]
 
 # sd_link.v contains SystemVerilog unsized literals despite its legacy .v
 # suffix.  Treat the complete model consistently to avoid language-mode drift.

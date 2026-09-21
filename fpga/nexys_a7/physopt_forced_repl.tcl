@@ -218,13 +218,17 @@ if {[llength $nets] == 0} {
     }
     set nets [lsort -unique $nets]
 }
-if {[llength $nets] == 0} {
-    error "No nets selected for forced replication"
-}
-puts "Forced replication on [llength $nets] nets"
-
 # --- extra pass: forced driver replication -----------------------------------
-phys_opt_design -force_replication_on_nets $nets
+# The pre-replication physical optimization can already close setup timing.
+# In that case there are no negative-slack paths from which to derive candidate
+# nets.  This is a valid result, not an error: continue with route and
+# post-route phys_opt so the checkpoint gets a real post-route timing result.
+if {[llength $nets] > 0} {
+    puts "Forced replication on [llength $nets] nets"
+    phys_opt_design -force_replication_on_nets $nets
+} else {
+    puts "No nets selected for forced replication; skipping replication pass"
+}
 write_checkpoint -force [file join $build_dir project ZenithSoC.runs impl_1 ZenithSoC_forced_repl.dcp]
 
 if {$route_dirv eq ""} {

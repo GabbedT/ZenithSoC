@@ -5,6 +5,7 @@ JOBS ?= 8
 
 BUILD_DIR := ../../build/vivado
 BOOTLOADER_HEX ?= ../../sw/benchmark/CoreMark/out/bootloader.hex
+SD_IMAGE_HEX ?= ../../coremark_sd_words.hex
 COREMARK_DIR := ../../sw/benchmark/CoreMark
 DEFAULT_BOOTLOADER_ELF := $(COREMARK_DIR)/out/bootloader.elf
 BOOTLOADER_ELF ?= $(DEFAULT_BOOTLOADER_ELF)
@@ -25,6 +26,7 @@ BOOTLOADER_TMP := $(basename $(BOOTLOADER_BIT))_tmp.bit
 # project_config.tcl reads this exported, absolute path for full synthesis and
 # simulation builds. Override BOOTLOADER_HEX for a different boot program.
 export ZENITH_BOOTLOADER_HEX := $(abspath $(BOOTLOADER_HEX))
+export ZENITH_SD_IMAGE_HEX := $(abspath $(SD_IMAGE_HEX))
 
 .PHONY: project retry-synth retry-impl finish-routed synth impl bitstream update-bootloader sim sim_batch sim_gui wave wave-config sweep-impl postroute-sweep physopt-repl
 
