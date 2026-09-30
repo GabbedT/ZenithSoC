@@ -50,8 +50,9 @@ your tools live elsewhere.
 
 ## Build and run firmware
 
-CoreMark is the reference end-to-end firmware project. From the repository
-root:
+CoreMark is the reference end-to-end firmware project. The reusable SD-card
+bootloader lives in `sw/bootloader`; applications can invoke it with their
+own `APP_BIN` and deployment settings. From the repository root:
 
 ```bash
 source setenv.sh

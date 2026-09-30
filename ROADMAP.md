@@ -16,6 +16,8 @@ The project will be developed using an incremental approach, structured into fou
 
 * Update documentation on ZenithSoC and ApogeoRV
 
+* Update examples
+
 
 ### Testing
 
@@ -41,7 +43,6 @@ The project will be developed using an incremental approach, structured into fou
 * Coremark porting for SoC ✅
 * Run Coremark on verilator testbench and extract performance ✅
 * Embench-IoT porting for SoC ✅
-* STREAM porting for SoC
 
 * Improve performances on ApogeoRV ✅
 
