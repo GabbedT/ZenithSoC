@@ -23,7 +23,7 @@ bool testAPUInterrupt(UART& uart);
 
 bool testTraceInterrupt(UART& uart);
 
-/* These tests need external protocol models and are intentionally not called by main */
+/* These tests need external protocol models and are not called by main. */
 bool testEthernetInterrupt(UART& uart);
 bool testSDInterrupt(UART& uart);
 

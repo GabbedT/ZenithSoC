@@ -1,3 +1,9 @@
+/*
+ * Shared peripheral interrupt checks:
+ * Configure each source while global interrupts are masked, trigger one event,
+ * then verify the handler count and captured event bits.
+ */
+
 #include "io_interrupt_tests.h"
 
 #include "interrupt.h"
@@ -30,23 +36,25 @@ namespace {
     void drainUART(UART& uart) {
         while (!uart.getCtrlStatus()->emptyTX) {  }
 
-        /* emptyTX precedes the end of the last serialized frame */
+        /* emptyTX rises before the final frame finishes shifting. */
         waitCycles(512);
     }
 
+    /* Keep setup stores from racing the interrupt handler. */
     void prepareInterrupt() {
-        asm volatile ("csrc mstatus, %0" :: "r"(1u << 3) : "memory");
+        asm volatile ("csrc mstatus, %0" :: "r"(1 << 3) : "memory");
         asm volatile ("fence" ::: "memory");
     }
 
 
     void releaseInterrupt() {
         asm volatile ("fence" ::: "memory");
-        asm volatile ("csrs mstatus, %0" :: "r"(1u << 3) : "memory");
+        asm volatile ("csrs mstatus, %0" :: "r"(1 << 3) : "memory");
     }
 
 
-    __attribute__((always_inline)) inline bool runGPIOEvent(GPIO& gpio, GPIO::triggerLevel_e level, bool from, bool to) {
+    __attribute__((always_inline)) inline bool runGPIOEvent(
+        GPIO& gpio, GPIO::triggerLevel_e level, bool from, bool to) {
         prepareInterrupt();
 
         gpio.setInterruptEnable(1, false)
@@ -64,7 +72,7 @@ namespace {
         releaseInterrupt();
 
         return waitInterrupt(GPIO_INTERRUPT, previous) &&
-               ((interruptEvent[GPIO_INTERRUPT] & (1u << 1)) != 0);
+               ((interruptEvent[GPIO_INTERRUPT] & (1 << 1)) != 0);
     }
 
 }
@@ -75,13 +83,14 @@ bool testUARTTXEmptyInterrupt(UART& uart) {
     drainUART(uart);
     *uart.event = 0;
 
-    /* Empty FIFO interrupt */
+    /* An empty TX FIFO must raise TX_EMPTY. */
     prepareInterrupt();
     uint32_t previous = interruptCount[UART_INTERRUPT];
     uart.setInterrupt(UART::TX_EMPTY);
     releaseInterrupt();
 
-    bool emptyPassed = waitInterrupt(UART_INTERRUPT, previous) && ((interruptEvent[UART_INTERRUPT] & UART::TX_EMPTY) != 0);
+    bool emptyPassed = waitInterrupt(UART_INTERRUPT, previous) &&
+                       ((interruptEvent[UART_INTERRUPT] & UART::TX_EMPTY) != 0);
     report(uart, "UART TX empty interrupt", emptyPassed);
 
     return emptyPassed;
@@ -89,7 +98,7 @@ bool testUARTTXEmptyInterrupt(UART& uart) {
 
 
 bool testUARTTXDoneInterrupt(UART& uart) {
-    /* End of a physically serialized frame */
+    /* DATA_TX must arrive after the byte is physically serialized. */
     drainUART(uart);
     *uart.event = 0;
     prepareInterrupt();
@@ -106,7 +115,7 @@ bool testUARTTXDoneInterrupt(UART& uart) {
 
 
 bool testUARTRXDoneInterrupt(UART& uart) {
-    /* The Verilator wrapper routes TX back to RX */
+    /* The Verilator wrapper routes TX back to RX. */
     drainUART(uart);
     *uart.event = 0;
     prepareInterrupt();
@@ -135,7 +144,7 @@ bool testUARTInterrupts(UART& uart) {
 
 
 bool testUARTFullInterrupt(UART& uart) {
-    /* Fill TX buffer, i expect RX buffer to go full */
+    /* Loopback traffic fills RX and must raise RX_FULL. */
     drainUART(uart);
     *uart.event = 0;
     prepareInterrupt();
@@ -149,7 +158,8 @@ bool testUARTFullInterrupt(UART& uart) {
 
     releaseInterrupt();
 
-    bool fullPassed = waitInterrupt(UART_INTERRUPT, previous) && ((interruptEvent[UART_INTERRUPT] & UART::RX_FULL) != 0);
+    bool fullPassed = waitInterrupt(UART_INTERRUPT, previous) &&
+                      ((interruptEvent[UART_INTERRUPT] & UART::RX_FULL) != 0);
     uart.disableInterrupt(UART::RX_FULL);
 
     while (!uart.getCtrlStatus()->emptyRX) {
@@ -180,7 +190,7 @@ bool testTimerInterrupt(UART& uart) {
     releaseInterrupt();
 
     bool passed = waitInterrupt(TIMER_INTERRUPT, previous) &&
-                  ((interruptEvent[TIMER_INTERRUPT] & (1u << 1)) != 0) &&
+                  ((interruptEvent[TIMER_INTERRUPT] & (1 << 1)) != 0) &&
                   timer.isHalted();
 
     report(uart, "Timer compare interrupt", passed);
@@ -200,8 +210,8 @@ bool testGPIOInterrupts(UART& uart) {
 bool testGPIOPosedgeInterrupt(UART& uart) {
     GPIO gpio;
 
-    /* GPIO0 output is connected to GPIO1 input by the Verilator wrapper */
-    gpio.init(0x00, 1u << 1, 0x00, GPIO::POSEDGE);
+    /* The Verilator wrapper connects GPIO0 output to GPIO1 input. */
+    gpio.init(0x00, 1 << 1, 0x00, GPIO::POSEDGE);
 
     bool posedgePassed = runGPIOEvent(gpio, GPIO::POSEDGE, false, true);
     report(uart, "GPIO positive edge interrupt", posedgePassed);
@@ -212,7 +222,7 @@ bool testGPIOPosedgeInterrupt(UART& uart) {
 
 bool testGPIONegedgeInterrupt(UART& uart) {
     GPIO gpio;
-    gpio.init(0x00, 1u << 1, 0x00, GPIO::NEGEDGE);
+    gpio.init(0x00, 1 << 1, 0x00, GPIO::NEGEDGE);
 
     bool negedgePassed = runGPIOEvent(gpio, GPIO::NEGEDGE, true, false);
     report(uart, "GPIO negative edge interrupt", negedgePassed);
@@ -223,7 +233,7 @@ bool testGPIONegedgeInterrupt(UART& uart) {
 
 bool testGPIOBothEdgeInterrupt(UART& uart) {
     GPIO gpio;
-    gpio.init(0x00, 1u << 1, 0x00, GPIO::BOTH);
+    gpio.init(0x00, 1 << 1, 0x00, GPIO::BOTH);
 
     bool bothPassed = runGPIOEvent(gpio, GPIO::BOTH, false, true);
     report(uart, "GPIO both-edge interrupt", bothPassed);
@@ -234,7 +244,7 @@ bool testGPIOBothEdgeInterrupt(UART& uart) {
 
 bool testGPIOHighLevelInterrupt(UART& uart) {
     GPIO gpio;
-    gpio.init(0x00, 1u << 1, 0x00, GPIO::HIGH);
+    gpio.init(0x00, 1 << 1, 0x00, GPIO::HIGH);
 
     bool highPassed = runGPIOEvent(gpio, GPIO::HIGH, false, true);
     report(uart, "GPIO high-level interrupt", highPassed);
@@ -260,7 +270,7 @@ bool testSPIInterrupt(UART& uart) {
     releaseInterrupt();
 
     bool interruptPassed = waitInterrupt(SPI_INTERRUPT, previous) &&
-                           ((interruptEvent[SPI_INTERRUPT] & 1u) != 0);
+                           ((interruptEvent[SPI_INTERRUPT] & 1) != 0);
 
     uint8_t received = 0;
     spi.retrieve(&received, 1, &error);
@@ -276,7 +286,7 @@ bool testAPUInterrupt(UART& uart) {
     AudioCapture capture;
     AudioCapture::audioCaptError_e error = AudioCapture::NO_ERROR;
 
-    /* Constant-low PDM input produces a sample below the right threshold */
+    /* Constant-low PDM input crosses the right low threshold. */
     capture.init(AudioCapture::RIGHT, false, 2'000'000, 1'000'000, error)
            .setThreshold(1);
 
@@ -302,12 +312,12 @@ bool testTraceInterrupt(UART& uart) {
     prepareInterrupt();
     uint32_t previous = interruptCount[TRACE_INTERRUPT];
 
-    /* Enabling the empty event while the packet FIFO is empty creates an edge */
+    /* Enabling an already-empty FIFO creates the interrupt edge. */
     trace.enableInterrupt(false, true);
     releaseInterrupt();
 
     bool passed = waitInterrupt(TRACE_INTERRUPT, previous) &&
-                  ((interruptEvent[TRACE_INTERRUPT] & 1u) != 0);
+                  ((interruptEvent[TRACE_INTERRUPT] & 1) != 0);
 
     report(uart, "Trace buffer empty interrupt", passed);
 
@@ -349,7 +359,7 @@ bool testSDInterrupt(UART& uart) {
     sd.sendCommand(0, 0);
 
     bool passed = waitInterrupt(SD_INTERRUPT, previous, 2'000'000) &&
-                  ((interruptEvent[SD_INTERRUPT] & (1u << 2)) != 0);
+                  ((interruptEvent[SD_INTERRUPT] & (1 << 2)) != 0);
 
     report(uart, "SD command interrupt", passed);
 

@@ -53,13 +53,16 @@ LDFLAGS := \
 LIBGCC := $(shell $(CXX) -march=$(MARCH) -mabi=$(MABI) -print-libgcc-file-name)
 
 TEST_CPP   := $(sort $(wildcard $(TEST_DIR)/*.cpp))
+TEST_ASM   := $(sort $(wildcard $(TEST_DIR)/*.S))
 COMMON_CPP := $(sort $(wildcard $(COMMON)/*.cpp))
 
 TEST_OBJS   := $(patsubst $(TEST_DIR)/%.cpp,$(BUILD)/test_%.o,$(TEST_CPP))
+TEST_OBJS   += $(patsubst $(TEST_DIR)/%.S,$(BUILD)/test_asm_%.o,$(TEST_ASM))
 COMMON_OBJS := $(patsubst $(COMMON)/%.cpp,$(BUILD)/common_%.o,$(COMMON_CPP))
 SHARED_OBJS := $(addprefix $(BUILD)/shared_,$(addsuffix .o,$(basename $(notdir $(SHARED_CPP)))))
+SHARED_ASM_OBJS := $(addprefix $(BUILD)/shared_asm_,$(addsuffix .o,$(basename $(notdir $(SHARED_ASM)))))
 DRIVER_OBJS := $(addprefix $(BUILD)/driver_,$(addsuffix .o,$(DRIVERS)))
-OBJS        := $(BUILD)/startup.o $(TEST_OBJS) $(COMMON_OBJS) $(SHARED_OBJS) $(DRIVER_OBJS)
+OBJS        := $(BUILD)/startup.o $(TEST_OBJS) $(COMMON_OBJS) $(SHARED_OBJS) $(SHARED_ASM_OBJS) $(DRIVER_OBJS)
 
 CPPFLAGS += $(addprefix -I,$(SHARED_INCLUDE))
 
@@ -104,11 +107,17 @@ $(BUILD)/boot_rom.o: $(COMMON)/boot_rom.S | $(BUILD)
 $(BUILD)/test_%.o: $(TEST_DIR)/%.cpp | $(BUILD)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
+$(BUILD)/test_asm_%.o: $(TEST_DIR)/%.S | $(BUILD)
+	$(CXX) -x assembler-with-cpp $(ASFLAGS) -c $< -o $@
+
 $(BUILD)/common_%.o: $(COMMON)/%.cpp | $(BUILD)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
 $(BUILD)/shared_%.o: $(SHARED_CPP) | $(BUILD)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $(filter %/$*.cpp,$(SHARED_CPP)) -o $@
+
+$(BUILD)/shared_asm_%.o: $(SHARED_ASM) | $(BUILD)
+	$(CXX) -x assembler-with-cpp $(ASFLAGS) -c $(filter %/$*.S,$(SHARED_ASM)) -o $@
 
 $(BUILD)/driver_%.o: $(ROOT)/sw/src/%.cpp | $(BUILD)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@

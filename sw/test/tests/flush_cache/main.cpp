@@ -1,3 +1,9 @@
+/*
+ * How this test works:
+ * Cache a small function, change its first instruction through the data cache,
+ * then execute FENCE. The test passes when the next call sees the new code,
+ * proving that dirty data reached memory and the stale instruction was removed.
+ */
 #include <stdint.h>
 
 /*

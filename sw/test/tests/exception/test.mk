@@ -1,0 +1,5 @@
+DRIVERS :=
+CASES := all
+
+TRACE ?= 0
+MAX_CYCLES ?= 1000000

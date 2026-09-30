@@ -21,7 +21,6 @@
 /* a0: control register, a1: tracing control, a2: serializer drain control */
 trace_program:
     sw      a1, 0(a0)
-    fence   iorw, iorw
 
     /* Let the MMIO write become visible before reaching the PC trigger. */
     .rept 16
@@ -55,7 +54,6 @@ trace_finish_jump:
 
 trace_finish:
     sw      a2, 0(a0)
-    fence   iorw, iorw
 
     /* The return must retire after tracing has been disabled. */
     .rept 4
@@ -64,4 +62,42 @@ trace_finish:
     ret
 
 .size trace_program, .-trace_program
+
+.global trace_illegal_program
+.global trace_illegal_entry
+.type trace_illegal_program, @function
+.type trace_illegal_entry, @function
+
+/* a0: control register, a1: event tracing, a2: serializer drain control */
+trace_illegal_program:
+    sw      a1, 0(a0)
+
+    /* Keep the trace setup outside the instruction under test. */
+    .rept 16
+    nop
+    .endr
+
+trace_illegal_site:
+    .word   0x0000007f
+trace_illegal_resume:
+    sw      a2, 0(a0)
+
+    /* Give the serializer time to accept the exception packet. */
+    .rept 4
+    nop
+    .endr
+    ret
+
+.size trace_illegal_program, .-trace_illegal_program
+
+/* Record mcause and resume immediately after the illegal instruction. */
+trace_illegal_entry:
+    csrr    t0, mcause
+    la      t1, trace_illegal_cause
+    sw      t0, 0(t1)
+    la      t0, trace_illegal_resume
+    csrw    mepc, t0
+    mret
+
+.size trace_illegal_entry, .-trace_illegal_entry
 .option pop

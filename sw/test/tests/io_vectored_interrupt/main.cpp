@@ -1,3 +1,9 @@
+/*
+ * How this test works:
+ * The build selects one peripheral interrupt case. The test triggers that
+ * source, handles it through vectored mtvec mode, and checks the recorded event.
+ * Any missing, incorrect, or unexpected interrupt fails the test.
+ */
 #include "io_interrupt_tests.h"
 
 #include "interrupt.h"

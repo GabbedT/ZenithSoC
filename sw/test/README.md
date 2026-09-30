@@ -11,6 +11,9 @@ make build TEST=io_direct_interrupt
 make run TEST=io_direct_interrupt CASE=timer
 make regress TEST=io_direct_interrupt
 make regress TEST=io_vectored_interrupt
+make regress TEST=wfi
+make regress TEST=exception
+make regress TEST=priv
 ```
 
 `make run` builds one isolated interrupt case, its boot ROM, and the Verilator
@@ -40,6 +43,11 @@ SPI transaction completion, APU capture threshold, and trace-buffer-empty
 interrupts. The vectored suite also verifies that `mtvec` routes each source to
 `BASE + 4 * cause`. The Verilator wrapper supplies small deterministic loopbacks
 for UART, GPIO, and SPI pins.
+
+The `wfi`, `exception`, and `priv` suites verify timer wakeup from WFI,
+synchronous trap state and recovery, and M/U privilege transitions and access
+checks. They are compliance checks: a non-zero result can identify RTL behavior
+that needs fixing rather than a test timeout.
 
 Ethernet and SD test functions are compiled in the codebase but deliberately
 not called by `main`, because they require protocol models. They can be enabled
