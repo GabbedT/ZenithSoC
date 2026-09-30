@@ -80,10 +80,15 @@ package trace_unit_pkg;
     } trace_unit_event_t;
 
 
-    typedef enum logic [1:0] { EVENT_PACKET, DIVERGENCE_PACKET, OVERFLOW_PACKET } trace_unit_packet_type_t;
+    typedef enum logic [1:0] { EVENT_PACKET, DIVERGENCE_PACKET, OVERFLOW_PACKET, START_PACKET } trace_unit_packet_type_t;
 
 
-    /* Event Packet (1/4 Bytes) */
+    localparam logic [7:0] TRACE_SYNC = 8'h1E;
+    localparam logic [7:0] TRACE_ESCAPE = 8'h1D;
+    localparam logic [7:0] TRACE_ESCAPE_XOR = 8'h20;
+
+    /* Every packet has a sync prefix; reserved bytes in its body are escaped. */
+    /* Event Packet (1/4 unescaped body bytes) */
     /* TYPE EVENT + EVENT_NUMBER (1 BYTE) | TIMESTAMP (IF ENABLED) (3 BYTE) */
 
     /* Divergence Packet (5/8 Bytes) */
@@ -92,6 +97,15 @@ package trace_unit_pkg;
     /* Time overflow packet (1 byte on the UART stream) */
     /* TYPE OVERFLOW (2 bits) | RESERVED (6 bits) */
     typedef union packed {
+
+        struct packed {
+            trace_unit_packet_type_t type_;
+            logic [5:0] reserved;
+
+            logic [31:0] address;
+            
+            logic [23:0] padding;
+        } start_packet;
 
         struct packed {
             trace_unit_packet_type_t type_;

@@ -134,36 +134,42 @@ module trace_unit_packetizer #(
         end
 
 
-    /* The first time we receive a PC, we don't have a reference to compare it with, so we can consider it as non-divergent
-     * we delay the enable signal so that the first comparision is not considered valid. 
-     *
-     * EXAMPLE: PC is at 0x1000, but the last PC memorized was at 0x0800. If we enable branch tracing immediately it will be recognized as a divergence,
-     * which is not the case. Instead we delay the enable signal so the new PC can be memorized so last PC is 0x0800 -> 0x1000 and the next time a valid PC
-     * arrives 0x1004 for example it does not generate a divergence packet */
     logic branch_trace_ready;
+    logic [31:0] last_reported_pc;
+    logic start_requested, start_written, divergence_written, start_pending;
+    logic [31:0] pending_start_pc, start_pc;
 
-        always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            if (!rst_n_i) begin
+    assign start_requested = enable_branch_tracing_i & !branch_trace_ready & (start_pending | (trace_interface_i.valid & 
+                            (!enable_trigger_i | (trace_interface_i.address == trigger_pc_i))));
+
+    assign start_pc = start_pending ? pending_start_pc : trace_interface_i.address;
+
+    always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+        if (!rst_n_i) begin
+            branch_trace_ready <= 1'b0;
+            last_reported_pc <= '0;
+            start_pending <= 1'b0;
+            pending_start_pc <= '0;
+        end else begin
+            if (!enable_branch_tracing_i) begin
                 branch_trace_ready <= 1'b0;
-            end else begin
-                if (enable_branch_tracing_i) begin
-                    if (enable_trigger_i) begin
-                        /* If trigger is enabled, we need to wait for the trigger PC to be hit to start generating packets, otherwise we can have false positives in the divergence detection because the core is executing code before reaching the trigger PC that can cause the PC to jump around and generate divergence packets even if there is no branch taken */
-                        if (trace_interface_i.valid & (trace_interface_i.address == trigger_pc_i)) begin
-                            branch_trace_ready <= 1'b1;
-                        end
-                    end else begin
-                        /* If trigger is not enabled, we can start generating packets immediately */
-                        if (trace_interface_i.valid) begin
-                            branch_trace_ready <= 1'b1;
-                        end
-                    end
-                end else begin
-                    branch_trace_ready <= 1'b0;
-                end
+                start_pending <= 1'b0;
+            end else if (start_written) begin
+                branch_trace_ready <= 1'b1;
+                start_pending <= 1'b0;
+            end else if (start_requested & !start_pending) begin
+                start_pending <= 1'b1;
+                pending_start_pc <= trace_interface_i.address;
+            end
+
+            /* Only accepted PC packets advance the decoder's reference */
+            if (start_written) begin
+                last_reported_pc <= start_pc;
+            end else if (divergence_written) begin
+                last_reported_pc <= trace_interface_i.address;
             end
         end
-
+    end
 
     /* Trigger signal */
     logic divergence; 
@@ -187,10 +193,8 @@ module trace_unit_packetizer #(
             if (!rst_n_i) begin
                 pending_overflow <= 1'b0;
             end else begin
-                if (overflow & (divergence | event_generated)) begin
-                    /* If there is an overflow and we are generating a divergence or event packet, 
-                     * we dont't need to prioritize the overflow packet, as we'll lose the PC/Event 
-                     * information, which is more useful for debugging than the overflow information */
+                if (overflow & !overflow_serviced) begin
+                    /* Retain wraps while another packet or backpressure prevents enqueue */
                     pending_overflow <= 1'b1;
                 end else if (overflow_serviced) begin
                     pending_overflow <= 1'b0;
@@ -207,33 +211,42 @@ module trace_unit_packetizer #(
             write_packet = 1'b0;
             overflow_serviced = 1'b0;
             
-            /* Priority: Divergence > Event > Overflow */
+            start_written = 1'b0;
+            divergence_written = 1'b0;
+
+            /* Priority: Start > Divergence > Event > Overflow */
 
             /* Don't generate packets if the core is halted, otherwise it can cause
              * deadlocks because the core is waiting for the packet to be consumed 
              * to be able to proceed and generate new packets, but the packet cannot
              * be consumed because the core is halted */
-            if (divergence & enable_branch_tracing_i) begin
+            if (start_requested) begin
+                trace_packet.start_packet.type_ = START_PACKET;
+                trace_packet.start_packet.address = start_pc;
+                write_packet = !halt_core_o & !buffer_full;
+                start_written = write_packet;
+            end else if (divergence & enable_branch_tracing_i) begin
                 /* Generate a divergence packet */
                 trace_packet.divergence_packet.type_ = DIVERGENCE_PACKET;
-                trace_packet.divergence_packet.delta_pc = trace_interface_i.address - last_pc;
+                trace_packet.divergence_packet.delta_pc = trace_interface_i.address - last_reported_pc;
                 trace_packet.divergence_packet.timestamp = timestamp_counter;
 
-                write_packet = !halt_core_o;
+                write_packet = !halt_core_o & !buffer_full;
+                divergence_written = write_packet;
             end else if (event_generated) begin
                 /* Generate an event packet */
                 trace_packet.event_packet.type_ = EVENT_PACKET;
                 trace_packet.event_packet.event_number = trace_interface_i.info;
                 trace_packet.event_packet.timestamp = timestamp_counter;
 
-                write_packet = !halt_core_o; 
+                write_packet = !halt_core_o & !buffer_full; 
             end else if (overflow | pending_overflow) begin
                 /* Generate an overflow packet */
                 trace_packet.overflow_packet.type_ = OVERFLOW_PACKET;
 
-                write_packet = !halt_core_o;
+                write_packet = !halt_core_o & !buffer_full;
 
-                overflow_serviced = !halt_core_o;
+                overflow_serviced = write_packet;
             end
         end
 

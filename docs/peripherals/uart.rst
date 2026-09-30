@@ -104,9 +104,16 @@ channel. Addresses are word indices inside the UART register window and
      - 8 / 1
      - Serialized trace byte and write strobe from the Trace Unit.
 
-When tracing is enabled, the trace unit can write serialized bytes directly
-into the UART TX FIFO. This path shares the FIFO's full/backpressure status
-with normal software writes and is connected to UART instance 0 in the SoC.
+Trace protocol v2 shares UART with CPU console output. CPU TX_BUFFER writes
+enter a separate FIFO, so simultaneous trace writes do not discard them.
+The arbiter gives consecutive trace frame bytes priority. CPU bytes ``0x1E``
+and ``0x1D`` are escaped as ``0x1D`` followed by the original byte XOR ``0x20``;
+other console bytes are unchanged. A console escape pair blocks the start of
+a new trace frame until its second byte has been queued. The trace backpressure
+output accounts for this hold as well as the physical TX FIFO being full.
+Software TX-full describes the CPU queue. Software TX-empty and its interrupt
+require both queues and any pending escape to be empty. Firmware must still
+respect TX-full. Host software must reverse console escaping when using v2.
 
 Functional Description
 ----------------------
@@ -155,7 +162,7 @@ TX Path Operation
 
 **Transmission Flow**:
 
-1. Software writes data to TX FIFO via TX_BUFFER register
+1. Software writes data to the CPU queue via TX_BUFFER; arbitration and escaping feed the TX FIFO
 2. TX FSM monitors FIFO and CTS signal (if flow control enabled)
 3. When data available and CTS asserted (or flow control disabled):
    - Pop byte from FIFO

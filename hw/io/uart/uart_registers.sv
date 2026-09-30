@@ -142,29 +142,68 @@ module uart_registers #(
 //====================================================================================  
 
     logic tx_empty, tx_full;
+    logic console_empty, console_full, console_read;
+    logic [7:0] console_data, escaped_console_data, tx_write_data;
+    logic console_escape_pending, tx_write;
+    logic console_reserved;
 
-    /* TX Buffer asyncronous FIFO instantiation */
-    synchronous_buffer #(TX_BUFFER_SIZE, 8) TX_buffer (
-        .clk_i   ( clk_i   ),
-        .rst_n_i ( rst_n_i ),
-
-        .write_i ( ((write_enable[1] & write_i) | trace_write_i) & !tx_full ),
-        .read_i  ( tx_cts_i & !tx_empty                                     ),
-
-        .empty_o ( tx_empty ),
-        .full_o  ( tx_full  ),
-
-        .write_data_i ( trace_write_i ? trace_data_i : write_data_i[0] ),
-        .read_data_o  ( tx_data_o       )
+    // CPU writes are retained even when the trace serializer owns the TX FIFO.
+    synchronous_buffer #(
+        .BUFFER_DEPTH ( TX_BUFFER_SIZE ),
+        .DATA_WIDTH ( 8 ),
+        .FIRST_WORD_FALL_TROUGH ( 1 )
+    ) console_buffer (
+        .clk_i ( clk_i ), .rst_n_i ( rst_n_i ),
+        .write_i ( write_enable[1] & write_i & !console_full ),
+        .write_data_i ( write_data_i[0] ),
+        .read_i ( console_read ), .read_data_o ( console_data ),
+        .empty_o ( console_empty ), .full_o ( console_full )
     );
-    
-    assign tx_empty_o = tx_empty;
-    assign tx_full_o = tx_full;
 
-        always_ff @(posedge clk_i) begin
-            status_register.TX_empty <= tx_empty;
-            status_register.TX_full <= tx_full;
+    assign console_reserved = (console_data == trace_unit_pkg::TRACE_SYNC)
+                            | (console_data == trace_unit_pkg::TRACE_ESCAPE);
+    assign console_read = !tx_full & !trace_write_i & !console_empty & !console_escape_pending;
+
+    always_comb begin
+        tx_write = !tx_full & (console_escape_pending | trace_write_i | !console_empty);
+        if (console_escape_pending) begin
+            tx_write_data = escaped_console_data;
+        end else if (trace_write_i) begin
+            tx_write_data = trace_data_i;
+        end else begin
+            tx_write_data = console_reserved ? trace_unit_pkg::TRACE_ESCAPE : console_data;
         end
+    end
+
+    always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
+        if (!rst_n_i) begin
+            console_escape_pending <= 1'b0;
+            escaped_console_data <= '0;
+        end else if (!tx_full) begin
+            if (console_escape_pending) begin
+                console_escape_pending <= 1'b0;
+            end else if (console_read & console_reserved) begin
+                console_escape_pending <= 1'b1;
+                escaped_console_data <= console_data ^ trace_unit_pkg::TRACE_ESCAPE_XOR;
+            end
+        end
+    end
+
+    synchronous_buffer #(TX_BUFFER_SIZE, 8) TX_buffer (
+        .clk_i ( clk_i ), .rst_n_i ( rst_n_i ),
+        .write_i ( tx_write ), .write_data_i ( tx_write_data ),
+        .read_i ( tx_cts_i & !tx_empty ), .read_data_o ( tx_data_o ),
+        .empty_o ( tx_empty ), .full_o ( tx_full )
+    );
+
+    assign tx_empty_o = tx_empty;
+    // Keep a two-byte console escape atomic with respect to a new trace frame.
+    assign tx_full_o = tx_full | console_escape_pending;
+
+    always_ff @(posedge clk_i) begin
+        status_register.TX_empty <= tx_empty & console_empty & !console_escape_pending;
+        status_register.TX_full <= console_full;
+    end
 
 
 //====================================================================================
@@ -225,7 +264,7 @@ module uart_registers #(
                     event_register[2] <= 1'b1;
                 end
 
-                if (tx_empty & status_register.interrupt_enable[3]) begin
+                if (tx_empty & console_empty & !console_escape_pending & status_register.interrupt_enable[3]) begin
                     event_register[3] <= 1'b1;
                 end
 

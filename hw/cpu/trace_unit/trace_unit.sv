@@ -44,7 +44,7 @@ module trace_unit #(
 //====================================================================================
 
     logic enable_event_tracing, enable_branch_tracing, enable_timestamp_event, enable_timestamp_branch, enable_trigger;
-    logic clear_timestamp, trace_buffer_empty, trace_buffer_full; logic [31:0] trigger_pc;
+    logic clear_timestamp, trace_buffer_empty, trace_buffer_full, serializer_busy; logic [31:0] trigger_pc;
     trace_unit_event_t enable_events;
 
     trace_unit_registers registers (
@@ -69,8 +69,8 @@ module trace_unit #(
         .clear_timestamp_o ( clear_timestamp ),
 
         /* From Packetizer buffer */
-        .trace_buffer_empty_i ( trace_buffer_empty ),
-        .trace_buffer_full_i  ( trace_buffer_full  ),
+        .trace_buffer_empty_i ( trace_buffer_empty & !serializer_busy ),
+        .trace_buffer_full_i  ( trace_buffer_full                     ),
 
         /* Enable interrupts */
         .enable_event_o ( enable_events ),
@@ -156,6 +156,8 @@ module trace_unit #(
         .clk_i   ( clk_i       ),
         .rst_n_i ( rst_n_i     ),
     
+        .busy_o ( serializer_busy ),
+        
         /* From UART */
         .uart_tx_full_i ( uart_tx_full_i ),
 

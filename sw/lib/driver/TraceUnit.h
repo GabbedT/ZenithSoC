@@ -155,9 +155,9 @@ public:
 /*****************************************************************/
 
     /**
-     * @brief Start tracing banch divergences, the Trace Unit will send a packet every time a 
-     * branch instruction is executed, the packet will contain the PC of the branch instruction, 
-     * the target address and a timestamp.
+     * @brief Start branch tracing. A START packet supplies the first absolute PC; later
+     * divergence packets carry deltas relative to the last queued PC packet,
+     * plus an optional timestamp. Sequential instructions are not transmitted.
      * 
      * @return TraceUnit& Reference to the Trace Unit object to chain the function call.
      */
@@ -255,7 +255,7 @@ public:
     bool isBufferFull() const;
 
     /**
-     * @brief Check if the buffer is empty.
+     * @brief Check if the packet FIFO and serializer are empty. The UART may still be draining.
      * 
      * @return bool True if the buffer is empty, false otherwise.
      */

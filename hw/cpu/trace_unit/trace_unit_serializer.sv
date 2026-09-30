@@ -9,7 +9,7 @@ module trace_unit_serializer (
     /* From UART */
     input logic uart_tx_full_i,
 
-    /* Configuartion */
+    /* Configuration */
     input logic enable_timestamp_i,
 
     /* Trace packets from Packetizer */
@@ -19,6 +19,7 @@ module trace_unit_serializer (
 
     /* Trace chunks to UART */
     output logic [7:0] trace_chunk_o,
+    output logic busy_o,
     output logic write_chunk_o
 );
 
@@ -27,18 +28,21 @@ module trace_unit_serializer (
 //====================================================================================
 
     /* Temporary data used by the FSM datapath */
-    trace_unit_packet_type_t packet_type_CRT, packet_type_NXT;
     trace_unit_packet_t packet_CRT, packet_NXT;
     logic [3:0] byte_counter_CRT, byte_counter_NXT;
 
         always_ff @(posedge clk_i `ifdef ASYNC or negedge rst_n_i `endif) begin
-            packet_type_CRT <= packet_type_NXT;
-            packet_CRT <= packet_NXT;
-            byte_counter_CRT <= byte_counter_NXT;
+            if (!rst_n_i) begin
+                packet_CRT <= '0;
+                byte_counter_CRT <= '0;
+            end else begin
+                packet_CRT <= packet_NXT;
+                byte_counter_CRT <= byte_counter_NXT;
+            end
         end
 
 
-    typedef enum logic [1:0] { IDLE, SYNC, DATA } fsm_state_t;
+    typedef enum logic [1:0] { IDLE, SYNC, DATA, ESCAPED } fsm_state_t;
 
     fsm_state_t state_CRT, state_NXT;
 
@@ -53,11 +57,15 @@ module trace_unit_serializer (
 
 //====================================================================================
 //      FSM DATAPATH
-//====================================================================================     
+//====================================================================================
+
+    logic reserved_byte;
+
+    assign busy_o = state_CRT != IDLE;
+    assign reserved_byte = (packet_CRT.raw[7] == TRACE_SYNC) | (packet_CRT.raw[7] == TRACE_ESCAPE);
 
         always_comb begin
             byte_counter_NXT = byte_counter_CRT;
-            packet_type_NXT = packet_type_CRT;
             packet_NXT = packet_CRT;
             state_NXT = state_CRT;
 
@@ -69,72 +77,66 @@ module trace_unit_serializer (
                 IDLE: begin
                     /* Start if there is a packet to read and the UART is not full */
                     if (!trace_buffer_empty_i & !uart_tx_full_i) begin
-                        /* Read packet from packetizer buffer */
                         trace_buffer_read_o = 1'b1;
-
-                        /* Reset byte counter */
-                        byte_counter_NXT = '0;
-                        
-                        /* The packet buffer is synchronous: latch its output on the
-                         * following cycle before starting serialization. */
                         state_NXT = SYNC;
                     end
                 end
 
                 SYNC: begin
+                    trace_chunk_o = TRACE_SYNC;
+                    write_chunk_o = !uart_tx_full_i;
+
                     if (!uart_tx_full_i) begin
+                        /* The synchronous packet buffer is valid after the IDLE read */
+                        packet_NXT = trace_packet_i;
                         state_NXT = DATA;
 
-                        /* Extract packet type for the DATA state from last two bits */
-                        packet_type_NXT = trace_unit_packet_type_t'(trace_packet_i.raw[7][7:6]);
-                        packet_NXT = trace_packet_i;
+                        /* Latch the number of body bytes before serialization */
+                        case (trace_packet_i.raw[7][7:6])
+                            EVENT_PACKET: byte_counter_NXT = enable_timestamp_i ? 4'd4 : 4'd1;
+
+                            DIVERGENCE_PACKET: byte_counter_NXT = enable_timestamp_i ? 4'd8 : 4'd5;
+
+                            START_PACKET: byte_counter_NXT = 4'd5;
+                            
+                            default: byte_counter_NXT = 4'd1;
+                        endcase
                     end
                 end
 
                 DATA: begin
+                    trace_chunk_o = reserved_byte ? TRACE_ESCAPE : packet_CRT.raw[7];
+                    write_chunk_o = !uart_tx_full_i;
+
                     if (!uart_tx_full_i) begin
-                        trace_chunk_o = packet_CRT.raw[7];
-                        write_chunk_o = 1'b1;
+                        if (reserved_byte) begin
+                            /* Keep the body byte until its escaped value is sent */
+                            state_NXT = ESCAPED;
+                        end else begin
+                            /* Shift by 8 bits and count the completed body byte */
+                            packet_NXT.raw = { packet_CRT.raw[6:0], 8'h00 };
+                            byte_counter_NXT = byte_counter_CRT - 1'b1;
 
-                        /* Shift by 8 bits */
-                        packet_NXT.raw = { packet_CRT.raw[6:0], 8'h00 };
-
-                        byte_counter_NXT = byte_counter_CRT + 1;
-
-                        case (packet_type_CRT)
-                            OVERFLOW_PACKET: begin
-                                /* Overflow packet payload is 1 bytes long so go straight to IDLE */
+                            if (byte_counter_CRT == 1) begin
                                 state_NXT = IDLE;
                             end
+                        end
+                    end
+                end
 
-                            DIVERGENCE_PACKET: begin
-                                if (enable_timestamp_i) begin
-                                    /* Divergence packet payload is 8 bytes long */
-                                    if (byte_counter_CRT == 7) begin
-                                        state_NXT = IDLE;
-                                    end
-                                end else begin
-                                    /* Divergence packet payload is 5 bytes long */
-                                    if (byte_counter_CRT == 4) begin
-                                        state_NXT = IDLE;
-                                    end
-                                end
-                            end
+                ESCAPED: begin
+                    trace_chunk_o = packet_CRT.raw[7] ^ TRACE_ESCAPE_XOR;
+                    write_chunk_o = !uart_tx_full_i;
 
-                            EVENT_PACKET: begin
-                                if (enable_timestamp_i) begin
-                                    /* Event packet payload is 4 bytes long */
-                                    if (byte_counter_CRT == 3) begin
-                                        state_NXT = IDLE;
-                                    end
-                                end else begin
-                                    /* Event packet payload is 1 bytes long */
-                                    state_NXT = IDLE;
-                                end
-                            end
+                    if (!uart_tx_full_i) begin
+                        /* The escape prefix does not count as a body byte */
+                        packet_NXT.raw = { packet_CRT.raw[6:0], 8'h00 };
+                        byte_counter_NXT = byte_counter_CRT - 1'b1;
+                        state_NXT = DATA;
 
-                            default: state_NXT = IDLE;
-                        endcase
+                        if (byte_counter_CRT == 1) begin
+                            state_NXT = IDLE;
+                        end
                     end
                 end
 
