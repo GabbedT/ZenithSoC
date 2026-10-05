@@ -7,13 +7,15 @@ part of either pool.
 
 from .common import GeneratorSpec, INTERESTING_FLOAT_VALUES, random_register
 
+ROUNDING_MODES = ("rne", "rtz", "rdn", "rup", "rmm")
+
 
 def generate_float_operation(rng, _label_id):
     category = rng.choice(("arithmetic", "plain", "to_int", "to_float", "class"))
 
     if category == "arithmetic":
         op = rng.choice(("fadd.s", "fsub.s", "fmul.s"))
-        return f"{op} {random_register(rng)}, {random_register(rng)}, {random_register(rng)}, rne"
+        return f"{op} {random_register(rng)}, {random_register(rng)}, {random_register(rng)}, {rng.choice(ROUNDING_MODES)}"
 
     if category == "plain":
         op = rng.choice(
@@ -23,11 +25,11 @@ def generate_float_operation(rng, _label_id):
 
     if category == "to_int":
         op = rng.choice(("fcvt.w.s", "fcvt.wu.s"))
-        return f"{op} {random_register(rng)}, {random_register(rng)}, rne"
+        return f"{op} {random_register(rng)}, {random_register(rng)}, {rng.choice(ROUNDING_MODES)}"
 
     if category == "to_float":
         op = rng.choice(("fcvt.s.w", "fcvt.s.wu"))
-        return f"{op} {random_register(rng)}, {random_register(rng)}, rne"
+        return f"{op} {random_register(rng)}, {random_register(rng)}, {rng.choice(ROUNDING_MODES)}"
 
     if category == "class":
         return f"fclass.s {random_register(rng)}, {random_register(rng)}"
@@ -56,7 +58,7 @@ def generate_float_operand_corner(rng, _label_id):
             "fle.s",
         )
     )
-    rounding_mode = ", rne" if op in ("fadd.s", "fsub.s", "fmul.s") else ""
+    rounding_mode = f", {rng.choice(ROUNDING_MODES)}" if op in ("fadd.s", "fsub.s", "fmul.s") else ""
     return (
         f"li {lhs}, {rng.choice(INTERESTING_FLOAT_VALUES)}\n"
         f"li {rhs}, {rng.choice(INTERESTING_FLOAT_VALUES)}\n"
@@ -70,7 +72,7 @@ def generate_float_conversion_corner(rng, _label_id):
     op = rng.choice(("fcvt.w.s", "fcvt.wu.s"))
     return (
         f"li {source}, {rng.choice(INTERESTING_FLOAT_VALUES)}\n"
-        f"{op} {destination}, {source}, rne"
+        f"{op} {destination}, {source}, {rng.choice(ROUNDING_MODES)}"
     )
 
 

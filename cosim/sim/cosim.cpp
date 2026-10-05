@@ -13,7 +13,6 @@
 //
 // ISA and privilege mode are passed from the Makefile through
 // -DCOSIM_ISA and -DCOSIM_PRIV, derived from config.mk.
-// CSR comparison is intentionally excluded.
 // ============================================================================
 
 #include <iostream>
@@ -39,6 +38,10 @@
 #include "riscv/trap.h"
 
 #include "elf_loader.h"
+#include "coverage.h"
+#if VM_COVERAGE
+#include "verilated_cov.h"
+#endif
 
 // ============================================================================
 //      GLOBAL STATE
@@ -52,6 +55,10 @@ static uint64_t sim_time = 0;
 static bool enable_trace = true;
 static bool trace_insns  = false;   // +trace_insns: per-instruction text trace
 static std::string trace_path = "out/cosim.fst";
+static std::string coverage_path;
+static std::string rtl_coverage_path = "out/coverage.dat";
+static Coverage coverage;
+static uint64_t max_cycles = 20000000;
 
 static constexpr uint64_t HALF_PERIOD_NS = 5000;
 static constexpr uint32_t USER_BASE = 0x80000000u;
@@ -125,6 +132,14 @@ static void reset_dut() {
 // ============================================================================
 
 static void close_and_exit(int code) {
+    if (!coverage.write(coverage_path)) {
+        std::cerr << "[COSIM] cannot write coverage: " << coverage_path << '\n';
+        code = 2;
+    }
+#if VM_COVERAGE
+    VerilatedCov::write(rtl_coverage_path.c_str());
+#endif
+    if (dut) dut->final();
     if (tfp) { tfp->close(); delete tfp; tfp = nullptr; }
     if (dut) { delete dut; dut = nullptr; }
     std::exit(code);
@@ -158,6 +173,8 @@ static void report_mismatch(uint64_t retire, const char* what,
     std::cout << " instr : " << dis->disassemble(insn) << "\n";
     std::cout << " PC    : DUT 0x" << std::setw(8) << d.pc
               << " | SPIKE 0x" << std::setw(8) << spike_pc << "\n";
+    if (d.is_exception)
+        std::cout << " trap  : DUT vector=" << std::dec << d.info << std::hex << "\n";
 
     if (d.rd != 0 || spike_rd != 0) {
         std::cout << " rd    : DUT x" << std::dec << d.rd
@@ -234,7 +251,7 @@ int main(int argc, char** argv) {
 
     std::string fw_path   = "cosim/out/firmware.elf";
     std::string boot_path = "cosim/out/boot.elf";
-    uint64_t max_retire = UINT64_MAX;
+    uint64_t max_retire = 1000000;
 
     for (int i = 1; i < argc; i++) {
         std::string a(argv[i]);
@@ -245,6 +262,15 @@ int main(int argc, char** argv) {
         else if (a == "+trace_insns")               trace_insns = true;
         else if (a.rfind("+trace=", 0) == 0)        trace_path = a.substr(7);
         else if (a.rfind("+max_retire=", 0) == 0)   max_retire = std::stoull(a.substr(12));
+        else if (a.rfind("+max_cycles=", 0) == 0)   max_cycles = std::stoull(a.substr(12));
+        else if (a.rfind("+coverage=", 0) == 0)     coverage_path = a.substr(10);
+        else if (a.rfind("+rtl_coverage=", 0) == 0) rtl_coverage_path = a.substr(14);
+        else if (a.rfind("+line_bytes=", 0) == 0)   coverage.line_bytes = std::stoul(a.substr(12));
+    }
+    if (!max_retire) max_retire = UINT64_MAX;
+    if (!max_cycles || !coverage.line_bytes) {
+        std::cerr << "[COSIM] max_cycles and line_bytes must be positive\n";
+        return 2;
     }
 
     dut = new Vcosim_top;
@@ -320,8 +346,8 @@ int main(int argc, char** argv) {
 
         std::cout << "[COSIM] boot stub loaded into ROM from " << boot_path << "\n";
     } else {
-        std::cout << "[COSIM] WARN: boot stub missing (" << boot_path
-                  << "); core will start from ROM[0]=0\n";
+        std::cerr << "[COSIM] boot stub missing: " << boot_path << "\n";
+        close_and_exit(2);
     }
 
 
@@ -362,10 +388,9 @@ int main(int argc, char** argv) {
         spike.memif().write(addr, 4, &data);
     }
 
-    // The DUT executes the ROM stub:
-    // Spike has no RAM at 0x0, so it starts directly from the ELF entry.
-    // The harness discards DUT retires with PC < USER_BASE and aligns the
-    // comparison from the first user retire, matching Spike entry.
+    // The bundled ROM loads t0 with USER_BASE, then jumps to it. Model its
+    // defined effect explicitly; never copy DUT register state into the oracle.
+    st->XPR.write(5, (reg_t)(int32_t)USER_BASE);
     st->pc = img.entry;
 
     auto isa_p = p->get_isa();
@@ -393,23 +418,14 @@ int main(int argc, char** argv) {
     const uint64_t IDLE_LIMIT = 200000;   // Cycles without retire: possible stall
 
     bool first_commit_seen = false;
-    bool gpr_baseline_set  = false;
+    unsigned boot_commits = 0;
 
     while (retire < max_retire) {
 
         // Full architectural GPR sweep at every idle point.
         // The deque is empty here, so DUT and Spike have retired the same
         // number of instructions and their register files must be identical. 
-        if (first_commit_seen && g_events.empty() && !gpr_baseline_set) {
-            for (uint32_t r = 1; r < 32; r++) {
-                svSetScope(top_scope);
-                st->XPR.write(r, (reg_t)dut_gpr(r));
-            }
-
-            gpr_baseline_set = true;
-        }
-
-        if (gpr_baseline_set && g_events.empty()) {
+        if (first_commit_seen && g_events.empty()) {
             for (uint32_t r = 1; r < 32; r++) {
                 svSetScope(top_scope);
                 uint32_t dut_r   = dut_gpr(r);
@@ -434,6 +450,10 @@ int main(int argc, char** argv) {
         // Advance until at least one committed event is available.
         while (g_events.empty()) {
             clk_tick();
+            if (sim_time / (2 * HALF_PERIOD_NS) >= max_cycles || Verilated::gotFinish()) {
+                std::cout << "[COSIM] INCOMPLETE: cycle limit or RTL finish before tohost\n";
+                close_and_exit(3);
+            }
 
             if (++idle > IDLE_LIMIT) {
                 std::cout << "[COSIM] TIMEOUT: no retire for " << IDLE_LIMIT
@@ -454,15 +474,151 @@ int main(int argc, char** argv) {
         RvfiEvent d = g_events.front();
         g_events.pop_front();
 
-        // Initial synchronization:
-        // ignore ROM-stub retires in M-mode while PC < USER_BASE, until the
-        // user program starts.
-        if (!first_commit_seen) {
-            if (d.pc < USER_BASE) { continue; }
+        if (!first_commit_seen && d.pc < USER_BASE) {
+            // Only the bundled two-instruction ROM is supported. Validate its
+            // retire effects instead of trusting an arbitrary initial GPR image.
+            const bool valid = !d.is_exception && !d.is_load && !d.is_store &&
+                ((boot_commits == 0 && d.pc == 0 && d.rd == 5 && d.rd_value == USER_BASE) ||
+                 (boot_commits == 1 && d.pc == 4 && d.rd == 0));
+            if (!valid) {
+                std::cerr << "[COSIM] FAIL: unexpected boot ROM retirement\n";
+                close_and_exit(1);
+            }
+            ++boot_commits;
+            continue;
+        }
+        if (!first_commit_seen && boot_commits != 2) {
+            std::cerr << "[COSIM] FAIL: incomplete boot ROM\n";
+            close_and_exit(1);
+        }
+        first_commit_seen = true;
 
-            first_commit_seen = true;
+        push_pc(d.pc);
+
+        // Step the golden model.
+        uint32_t spike_pc = (uint32_t)st->pc;
+        insn_t insn = {};
+
+        try {
+            insn = p->get_mmu()->load_insn(st->pc).insn;
+        } catch (...) {}
+
+        if (trace_insns)
+            print_insn_trace(d, insn, dis);
+
+        // This environment has no synchronized trap/interrupt handler yet.
+        // Unexpected traps must fail, including illegal instructions on a
+        // wrongly committed speculative path; never silently skip a comparison.
+        if (d.is_exception) {
+            report_mismatch(retire, "unexpected DUT exception", d, spike_pc, 0, 0, &dis, insn);
+            close_and_exit(1);
         }
 
+        try {
+            p->step(1);
+        } catch (trap_t& tr) {
+            std::cout << "\n[COSIM][MISMATCH] @retire #" << std::dec << retire
+                      << " unexpected Spike trap cause=0x" << std::hex << tr.cause()
+                      << " PC=0x" << spike_pc << ")\n";
+            close_and_exit(1);
+        } catch (...) {
+            std::cout << "\n[COSIM] unknown Spike exception @retire #" << retire
+                      << " PC=0x" << std::hex << spike_pc << "\n";
+
+            close_and_exit(1);
+        }
+
+        uint32_t spike_rd = 0;
+        for (const auto& [key, value] : st->log_reg_write) {
+            if ((key & 15) == 0 && (key >> 4) != 0) spike_rd = key >> 4;
+        }
+        uint32_t spike_val = spike_rd ? (uint32_t)st->XPR[spike_rd] : 0;
+
+
+        // -------- Comparison --------
+        bool ok = true;
+        const char* what = "";
+
+        if ((uint32_t)spike_pc != d.pc) {
+            ok = false;
+            what = "PC";
+        }
+
+        if (ok && d.rd != spike_rd) {
+            ok = false;
+            what = "rd destination";
+        }
+        if (ok && d.rd != 0) {
+            if ((uint32_t)st->XPR[d.rd] != d.rd_value) {
+                ok = false;
+                what = "rd value";
+            }
+        }
+
+
+        // Memory:
+        // compare address, and store data when applicable, against Spike's
+        // commit log. cpu_store/load_channel provide absolute addresses
+        // >= USER_BASE or the effective Spike address.
+        if (ok) {
+            const auto& log_mem = st->log_mem_write;
+            const auto& log_rd  = st->log_mem_read;
+
+            if (log_mem.size() != size_t(d.is_store) || log_rd.size() != size_t(d.is_load)) {
+                ok = false;
+                what = "memory operation presence/count";
+            }
+
+            if (ok && d.is_store) {
+                uint32_t saddr = (uint32_t)std::get<0>(log_mem[0]);
+                uint32_t sdata = (uint32_t)std::get<1>(log_mem[0]);
+
+                // Mask data according to store width.
+                // Spike already logs masked data.
+                uint32_t mask = (d.mem_width == 0) ? 0xFFu
+                              : (d.mem_width == 1) ? 0xFFFFu
+                              : 0xFFFFFFFFu;
+
+                uint32_t lane_shift = (d.mem_addr & 0x3) * 8;
+                uint32_t dut_data   = d.mem_data >> lane_shift;
+
+                if (d.mem_width > 2 || std::get<2>(log_mem[0]) != (1u << d.mem_width)) {
+                    ok = false;
+                    what = "store width";
+                } else if (saddr != d.mem_addr) {
+                    ok = false;
+                    what = "store addr";
+                } else if ((sdata & mask) != (dut_data & mask)) {
+                    ok = false;
+                    what = "store data";
+                }
+            } else if (ok && d.is_load) {
+                uint32_t laddr = (uint32_t)std::get<0>(log_rd[0]);
+
+                if (laddr != d.mem_addr) {
+                    ok = false;
+                    what = "load addr";
+                }
+            }
+        }
+
+        if (!ok) {
+            report_mismatch(retire, what, d, spike_pc, spike_rd, spike_val, &dis, insn);
+            close_and_exit(1);
+        }
+
+        if (d.pc >= img.test_begin && d.pc < img.test_end) {
+            const auto assembly = dis.disassemble(insn);
+            coverage.instruction(d.pc, insn.bits(), insn.length(), st->pc,
+                                 assembly.substr(0, assembly.find_first_of(" \t")),
+                                 spike_rd, spike_val);
+            if (d.is_load || d.is_store) {
+                const auto& access = d.is_store ? st->log_mem_write[0] : st->log_mem_read[0];
+                coverage.memory(d.is_store, d.mem_addr, std::get<2>(access),
+                                img.data_area, img.data_area_size);
+            }
+        }
+        retire++;
         // Termination: store to "tohost" through HTIF.
         // Both sides have finished.
         if (d.is_store && tohost_addr && d.mem_addr == tohost_addr) {
@@ -473,7 +629,19 @@ int main(int argc, char** argv) {
             // tohost event the just-retired stores are still in flight in the
             // store buffer (their data was already verified per-instruction
             // from STRBUF).
-            for (int q = 0; q < 2000; q++) clk_tick();
+            // Wait for acknowledged completion, not a fixed delay: randomized
+            // DDR latency can legitimately exceed the old 2000-cycle wait.
+            unsigned quiet_cycles = 0;
+            while (quiet_cycles < 8) {
+                clk_tick();
+                svSetScope(top_scope);
+                quiet_cycles = dut_stores_idle() ? quiet_cycles + 1 : 0;
+                if (sim_time / (2 * HALF_PERIOD_NS) >= max_cycles) {
+                    std::cout << "[COSIM] INCOMPLETE: stores did not drain\n";
+                    close_and_exit(3);
+                }
+                g_events.clear();  // The bundled startup now spins after tohost.
+            }
 
 
             // ---- Final memory diff over data_area ----
@@ -509,8 +677,8 @@ int main(int argc, char** argv) {
                     }
                 }
             } else {
-                std::cout << "[COSIM] WARN: data_area symbol not found. "
-                            "skipping final memory diff\n";
+                std::cout << "[COSIM] FAIL: data_area symbol missing; memory not verified\n";
+                close_and_exit(2);
             }
 
             if (!mem_ok) {
@@ -518,122 +686,20 @@ int main(int argc, char** argv) {
                 close_and_exit(1);
             }
 
+            if (d.mem_data != 1) {
+                std::cout << "[COSIM] FAIL: firmware tohost status " << d.mem_data << "\n";
+                close_and_exit(1);
+            }
             std::cout << "[COSIM] PASS - " << retire
                       << " instructions compared, memory verified, no mismatch.\n";
 
-            close_and_exit((d.mem_data == 1) ? 0 : 1);
+            close_and_exit(0);
         }
 
-        push_pc(d.pc);
-
-        // Step the golden model.
-        uint32_t spike_pc = (uint32_t)st->pc;
-        insn_t insn = {};
-
-        try {
-            insn = p->get_mmu()->load_insn(st->pc).insn;
-        } catch (...) {}
-
-        if (trace_insns)
-            print_insn_trace(d, insn, dis);
-
-        try {
-            p->step(1);
-        } catch (trap_t& tr) {
-            // Spike raised a trap, for example mtvec with unmapped address.
-            // This is acceptable only if the DUT also reported an exception.
-            if (!d.is_exception) {
-                std::cout << "\n[COSIM][MISMATCH] @retire #" << std::dec << retire
-                          << " spike trap cause=0x" << std::hex << tr.cause()
-                          << " but DUT did not report an exception (PC=0x"
-                          << spike_pc << ")\n";
-
-                close_and_exit(1);
-            }
-
-            retire++;
-
-            continue;
-        } catch (...) {
-            std::cout << "\n[COSIM] unknown Spike exception @retire #" << retire
-                      << " PC=0x" << std::hex << spike_pc << "\n";
-
-            close_and_exit(1);
-        }
-
-        uint32_t spike_rd  = d.rd;
-        uint32_t spike_val = (d.rd != 0) ? (uint32_t)st->XPR[d.rd] : 0;
-
-
-        // -------- Comparison --------
-        bool ok = true;
-        const char* what = "";
-
-        if ((uint32_t)spike_pc != d.pc) {
-            ok = false;
-            what = "PC";
-        }
-
-        // Reg destination value.
-        // CSRs are excluded: if the instruction is CSR_OPERATION, the value is
-        // not compared because mcycle/minstret/etc. are expected to diverge.
-        const uint32_t CSR_OPERATION = 22;
-        if (ok && d.rd != 0 && d.info != CSR_OPERATION) {
-            if ((uint32_t)st->XPR[d.rd] != d.rd_value) {
-                ok = false;
-                what = "rd value";
-            }
-        }
-
-
-        // Memory:
-        // compare address, and store data when applicable, against Spike's
-        // commit log. cpu_store/load_channel provide absolute addresses
-        // >= USER_BASE or the effective Spike address.
-        if (ok && (d.is_store || d.is_load)) {
-            const auto& log_mem = st->log_mem_write;
-            const auto& log_rd  = st->log_mem_read;
-
-            if (d.is_store && !log_mem.empty()) {
-                uint32_t saddr = (uint32_t)std::get<0>(log_mem[0]);
-                uint32_t sdata = (uint32_t)std::get<1>(log_mem[0]);
-
-                // Mask data according to store width.
-                // Spike already logs masked data.
-                uint32_t mask = (d.mem_width == 0) ? 0xFFu
-                              : (d.mem_width == 1) ? 0xFFFFu
-                              : 0xFFFFFFFFu;
-
-                uint32_t lane_shift = (d.mem_addr & 0x3) * 8;
-                uint32_t dut_data   = d.mem_data >> lane_shift;
-
-                if (saddr != d.mem_addr) {
-                    ok = false;
-                    what = "store addr";
-                } else if ((sdata & mask) != (dut_data & mask)) {
-                    ok = false;
-                    what = "store data";
-                }
-            } else if (d.is_load && !log_rd.empty()) {
-                uint32_t laddr = (uint32_t)std::get<0>(log_rd[0]);
-
-                if (laddr != d.mem_addr) {
-                    ok = false;
-                    what = "load addr";
-                }
-            }
-        }
-
-        if (!ok) {
-            report_mismatch(retire, what, d, spike_pc, spike_rd, spike_val, &dis, insn);
-            close_and_exit(1);
-        }
-
-        retire++;
     }
 
     std::cout << "[COSIM] STOP - reached max_retire=" << std::dec << max_retire
               << " (" << retire << " compared, no mismatch).\n";
               
-    close_and_exit(0);
+    close_and_exit(3);
 }

@@ -207,6 +207,11 @@ module cosim_top (
 //=============================================================================
 
     export "DPI-C" function dut_gpr;
+    export "DPI-C" function dut_stores_idle;
+
+    function int unsigned dut_stores_idle();
+        return (`STRBUF.committed_CRT == '0) && !`STRBUF.request_status && store_idle;
+    endfunction
 
     function int unsigned dut_gpr(input int unsigned idx);
         if (idx == 0)

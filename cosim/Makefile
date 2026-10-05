@@ -40,9 +40,9 @@ TRACE     ?= $(OUT)/cosim.fst
 
 # --- Program generation / run parameters ------------------------------------
 SEED        ?= 0
-N           ?= 2000      			 # gen/run: instructions per program. regress: seed count
+N           ?= 2000      # gen/run: blocks per program. regress: seed count
 CLASS       ?= arith,mem,branch,ctrl,float # arith,mem,branch,ctrl,float,fence
-MAX_RETIRE  ?= 0         			 # 0 = unlimited
+MAX_RETIRE  ?= 1000000   # 0 = unlimited
 
 # A regression seed identifies one test inside a generator campaign. Keeping
 # the campaign seed in a file makes repeated `make run SEED=N` deterministic;
@@ -62,6 +62,8 @@ RISCV_OBJDUMP ?= riscv32-unknown-elf-objdump
 
 SPIKE_INC ?= /home/gabriele/riscv-isa-sim
 SPIKE_LIB ?= /home/gabriele/riscv-isa-sim/build
+SPIKE ?= $(SPIKE_LIB)/spike
+CHECK_REFERENCE ?= 1
 SIM_DIR   := $(abspath sim)
 
 # Passed to verilator C++ simulator
@@ -92,19 +94,37 @@ ifeq ($(strip $(SOC_CONFIG)),1)
 endif
 
 
-# Structural (line + toggle) coverage is opt-in: --coverage slows the model and
-# is incompatible with the fast default flow, so gather it with a dedicated
-# `make build COVERAGE=1` + one long run, never in the regression path.
+# Structural coverage is optional; each regression worker writes its own file.
 COVERAGE ?= 0
 ifeq ($(strip $(COVERAGE)),1)
     VFLAGS += --coverage
 endif
 
 # Parallel regression fan-out width (one verilator run per seed, JOBS at a time).
-JOBS ?= $(shell nproc)
+JOBS ?= 4
+BUILD_JOBS ?= 4
+PROFILE ?= auto
+CACHE_BYTES ?= $(if $(filter 1,$(SOC_CONFIG)),8192,4096)
+LINE_BYTES ?= $(if $(filter 1,$(SOC_CONFIG)),32,16)
+MEM_RANDOM ?= 1
+MEM_SEED ?= $(shell $(PYTHON) regress.py --print-memory-seed --start-seed $(SEED) --gen-seed $(GEN_SEED))
+MEM_LATENCY_MIN ?= 2
+MEM_LATENCY_MAX ?= 16
+MEM_STALL_PERCENT ?= 25
+MAX_CYCLES ?= 20000000
+TIMEOUT ?= 120
+START_SEED ?= 0
+GEN_OPTIONS = $(GEN_FLAGS) --profile $(PROFILE) --cache-bytes $(CACHE_BYTES) --line-bytes $(LINE_BYTES)
+SIM_OPTIONS = +max_retire=$(MAX_RETIRE) +max_cycles=$(MAX_CYCLES) +line_bytes=$(LINE_BYTES) \
+              +mem_random=$(MEM_RANDOM) +mem_latency_min=$(MEM_LATENCY_MIN) \
+              +mem_latency_max=$(MEM_LATENCY_MAX) +mem_stall_percent=$(MEM_STALL_PERCENT)
+
+# Firmware consumes generated source; serialize these prerequisites under make -j.
+.NOTPARALLEL: run run-notrace run-case regress
+
 
 .PHONY: all build gen genseed firmware boot run run-notrace regress regress-one \
-        coverage-report verilator-coverage info wave clean
+        coverage-report verilator-coverage info wave clean replay test run-case
 
 all: build
 
@@ -117,7 +137,8 @@ build:
 	@mkdir -p $(LOGDIR)
 	@echo "=== [COSIM] Verilating (ISA=$(ISA) priv=$(s_PRIV)) ==="
 	$(VERILATOR) $(VFLAGS) rtl/cosim_public.vlt -F $(COSIM_F) $(SIM_SRC) 2>&1 | tee $(VERILATOR_LOG)
-	$(MAKE) -C obj_dir -f Vcosim_top.mk -j$$(nproc) 2>&1 | tee $(BUILD_LOG)
+	@rm -f obj_dir/cosim.o
+	$(MAKE) -C obj_dir -f Vcosim_top.mk -j$(BUILD_JOBS) 2>&1 | tee $(BUILD_LOG)
 	@echo "=== [COSIM] build done -> obj_dir/Vcosim_top ==="
 	@echo "=== [COSIM] verilator log -> $(VERILATOR_LOG) ==="
 	@echo "=== [COSIM] build log     -> $(BUILD_LOG) ==="
@@ -131,7 +152,7 @@ gen:
 	@mkdir -p tests
 	$(PYTHON) gen/rvgen.py --seed $(SEED) --gen-seed $(GEN_SEED) \
 		--n $(N) --class $(CLASS) \
-		$(GEN_FLAGS) --out $(PROG)
+		$(GEN_OPTIONS) --out $(PROG) --manifest tests/generator.json
 
 # Start a new deterministic generator campaign. The selected value remains in
 # effect until this target is called again and is intentionally not cleaned.
@@ -171,15 +192,20 @@ run: build gen firmware boot
 	@echo "=== [COSIM] Running lockstep (GEN_SEED=$(GEN_SEED) SEED=$(SEED)) ==="
 	./obj_dir/Vcosim_top +firmware=$(OUT)/firmware.elf +boot=$(OUT)/boot.elf \
 		+trace=$(TRACE) +trace_insns \
-		$(if $(filter-out 0,$(MAX_RETIRE)),+max_retire=$(MAX_RETIRE),) 2>&1 | tee $(RUN_LOG)
+		$(SIM_OPTIONS) +mem_seed=$(MEM_SEED) +coverage=$(OUT)/executed.cov 2>&1 | tee $(RUN_LOG)
 	@test -s $(TRACE)
 	@echo "=== [COSIM] run log -> $(RUN_LOG) ==="
 
 run-notrace: build gen firmware boot
-	./obj_dir/Vcosim_top +firmware=$(OUT)/firmware.elf +boot=$(OUT)/boot.elf +trace=$(TRACE) \
-		$(if $(filter-out 0,$(MAX_RETIRE)),+max_retire=$(MAX_RETIRE),) 2>&1 | tee $(RUN_LOG)
-	@test -s $(TRACE)
+	./obj_dir/Vcosim_top +firmware=$(OUT)/firmware.elf +boot=$(OUT)/boot.elf +notrace \
+		$(SIM_OPTIONS) +mem_seed=$(MEM_SEED) +coverage=$(OUT)/executed.cov 2>&1 | tee $(RUN_LOG)
 	@echo "=== [COSIM] run log -> $(RUN_LOG) ==="
+
+CASE ?= load_x0
+run-case: PROG = cases/$(CASE).c
+run-case: build firmware boot
+	./obj_dir/Vcosim_top +firmware=$(OUT)/firmware.elf +boot=$(OUT)/boot.elf +notrace \
+		$(SIM_OPTIONS) +mem_seed=$(MEM_SEED) +coverage=$(OUT)/executed.cov 2>&1 | tee $(RUN_LOG)
 
 
 # ==============================================================================
@@ -188,56 +214,38 @@ run-notrace: build gen firmware boot
 
 COVDIR = $(OUT)/cov
 COVFILE = $(COVDIR)/regress.cov
-COVLOCK = $(COVDIR)/.regress.cov.lock
-RTDIR  = $(OUT)/rtt
+RTDIR = $(OUT)/rtt
+REGRESS_ARGS = --gen-seed $(GEN_SEED) --length $(PROG_LEN) --classes $(CLASS) \
+               --jobs $(JOBS) --timeout $(TIMEOUT) --cc "$(RISCV_GCC)" \
+               --objdump "$(RISCV_OBJDUMP)" --cflags="$(MARCH_FLAGS)" \
+               --gen-flags="$(GEN_OPTIONS)" --sim-flags="$(SIM_OPTIONS)" \
+               $(if $(filter 1,$(CHECK_REFERENCE)),--spike "$(SPIKE)",) \
+               --boot $(OUT)/boot.elf --out $(RTDIR) --coverage-dir $(COVDIR)
 
-# Run ONE seed in an isolated workdir
 regress-one:
-	@d=$(RTDIR)/seed$(SEED); mkdir -p $$d $(COVDIR); \
-	trap 'rm -rf "$$d"' EXIT; \
-	$(PYTHON) gen/rvgen.py --seed $(SEED) --gen-seed $(GEN_SEED) \
-		--n $(PROG_LEN) --class $(CLASS) $(GEN_FLAGS) \
-		--out $$d/prog.c --cov-out - --quiet \
-		| flock $(COVLOCK) sh -c 'awk '\''{ total[$$1] += $$2 } END { for (op in total) print op, total[op] }'\'' $(COVFILE) - | sort > $(COVFILE).tmp && mv $(COVFILE).tmp $(COVFILE)'; \
-	$(RISCV_GCC) $(MARCH_FLAGS) -fno-use-cxa-atexit -fno-exceptions -nostartfiles \
-		-O2 -ffreestanding -T $(LINK_USER) $(CRT0) $$d/prog.c -o $$d/fw.elf 2>/dev/null; \
-	if ./obj_dir/Vcosim_top +firmware=$$d/fw.elf +boot=$(OUT)/boot.elf +notrace \
-		$(if $(filter-out 0,$(MAX_RETIRE)),+max_retire=$(MAX_RETIRE),) \
-		>$$d/log 2>&1; then \
-		echo "seed $(SEED) : PASS"; \
-	else \
-		echo "seed $(SEED) : FAIL (artifacts cleaned, rerun: make run SEED=$(SEED) GEN_SEED=$(GEN_SEED))"; \
-		exit 1; \
-	fi
+	$(PYTHON) regress.py $(REGRESS_ARGS) --seeds 1 --start-seed $(SEED)
 
-# Parallel sweep of seeds 0..N-1. Each seed reuses the same N for its program
-# length; override per-seed length is not needed since N controls both here.
 regress: build boot
-	@echo "=== [COSIM] regression campaign GEN_SEED=$(GEN_SEED) ==="; \
-	rm -rf $(RTDIR) $(COVDIR); mkdir -p $(RTDIR) $(COVDIR); : > $(COVFILE); \
-	seq 0 $$(($(N)-1)) \
-	| xargs -P $(JOBS) -I{} $(MAKE) --no-print-directory regress-one SEED={} \
-		GEN_SEED=$(GEN_SEED) PROG_LEN=$(PROG_LEN) \
-	| tee $(OUT)/regress.log; \
-	pass=$$(grep -c ': PASS' $(OUT)/regress.log); \
-	fail=$$(grep -c ': FAIL' $(OUT)/regress.log); \
-	echo "=== [COSIM] regress: $$pass PASS, $$fail FAIL (JOBS=$(JOBS)) ==="; \
-	grep ': FAIL' $(OUT)/regress.log || true; \
-	test $$fail -eq 0
+	$(PYTHON) regress.py $(REGRESS_ARGS) --seeds $(N) --start-seed $(START_SEED) 2>&1 | tee $(OUT)/regress.log
 
+replay:
+	$(PYTHON) regress.py --replay "$(RUN_DIR)" --timeout $(TIMEOUT) $(if $(filter 1,$(REPLAY_TRACE)),--trace,)
 
-# ==============================================================================
-# ---- Coverage ----------------------------------------------------------------
-# ==============================================================================
-
-# Layer A: aggregate the generator opcode histograms produced by a regression
-# sweep into one union histogram. `regress` merges under a lock, so it does
-# not create one coverage sidecar per seed.
 coverage-report:
-	@cat $(COVFILE) 2>/dev/null \
-	| awk '{c[$$1]+=$$2} END{for(o in c) printf "%-12s %d\n", o, c[o]}' \
-	| sort -k2 -nr
-	@echo "=== distinct mnemonics exercised: $$(cat $(COVFILE) 2>/dev/null | awk '{print $$1}' | sort -u | wc -l) ==="
+	$(PYTHON) coverage_report.py $(COVFILE)
+
+test:
+	SPIKE="$(SPIKE)" RISCV_GCC="$(RISCV_GCC)" $(PYTHON) -m unittest discover -s gen/tests -v
+	$(PYTHON) -m unittest discover -s sim/tests -v
+
+# Independent FPU result oracle, including pipeline stalls and cancellation.
+.PHONY: fpu-test
+fpu-test:
+	$(VERILATOR) --cc --exe --build -j $(BUILD_JOBS) --top-module fpu_test_top \
+		-Wno-fatal -DFPU -Mdir obj_fpu_test -F rtl/fpu_test.f \
+		-CFLAGS "-std=c++20 -I$(SPIKE_INC)/softfloat" \
+		-LDFLAGS "$(SPIKE_LIB)/libsoftfloat.a" sim/tests/fpu_test.cpp
+	./obj_fpu_test/Vfpu_test_top
 
 # Layer B: annotate Verilator structural coverage. Requires a COVERAGE=1 build
 # followed by a run (which writes coverage.dat in the run cwd).

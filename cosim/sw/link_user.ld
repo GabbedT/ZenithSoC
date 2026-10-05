@@ -35,9 +35,9 @@ SECTIONS
     } > MEM
 
     .htif (NOLOAD) : ALIGN(8) {
-        PROVIDE(tohost = .);
+        tohost = .;
         . = . + 8;
-        PROVIDE(fromhost = .);
+        fromhost = .;
         . = . + 8;
     } > MEM
 

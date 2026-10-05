@@ -26,6 +26,8 @@ struct ElfImage {
     // Generator's data_area[] symbol
     uint32_t data_area = 0;
     uint32_t data_area_size = 0;
+    uint32_t test_begin = 0;
+    uint32_t test_end = 0;
 };
 
 inline bool load_elf(const std::string& path, ElfImage& out) {
@@ -170,17 +172,15 @@ inline bool load_elf(const std::string& path, ElfImage& out) {
                     } else if (std::string(nm) == "data_area") {
                         out.data_area      = st_value;
                         out.data_area_size = st_size;
+                    } else if (std::string(nm) == "rvgen_begin") {
+                        out.test_begin = st_value;
+                    } else if (std::string(nm) == "rvgen_end") {
+                        out.test_end = st_value;
                     }
                 }
 
-                if (out.tohost && out.data_area) {
-                    break;
-                }
             }
 
-            if (out.tohost && out.data_area) {
-                break;
-            }
         }
     }
 

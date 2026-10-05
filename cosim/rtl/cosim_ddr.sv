@@ -21,7 +21,6 @@ module cosim_ddr #(
 );
 
     localparam int DDR_WORDS = SIZE_BYTES / 8;
-    localparam int MODEL_LATENCY = 8;
 
     dev2ddr_interface ddr_channel();
 
@@ -49,54 +48,105 @@ module cosim_ddr #(
 //====================================================================================
 
     logic [63:0] ddr_memory [0:DDR_WORDS-1];
-    logic [$clog2(DDR_WORDS) - 1:0] ddr_word_address;
-    logic [MODEL_LATENCY - 1:0] read_valid;
-    logic [MODEL_LATENCY - 1:0] read_error;
-    logic [MODEL_LATENCY - 1:0][127:0] read_data;
-    logic write_valid, write_error;
+    typedef struct {
+        bit write;
+        bit error;
+        logic [127:0] data;
+        longint unsigned due;
+    } response_t;
 
-    assign ddr_word_address = ddr_channel.trx_addr[$clog2(DDR_WORDS)+2:3];
-    assign ddr_channel.ready = rst_n_i;
-    assign ddr_channel.read_valid = read_valid[MODEL_LATENCY - 1];
-    assign ddr_channel.read_error = read_error[MODEL_LATENCY - 1];
-    assign ddr_channel.rdata = read_data[MODEL_LATENCY - 1];
-    assign ddr_channel.write_valid = write_valid;
-    assign ddr_channel.write_error = write_error;
+    response_t pending[$];
+    int unsigned random_state;
+    int unsigned memory_seed = 1;
+    int unsigned latency_min = LAT_MIN;
+    int unsigned latency_max = LAT_MAX;
+    int unsigned stall_percent = 25;
+    bit randomize_timing = 0;
+    longint unsigned cycle;
+    longint unsigned next_read_cycle;
 
-    always_ff @(posedge clk_i or negedge rst_n_i) begin
+    // A private PRNG keeps memory scheduling independent from Verilator's RNG.
+    function automatic int unsigned next_random(input int unsigned value);
+        value ^= value << 13;
+        value ^= value >> 17;
+        value ^= value << 5;
+        return value;
+    endfunction
+
+    initial begin
+        void'($value$plusargs("mem_random=%d", randomize_timing));
+        void'($value$plusargs("mem_seed=%d", memory_seed));
+        void'($value$plusargs("mem_latency_min=%d", latency_min));
+        void'($value$plusargs("mem_latency_max=%d", latency_max));
+        void'($value$plusargs("mem_stall_percent=%d", stall_percent));
+        if (!memory_seed) memory_seed = 32'h6d2b79f5;
+        if (latency_min < 1 || latency_max < latency_min || latency_max > 10000 || stall_percent > 95)
+            $fatal(1, "Invalid co-simulation DDR timing parameters");
+    end
+
+    assign ddr_channel.ready = rst_n_i && pending.size() < 32 &&
+        (!randomize_timing || (random_state % 100) >= stall_percent);
+
+    // Requests and responses remain ordered. Reads snapshot accepted memory;
+    // writes update byte lanes on acceptance and acknowledge after their delay.
+    // Space randomized read responses by four cycles because each 128-bit
+    // response is serialized into four words and the interface has no rready.
+    always @(posedge clk_i or negedge rst_n_i) begin
         if (!rst_n_i) begin
-            read_valid <= '0;
-            read_error <= '0;
-            read_data <= '0;
-            write_valid <= 1'b0;
-            write_error <= 1'b0;
+            pending.delete();
+            cycle = 0;
+            next_read_cycle = 0;
+            random_state <= memory_seed;
+            ddr_channel.read_valid <= 0;
+            ddr_channel.write_valid <= 0;
+            ddr_channel.read_error <= 0;
+            ddr_channel.write_error <= 0;
+            ddr_channel.rdata <= '0;
         end else begin
-            read_valid <= {read_valid[MODEL_LATENCY - 2:0], 1'b0};
-            read_error <= {read_error[MODEL_LATENCY - 2:0], 1'b0};
-            read_data <= {read_data[MODEL_LATENCY - 2:0], 128'b0};
-            write_valid <= 1'b0;
-            write_error <= 1'b0;
+            automatic bit accepted = ddr_channel.trx_req && ddr_channel.ready;
+            cycle = cycle + 1;
+            random_state <= next_random(random_state);
+            ddr_channel.read_valid <= 0;
+            ddr_channel.write_valid <= 0;
+            ddr_channel.read_error <= 0;
+            ddr_channel.write_error <= 0;
 
-            if (ddr_channel.trx_req & ddr_channel.ready) begin
-                if (!ddr_channel.trx_type) begin
-                    read_valid[0] <= 1'b1;
-                    read_error[0] <= ddr_channel.trx_addr[3:0] != 4'b0;
-                    read_data[0] <= {
-                        ddr_memory[ddr_word_address + 1'b1],
-                        ddr_memory[ddr_word_address]
-                    };
+            if (pending.size() != 0 && pending[0].due <= cycle &&
+                (pending[0].write || !randomize_timing || cycle >= next_read_cycle)) begin
+                automatic response_t response = pending.pop_front();
+                if (response.write) begin
+                    ddr_channel.write_valid <= 1;
+                    ddr_channel.write_error <= response.error;
                 end else begin
-                    write_valid <= 1'b1;
-                    write_error <= ddr_channel.trx_addr[3:0] != 4'b0;
+                    ddr_channel.read_valid <= 1;
+                    ddr_channel.read_error <= response.error;
+                    ddr_channel.rdata <= response.data;
+                    next_read_cycle = cycle + 4;
+                end
+            end
 
-                    for (int i = 0; i < 16; i++) begin
-                        if (ddr_channel.wstrobe[i]) begin
-                            ddr_memory[ddr_word_address + (i >> 3)]
-                                      [8 * (i & 7) +: 8] <=
-                                ddr_channel.wdata[8 * i +: 8];
+            if (accepted) begin
+                automatic response_t response;
+                automatic int unsigned word_address = ddr_channel.trx_addr >> 3;
+                automatic int unsigned delay_cycles = randomize_timing ?
+                    latency_min + (next_random(random_state) % (latency_max - latency_min + 1)) :
+                    (ddr_channel.trx_type ? 1 : 8);
+                response.write = ddr_channel.trx_type;
+                response.error = ddr_channel.trx_addr[3:0] != 0 || word_address + 1 >= DDR_WORDS;
+                response.data = '0;
+                response.due = cycle + delay_cycles;
+                if (!response.error) begin
+                    if (response.write) begin
+                        for (int i = 0; i < 16; i++) begin
+                            if (ddr_channel.wstrobe[i])
+                                ddr_memory[word_address + (i >> 3)][8 * (i & 7) +: 8] =
+                                    ddr_channel.wdata[8 * i +: 8];
                         end
+                    end else begin
+                        response.data = {ddr_memory[word_address + 1], ddr_memory[word_address]};
                     end
                 end
+                pending.push_back(response);
             end
         end
     end
@@ -136,8 +186,6 @@ module cosim_ddr #(
         end
     endfunction : ddr_peek_word
 
-    logic unused;
-    assign unused = (LAT_MIN == LAT_MAX);
 
 endmodule : cosim_ddr
 

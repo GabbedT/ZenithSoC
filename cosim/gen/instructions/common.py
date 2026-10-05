@@ -42,6 +42,13 @@ INTERESTING_FLOAT_VALUES = (
     0x00800000,  # smallest normal
     0x00000001,  # smallest subnormal
     0x40490FDB,  # pi
+    0x007FFFFF,  # largest subnormal
+    0x7F7FFFFF,  # largest finite
+    0xFF7FFFFF,
+    0x3F000000,  # half-way conversion
+    0x3FC00000,
+    0x4F000000,  # signed integer conversion boundary
+    0x4F800000,  # unsigned integer conversion boundary
 )
 
 INTERESTING_VALUES = INTERESTING_INTEGER_VALUES + INTERESTING_FLOAT_VALUES
@@ -59,10 +66,19 @@ def random_register(rng, exclude: Sequence[str] = ()) -> str:
     """Pick a usable GPR, optionally excluding registers live in a sequence."""
 
     excluded = set(exclude)
-    candidates = [reg for reg in SAFE_REGS if reg not in excluded]
+    # Hot windows create RAW/WAR/WAW pressure across adjacent random blocks.
+    pool = getattr(rng, "register_pool", SAFE_REGS)
+    candidates = [reg for reg in pool if reg not in excluded]
+    if not candidates:
+        candidates = [reg for reg in SAFE_REGS if reg not in excluded]
     if not candidates:
         raise ValueError("no safe register remains after exclusions")
     return rng.choice(candidates)
+
+
+def random_operand(rng):
+    """Include x0 in ordinary operands without using it for live temporaries."""
+    return "x0" if rng.random() < 0.12 else random_register(rng)
 
 
 GeneratorFunction = Callable[[Random, int], str]
